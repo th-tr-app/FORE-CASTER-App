@@ -8,49 +8,52 @@ from datetime import datetime, timedelta, time
 
 # --- 1. ページ設定 & ロゴ ---
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
-
-# サイドバー設定（image_13.png: ロゴ, image_12.png: アイコン）
 st.logo("image_13.png", icon_image="image_12.png")
 
-# カスタムCSS（ボックスデザインとレスポンシブ設定）
+# カスタムCSS（カードグリッドとモバイル最適化）
 st.markdown("""
     <style>
-    /* 全体フォント調整 */
     .main-title { font-weight: 500; font-size: 28px; margin-bottom: 5px; }
-    .section-header { font-size: 16px !important; font-weight: 600; margin: 15px 0 10px 0; color: #dddddd; }
+    .section-header { font-size: 16px !important; font-weight: 600; margin-bottom: 10px; color: #dddddd; }
 
-    /* メトリックボックス（カード）のデザイン */
+    /* グリッドコンテナの設定 */
     .metric-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr); /* PCは4列 */
-        gap: 12px;
-        margin-bottom: 20px;
+        gap: 10px;
+        margin-bottom: 10px;
     }
 
+    /* カードのデザイン（BACK TESTER風） */
     .metric-card {
         background-color: #1e2129;
         border: 1px solid #3d414b;
-        border-radius: 10px;
-        padding: 12px;
+        border-radius: 8px;
+        padding: 10px;
         text-align: center;
+        min-height: 80px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
 
-    .metric-label { font-size: 11px; color: #aaaaaa; margin-bottom: 4px; }
-    .metric-value { font-size: 18px; font-weight: bold; color: #ffffff; margin-bottom: 2px; }
-    .metric-delta { font-size: 12px; font-weight: 500; }
+    .metric-label { font-size: 10px; color: #aaaaaa; margin-bottom: 2px; }
+    .metric-value { font-size: 16px; font-weight: bold; color: #ffffff; margin-bottom: 2px; }
+    .metric-delta { font-size: 11px; font-weight: 500; }
 
-    /* スマホ(幅640px以下)のレイアウト切り替え */
+    /* スマホ(幅640px以下)の時は強制2列 */
     @media (max-width: 640px) {
         .metric-grid {
-            grid-template-columns: repeat(2, 1fr); /* スマホは2列x4段 */
+            grid-template-columns: repeat(2, 1fr) !important;
         }
-        .main-title { font-size: 24px; }
-        button[data-baseweb="tab"] { font-size: 13px !important; }
+        .metric-value { font-size: 15px; }
     }
     
-    /* プラス・マイナスの色 */
-    .delta-plus { color: #00f0a8; } /* グリーン */
-    .delta-minus { color: #ff4b4b; } /* レッド */
+    .delta-plus { color: #00f0a8; }
+    .delta-minus { color: #ff4b4b; }
+    
+    /* Expander内の余白調整 */
+    .stExpander { border: none !important; background-color: transparent !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -77,26 +80,25 @@ def fetch_market_info():
         except: data[name] = {"val": None, "pct": None}
     return data
 
-def display_metric_card(name, val, pct):
-    """カスタムカードを表示する関数"""
+def get_metric_html(name, val, pct):
+    """カード1枚分のHTMLを生成"""
     if val is None:
-        st.markdown(f"""
+        return f"""
             <div class="metric-card">
                 <div class="metric-label">{name}</div>
                 <div class="metric-value">取得失敗</div>
                 <div class="metric-delta">---</div>
             </div>
-        """, unsafe_allow_html=True)
-    else:
-        delta_class = "delta-plus" if pct >= 0 else "delta-minus"
-        val_formatted = f"{val:,.0f}" if val > 100 else f"{val:,.2f}"
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">{name}</div>
-                <div class="metric-value">{val_formatted}</div>
-                <div class="metric-delta {delta_class}">{pct:+.2f}%</div>
-            </div>
-        """, unsafe_allow_html=True)
+        """
+    delta_class = "delta-plus" if pct >= 0 else "delta-minus"
+    val_formatted = f"{val:,.0f}" if val > 100 else f"{val:,.2f}"
+    return f"""
+        <div class="metric-card">
+            <div class="metric-label">{name}</div>
+            <div class="metric-value">{val_formatted}</div>
+            <div class="metric-delta {delta_class}">{pct:+.2f}%</div>
+        </div>
+    """
 
 # --- 4. サイドバー ---
 st.sidebar.subheader("🛡️ 戦略プリセット")
@@ -114,7 +116,6 @@ stop_loss = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7) / 100
 # --- 5. メインレイアウト ---
 st.markdown("<div class='main-title'>FORE CASTER</div>", unsafe_allow_html=True)
 
-# 共通銘柄入力
 if 'target_tickers' not in st.session_state:
     st.session_state['target_tickers'] = "8306.T, 7011.T"
 st.session_state['target_tickers'] = st.text_input("🎯 監視銘柄コード", value=st.session_state['target_tickers'])
@@ -131,31 +132,23 @@ with tab_top:
             st.cache_data.clear()
             st.rerun()
 
-    # 指標カードの表示（Expanderは外しました。常にサッと見れるようにするためです）
-    m_info = fetch_market_info()
-    st.markdown('<div class="metric-grid">', unsafe_allow_html=True)
-    
-    # HTMLのグリッドを構築するため、StreamlitのcolumnsではなくHTMLで一気に書き出すか、
-    # 制御を細かくするためにカード単位で関数を呼び出します。
-    # ここではStreamlitのレイアウト制御を使いつつ、CSSクラスを当てます。
-    
-    # PC4列 / スマホ2列を実現するためのカスタムコンテナ
-    cols = st.columns(4) # PC基準
-    idx = 0
-    for name, info in m_info.items():
-        with cols[idx % 4]:
-            display_metric_card(name, info["val"], info["pct"])
-        idx += 1
-    st.markdown('</div>', unsafe_allow_html=True)
+    # タップで開閉（Expander）を復活
+    with st.expander("詳細を表示 (タップで開閉)", expanded=True):
+        m_info = fetch_market_info()
+        
+        # HTMLでグリッド構造を直接作成
+        cards_html = "".join([get_metric_html(name, info["val"], info["pct"]) for name, info in m_info.items()])
+        st.markdown(f'<div class="metric-grid">{cards_html}</div>', unsafe_allow_html=True)
 
-    # AI予測 (VIXベース)
-    vix_val = m_info.get("VIX指数", {}).get("val", 0)
-    if vix_val and vix_val > 20:
-        st.warning(f"🤖 **AI予測:** VIX高め。地合いは不安定。")
-    elif vix_val and vix_val < 15:
-        st.info(f"🤖 **AI予測:** 市場は極めて安定。順張り好機。")
-    else:
-        st.info("🤖 **AI予測:** 指標は中立。テクニカルに従いましょう。")
+        # AI予測 (VIXベース)
+        vix_val = m_info.get("VIX指数", {}).get("val", 0)
+        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+        if vix_val and vix_val > 20:
+            st.warning(f"🤖 **AI予測:** VIX高め。地合いは不安定。")
+        elif vix_val and vix_val < 15:
+            st.info(f"🤖 **AI予測:** 市場は極めて安定。順張り好機。")
+        else:
+            st.info("🤖 **AI予測:** 指標は中立。テクニカルに従いましょう。")
 
     st.divider()
     st.markdown("<div class='section-header'>🚀 One-Touch 期待値スキャン</div>", unsafe_allow_html=True)
