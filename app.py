@@ -10,63 +10,45 @@ from datetime import datetime, timedelta, time
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# カスタムCSS（デザインの心臓部）
+# カスタムCSS（楽天証券風リストデザイン）
 st.markdown("""
     <style>
     .main-title { font-weight: 500; font-size: 26px; margin-bottom: 5px; }
-    .section-header-container { display: flex; align-items: center; margin-bottom: 10px; }
-    .section-header { font-size: 16px !important; font-weight: 600; color: #dddddd; margin-right: 15px; }
-
-    /* タイル型グリッド設計 */
-    .metric-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr); /* PCは4列 */
-        gap: 8px;
-        width: 100%;
-    }
-
-    /* スマホ(幅640px以下)は強制2列 */
-    @media (max-width: 640px) {
-        .metric-grid {
-            grid-template-columns: repeat(2, 1fr) !important;
-        }
-    }
-
-    /* カードのデザイン（BACK TESTER風） */
-    .metric-card {
+    .section-header { font-size: 16px !important; font-weight: 600; color: #dddddd; vertical-align: middle; }
+    
+    /* リスト形式の行デザイン */
+    .market-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 15px;
+        border-bottom: 1px solid #3d414b;
         background-color: #1e2129;
-        border: 1px solid #3d414b;
-        border-radius: 8px;
-        padding: 10px;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
-
-    .metric-label { font-size: 10px; color: #aaaaaa; margin-bottom: 2px; }
-    .metric-value { font-size: 16px; font-weight: bold; color: #ffffff; margin-bottom: 2px; }
-    .metric-delta { font-size: 11px; font-weight: 500; }
+    .market-name { font-size: 14px; font-weight: 500; color: #ffffff; flex: 2; }
+    .market-price { font-size: 16px; font-weight: 600; color: #ffffff; flex: 2; text-align: right; padding-right: 20px; }
+    .market-delta { font-size: 14px; font-weight: 600; flex: 1.5; text-align: right; border-radius: 4px; padding: 2px 6px; }
     
-    .delta-plus { color: #00f0a8; }
-    .delta-minus { color: #ff4b4b; }
+    .up-bg { color: #00f0a8; } /* 上昇：緑 */
+    .down-bg { color: #ff4b4b; } /* 下落：赤 */
     
-    /* 更新ボタンの小型化 */
-    div.stButton > button {
+    /* 更新ボタンの小型化調整 */
+    div[data-testid="column"] button {
         padding: 2px 8px !important;
-        font-size: 11px !important;
-        height: 24px !important;
-        border-radius: 4px !important;
+        font-size: 12px !important;
+        height: 28px !important;
+        margin-top: -5px !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. 定数 & マッピング ---
+# --- 2. 定数 ---
 MARKET_INDICES = {
     "日経平均": "^N225", "日経先物": "NIY=F", "ドル/円": "JPY=X", "NYダウ30種": "^DJI",
     "原油(WTI)": "CL=F", "Gold": "GC=F", "VIX指数": "^VIX", "SOX指数": "^SOX"
 }
 
 # --- 3. 関数定義 ---
-
 @st.cache_data(ttl=600)
 def fetch_market_info():
     data = {}
@@ -82,27 +64,7 @@ def fetch_market_info():
         except: data[name] = {"val": None, "pct": None}
     return data
 
-def render_market_grid(m_info):
-    """全ての指標を一つのHTMLグリッドとして出力"""
-    cards_html = ""
-    for name, info in m_info.items():
-        val = info["val"]
-        pct = info["pct"]
-        if val is None:
-            cards_html += f'<div class="metric-card"><div class="metric-label">{name}</div><div class="metric-value">取得不可</div><div class="metric-delta">---</div></div>'
-        else:
-            delta_class = "delta-plus" if pct >= 0 else "delta-minus"
-            val_formatted = f"{val:,.0f}" if val > 100 else f"{val:,.2f}"
-            cards_html += f"""
-                <div class="metric-card">
-                    <div class="metric-label">{name}</div>
-                    <div class="metric-value">{val_formatted}</div>
-                    <div class="metric-delta {delta_class}">{pct:+.2f}%</div>
-                </div>
-            """
-    st.markdown(f'<div class="metric-grid">{cards_html}</div>', unsafe_allow_html=True)
-
-# --- 4. サイドバー ---
+# --- 4. サイドバー設定 ---
 st.sidebar.subheader("🛡️ 戦略プリセット")
 col_p1, col_p2, col_p3 = st.sidebar.columns(3)
 if col_p1.button("通常"): st.session_state['preset'] = "NORMAL"
@@ -126,10 +88,10 @@ tab_top, tab_screen, tab_bt = st.tabs(["ワンタッチ", "スクリーニング
 
 # --- タブ1: ワンタッチ ---
 with tab_top:
-    # ヘッダー部分（見出しと更新ボタン）
-    h_col1, h_col2 = st.columns([0.8, 0.2])
+    # 指標タイトルと更新ボタンをコンパクトに横並び
+    h_col1, h_col2 = st.columns([0.25, 0.75])
     with h_col1:
-        st.markdown("<div class='section-header'>🌍 リアルタイム指標</div>", unsafe_allow_html=True)
+        st.markdown("<span class='section-header'>🌍 リアルタイム指標</span>", unsafe_allow_html=True)
     with h_col2:
         if st.button("🔄更新"):
             st.cache_data.clear()
@@ -138,15 +100,35 @@ with tab_top:
     # 指標パネル（Expander）
     with st.expander("詳細を表示 (タップで開閉)", expanded=True):
         market_data = fetch_market_info()
-        render_market_grid(market_data) # ここでHTMLグリッドを一気に描画
+        
+        # 銘柄リストを1行ずつループで表示
+        for name, info in market_data.items():
+            val = info["val"]
+            pct = info["pct"]
+            
+            if val is not None:
+                delta_class = "up-bg" if pct >= 0 else "down-bg"
+                val_fmt = f"{val:,.1f}" if val > 100 else f"{val:,.2f}"
+                pct_fmt = f"{pct:+.2f}%"
+                
+                # Streamlitの標準markdownで1行を構成（バグ回避のためHTMLタグを最小限に）
+                st.markdown(f"""
+                <div class="market-row">
+                    <div class="market-name">{name}</div>
+                    <div class="market-price">{val_fmt}</div>
+                    <div class="market-delta {delta_class}">{pct_fmt}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="market-row"><div class="market-name">{name}</div><div>取得失敗</div></div>', unsafe_allow_html=True)
 
         # AI予測
         vix_val = market_data.get("VIX指数", {}).get("val", 0)
         st.markdown("<div style='margin-top:15px;'></div>", unsafe_allow_html=True)
         if vix_val and vix_val > 20:
-            st.warning(f"🤖 **AI予測:** VIX高め。不安定な地合いです。")
+            st.warning(f"🤖 **AI予測:** VIX高め({vix_val:.1f})。ボラティリティ警戒地合いです。")
         elif vix_val and vix_val < 15:
-            st.info(f"🤖 **AI予測:** 市場安定。順張りチャンスです。")
+            st.info(f"🤖 **AI予測:** 市場安定({vix_val:.1f})。順張りチャンスです。")
         else:
             st.info("🤖 **AI予測:** 指標は中立。テクニカルに従いましょう。")
 
