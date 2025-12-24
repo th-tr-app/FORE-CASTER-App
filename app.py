@@ -12,55 +12,51 @@ st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="w
 # サイドバー設定（image_13.png: ロゴ, image_12.png: アイコン）
 st.logo("image_13.png", icon_image="image_12.png")
 
-# カスタムCSS（フォントサイズ調整とモバイル4列強制）
+# カスタムCSS（ボックスデザインとレスポンシブ設定）
 st.markdown("""
     <style>
-    /* 全体タイトルの調整 */
-    .main-title { font-weight: 400; font-size: 32px; margin-bottom: 10px; }
-    
-    /* 見出し(Subheader)のサイズ調整 */
-    .section-header { 
-        font-size: 18px !important; 
-        font-weight: 600; 
-        margin-top: 10px; 
-        margin-bottom: 10px; 
-        color: #ffffff;
+    /* 全体フォント調整 */
+    .main-title { font-weight: 500; font-size: 28px; margin-bottom: 5px; }
+    .section-header { font-size: 16px !important; font-weight: 600; margin: 15px 0 10px 0; color: #dddddd; }
+
+    /* メトリックボックス（カード）のデザイン */
+    .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr); /* PCは4列 */
+        gap: 12px;
+        margin-bottom: 20px;
     }
 
-    /* PC・スマホ共通：メトリックのコンテナ設定 */
-    [data-testid="stHorizontalBlock"] {
-        gap: 0px !important;
+    .metric-card {
+        background-color: #1e2129;
+        border: 1px solid #3d414b;
+        border-radius: 10px;
+        padding: 12px;
+        text-align: center;
     }
 
-    /* スマホ(幅640px以下)専用の強制4列レイアウト */
+    .metric-label { font-size: 11px; color: #aaaaaa; margin-bottom: 4px; }
+    .metric-value { font-size: 18px; font-weight: bold; color: #ffffff; margin-bottom: 2px; }
+    .metric-delta { font-size: 12px; font-weight: 500; }
+
+    /* スマホ(幅640px以下)のレイアウト切り替え */
     @media (max-width: 640px) {
-        div[data-testid="column"] {
-            flex: 1 1 24% !important; /* 4列に分割 */
-            min-width: 24% !important;
-            padding: 2px !important;
+        .metric-grid {
+            grid-template-columns: repeat(2, 1fr); /* スマホは2列x4段 */
         }
-        /* メトリック内のフォントを極小化して重なりを防ぐ */
-        [data-testid="stMetricLabel"] { font-size: 9px !important; }
-        [data-testid="stMetricValue"] { font-size: 13px !important; }
-        [data-testid="stMetricDelta"] { font-size: 9px !important; }
-        
-        /* タブのフォントサイズも調整 */
-        button[data-baseweb="tab"] { font-size: 12px !important; padding: 10px 5px !important; }
+        .main-title { font-size: 24px; }
+        button[data-baseweb="tab"] { font-size: 13px !important; }
     }
     
-    th, td { text-align: left !important; }
+    /* プラス・マイナスの色 */
+    .delta-plus { color: #00f0a8; } /* グリーン */
+    .delta-minus { color: #ff4b4b; } /* レッド */
     </style>
     """, unsafe_allow_html=True)
 
 # --- 2. 定数 & マッピング ---
-TICKER_NAME_MAP = {
-    "1605.T": "INPEX", "6920.T": "レーザーテック", "7011.T": "三菱重工",
-    "7203.T": "トヨタ", "8306.T": "三菱UFJ", "9984.T": "ソフトバンクG",
-    "1570.T": "日経レバ", "7013.T": "IHI", "8031.T": "三井物産", "6758.T": "ソニーG"
-}
-
 MARKET_INDICES = {
-    "日経平均": "^N225", "日経先物": "NIY=F", "ドル/円": "JPY=X", "NYダウ30": "^DJI",
+    "日経平均": "^N225", "日経先物": "NIY=F", "ドル/円": "JPY=X", "NYダウ30種": "^DJI",
     "原油(WTI)": "CL=F", "Gold": "GC=F", "VIX指数": "^VIX", "SOX指数": "^SOX"
 }
 
@@ -81,7 +77,28 @@ def fetch_market_info():
         except: data[name] = {"val": None, "pct": None}
     return data
 
-# --- 4. サイドバー (タイトル削除済) ---
+def display_metric_card(name, val, pct):
+    """カスタムカードを表示する関数"""
+    if val is None:
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">{name}</div>
+                <div class="metric-value">取得失敗</div>
+                <div class="metric-delta">---</div>
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        delta_class = "delta-plus" if pct >= 0 else "delta-minus"
+        val_formatted = f"{val:,.0f}" if val > 100 else f"{val:,.2f}"
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">{name}</div>
+                <div class="metric-value">{val_formatted}</div>
+                <div class="metric-delta {delta_class}">{pct:+.2f}%</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+# --- 4. サイドバー ---
 st.sidebar.subheader("🛡️ 戦略プリセット")
 col_p1, col_p2, col_p3 = st.sidebar.columns(3)
 if col_p1.button("通常"): st.session_state['preset'] = "NORMAL"
@@ -104,7 +121,7 @@ st.session_state['target_tickers'] = st.text_input("🎯 監視銘柄コード",
 
 tab_top, tab_screen, tab_bt = st.tabs(["ワンタッチ", "スクリーニング", "バックテスト"])
 
-# --- タブ1: トップ画面 ---
+# --- タブ1: ワンタッチ ---
 with tab_top:
     col_head_l, col_head_r = st.columns([0.8, 0.2])
     with col_head_l:
@@ -114,27 +131,31 @@ with tab_top:
             st.cache_data.clear()
             st.rerun()
 
-    with st.expander("詳細を表示", expanded=True):
-        m_info = fetch_market_info()
-        # 4列固定レイアウト
-        m_cols = st.columns(4)
-        for i, (name, info) in enumerate(m_info.items()):
-            with m_cols[i % 4]:
-                if info["val"] is not None:
-                    # delta_color="normal" は +が緑 / -が赤 (欧米基準)
-                    st.metric(label=name, value=f"{info['val']:,.0f}", delta=f"{info['pct']:+.2f}%", delta_color="normal")
-                else:
-                    st.metric(label=name, value="取得失敗", delta="---")
-        
-        # AI予測 (VIXベース)
-        vix_val = m_info.get("VIX指数", {}).get("val", 0)
-        st.markdown("---")
-        if vix_val and vix_val > 20:
-            st.warning(f"🤖 **AI予測:** VIX高。ボラティリティ警戒。")
-        elif vix_val and vix_val < 15:
-            st.info(f"🤖 **AI予測:** 市場安定。順張り有利。")
-        else:
-            st.write("🤖 **AI予測:** 指標は中立です。")
+    # 指標カードの表示（Expanderは外しました。常にサッと見れるようにするためです）
+    m_info = fetch_market_info()
+    st.markdown('<div class="metric-grid">', unsafe_allow_html=True)
+    
+    # HTMLのグリッドを構築するため、StreamlitのcolumnsではなくHTMLで一気に書き出すか、
+    # 制御を細かくするためにカード単位で関数を呼び出します。
+    # ここではStreamlitのレイアウト制御を使いつつ、CSSクラスを当てます。
+    
+    # PC4列 / スマホ2列を実現するためのカスタムコンテナ
+    cols = st.columns(4) # PC基準
+    idx = 0
+    for name, info in m_info.items():
+        with cols[idx % 4]:
+            display_metric_card(name, info["val"], info["pct"])
+        idx += 1
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # AI予測 (VIXベース)
+    vix_val = m_info.get("VIX指数", {}).get("val", 0)
+    if vix_val and vix_val > 20:
+        st.warning(f"🤖 **AI予測:** VIX高め。地合いは不安定。")
+    elif vix_val and vix_val < 15:
+        st.info(f"🤖 **AI予測:** 市場は極めて安定。順張り好機。")
+    else:
+        st.info("🤖 **AI予測:** 指標は中立。テクニカルに従いましょう。")
 
     st.divider()
     st.markdown("<div class='section-header'>🚀 One-Touch 期待値スキャン</div>", unsafe_allow_html=True)
