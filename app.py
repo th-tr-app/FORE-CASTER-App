@@ -10,18 +10,25 @@ from datetime import datetime, timedelta, time
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# カスタムCSS（カードグリッドとモバイル最適化）
+# カスタムCSS
 st.markdown("""
     <style>
-    .main-title { font-weight: 500; font-size: 28px; margin-bottom: 5px; }
-    .section-header { font-size: 16px !important; font-weight: 600; margin-bottom: 10px; color: #dddddd; }
+    .main-title { font-weight: 500; font-size: 26px; margin-bottom: 5px; }
+    .section-header { font-size: 16px !important; font-weight: 600; color: #dddddd; display: inline-block; }
 
-    /* グリッドコンテナの設定 */
+    /* タイル型グリッド設計 */
     .metric-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr); /* PCは4列 */
-        gap: 10px;
-        margin-bottom: 10px;
+        gap: 8px;
+        margin: 5px 0;
+    }
+
+    /* スマホ(幅640px以下)は強制2列 */
+    @media (max-width: 640px) {
+        .metric-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+        }
     }
 
     /* カードのデザイン（BACK TESTER風） */
@@ -29,31 +36,23 @@ st.markdown("""
         background-color: #1e2129;
         border: 1px solid #3d414b;
         border-radius: 8px;
-        padding: 10px;
+        padding: 8px;
         text-align: center;
-        min-height: 80px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
     }
 
     .metric-label { font-size: 10px; color: #aaaaaa; margin-bottom: 2px; }
     .metric-value { font-size: 16px; font-weight: bold; color: #ffffff; margin-bottom: 2px; }
     .metric-delta { font-size: 11px; font-weight: 500; }
-
-    /* スマホ(幅640px以下)の時は強制2列 */
-    @media (max-width: 640px) {
-        .metric-grid {
-            grid-template-columns: repeat(2, 1fr) !important;
-        }
-        .metric-value { font-size: 15px; }
-    }
     
     .delta-plus { color: #00f0a8; }
     .delta-minus { color: #ff4b4b; }
     
-    /* Expander内の余白調整 */
-    .stExpander { border: none !important; background-color: transparent !important; }
+    /* 更新ボタンを小さく右寄せにするための調整 */
+    .stButton > button {
+        padding: 2px 10px !important;
+        font-size: 12px !important;
+        height: auto !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -81,15 +80,9 @@ def fetch_market_info():
     return data
 
 def get_metric_html(name, val, pct):
-    """カード1枚分のHTMLを生成"""
+    """カードのHTML生成"""
     if val is None:
-        return f"""
-            <div class="metric-card">
-                <div class="metric-label">{name}</div>
-                <div class="metric-value">取得失敗</div>
-                <div class="metric-delta">---</div>
-            </div>
-        """
+        return f'<div class="metric-card"><div class="metric-label">{name}</div><div class="metric-value">取得失敗</div><div class="metric-delta">---</div></div>'
     delta_class = "delta-plus" if pct >= 0 else "delta-minus"
     val_formatted = f"{val:,.0f}" if val > 100 else f"{val:,.2f}"
     return f"""
@@ -124,35 +117,33 @@ tab_top, tab_screen, tab_bt = st.tabs(["ワンタッチ", "スクリーニング
 
 # --- タブ1: ワンタッチ ---
 with tab_top:
-    col_head_l, col_head_r = st.columns([0.8, 0.2])
-    with col_head_l:
+    # 指標タイトルと更新ボタンを横並びに配置
+    t_col1, t_col2 = st.columns([0.85, 0.15])
+    with t_col1:
         st.markdown("<div class='section-header'>🌍 リアルタイム指標</div>", unsafe_allow_html=True)
-    with col_head_r:
-        if st.button("🔄 更新", use_container_width=True):
+    with t_col2:
+        if st.button("🔄更新"):
             st.cache_data.clear()
             st.rerun()
 
-    # タップで開閉（Expander）を復活
+    # Expanderで詳細を表示
     with st.expander("詳細を表示 (タップで開閉)", expanded=True):
         m_info = fetch_market_info()
-        
-        # HTMLでグリッド構造を直接作成
         cards_html = "".join([get_metric_html(name, info["val"], info["pct"]) for name, info in m_info.items()])
+        # HTML/CSSで強制的にタイル状に並べる
         st.markdown(f'<div class="metric-grid">{cards_html}</div>', unsafe_allow_html=True)
 
-        # AI予測 (VIXベース)
         vix_val = m_info.get("VIX指数", {}).get("val", 0)
-        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
         if vix_val and vix_val > 20:
-            st.warning(f"🤖 **AI予測:** VIX高め。地合いは不安定。")
+            st.warning(f"🤖 **AI予測:** VIX高め。不安定な地合いです。")
         elif vix_val and vix_val < 15:
-            st.info(f"🤖 **AI予測:** 市場は極めて安定。順張り好機。")
+            st.info(f"🤖 **AI予測:** 市場安定。順張りチャンスです。")
         else:
             st.info("🤖 **AI予測:** 指標は中立。テクニカルに従いましょう。")
 
     st.divider()
     st.markdown("<div class='section-header'>🚀 One-Touch 期待値スキャン</div>", unsafe_allow_html=True)
     if st.button("主要銘柄から期待値Top5を自動抽出", type="primary", use_container_width=True):
-        st.write("※分析エンジン準備中...")
+        st.write("※抽出ロジック計算中（デモ銘柄をロード）...")
         st.session_state['target_tickers'] = "6920.T, 7011.T, 8306.T, 7013.T, 6758.T"
         st.rerun()
