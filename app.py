@@ -10,45 +10,42 @@ from datetime import datetime, timedelta, time
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# カスタムCSS（楽天証券風リストデザイン）
+# カスタムCSS（以前のリストデザインを維持）
 st.markdown("""
     <style>
     .main-title { font-weight: 500; font-size: 26px; margin-bottom: 5px; }
     .section-header { font-size: 16px !important; font-weight: 600; color: #dddddd; vertical-align: middle; }
-    
-    /* リスト形式の行デザイン */
-    .market-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 10px 15px;
-        border-bottom: 1px solid #3d414b;
-        background-color: #1e2129;
-    }
+    .market-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid #3d414b; background-color: #1e2129; }
     .market-name { font-size: 14px; font-weight: 500; color: #ffffff; flex: 2; }
     .market-price { font-size: 16px; font-weight: 600; color: #ffffff; flex: 2; text-align: right; padding-right: 20px; }
     .market-delta { font-size: 14px; font-weight: 600; flex: 1.5; text-align: right; border-radius: 4px; padding: 2px 6px; }
-    
-    .up-bg { color: #00f0a8; } /* 上昇：緑 */
-    .down-bg { color: #ff4b4b; } /* 下落：赤 */
-    
-    /* 更新ボタンの小型化調整 */
-    div[data-testid="column"] button {
-        padding: 2px 8px !important;
-        font-size: 12px !important;
-        height: 28px !important;
-        margin-top: -5px !important;
-    }
+    .up-bg { color: #00f0a8; } .down-bg { color: #ff4b4b; }
+    div[data-testid="column"] button { padding: 2px 8px !important; font-size: 12px !important; height: 28px !important; margin-top: -5px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. 定数 ---
+# --- 2. 定数 & マッピング ---
+TICKER_NAME_MAP = {
+    "1605.T": "INPEX", "1802.T": "大林組", "1812.T": "鹿島建設", "3436.T": "SUMCO",
+    "4403.T": "日油", "4506.T": "住友ファーマ", "4507.T": "塩野義製薬", "4568.T": "第一三共",
+    "5020.T": "ENEOS", "6315.T": "TOWA", "6361.T": "荏原製作所", "6460.T": "セガサミーHLDGS",
+    "6501.T": "日立", "6506.T": "安川電機", "6702.T": "富士通", "6723.T": "ルネサス",
+    "6758.T": "ソニーG", "6762.T": "TDK", "6902.T": "デンソー", "6920.T": "レーザーテック",
+    "6963.T": "ローム", "6981.T": "村田製作所", "7003.T": "三井E&S", "7011.T": "三菱重工",
+    "7013.T": "IHI", "7203.T": "トヨタ", "7269.T": "スズキ", "7270.T": "SUBARU",
+    "7453.T": "良品計画", "7751.T": "キャノン", "7752.T": "リコー", "8002.T": "丸紅",
+    "8031.T": "三井物産", "8053.T": "住友商事", "8058.T": "三菱商事", "8267.T": "イオン",
+    "8306.T": "三菱UFJ", "9433.T": "KDDI", "9502.T": "中部電力", "9843.T": "ニトリ",
+    "9984.T": "ソフトバンクG", "1570.T": "日経レバ"
+}
+
 MARKET_INDICES = {
     "日経平均": "^N225", "日経先物": "NIY=F", "ドル/円": "JPY=X", "NYダウ30種": "^DJI",
     "原油(WTI)": "CL=F", "Gold": "GC=F", "VIX指数": "^VIX", "SOX指数": "^SOX"
 }
 
-# --- 3. 関数定義 ---
+# --- 3. ロジック関数 ---
+
 @st.cache_data(ttl=600)
 def fetch_market_info():
     data = {}
@@ -56,15 +53,60 @@ def fetch_market_info():
         try:
             df = yf.download(ticker, period="5d", progress=False)
             if not df.empty and len(df) >= 2:
-                latest = float(df['Close'].iloc[-1])
-                prev = float(df['Close'].iloc[-2])
-                change_pct = ((latest - prev) / prev) * 100
-                data[name] = {"val": latest, "pct": change_pct}
+                latest = float(df['Close'].iloc[-1]); prev = float(df['Close'].iloc[-2])
+                data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
             else: data[name] = {"val": None, "pct": None}
         except: data[name] = {"val": None, "pct": None}
     return data
 
-# --- 4. サイドバー設定 ---
+def run_single_backtest(ticker, days_back, params):
+    """1銘柄のバックテストを実行して期待値を返す"""
+    start_date = datetime.now() - timedelta(days=days_back)
+    try:
+        df = yf.download(ticker, start=start_date, interval="5m", progress=False, multi_level_index=False)
+        if df.empty: return -999
+        
+        # 指標計算
+        df['EMA5'] = EMAIndicator(close=df['Close'], window=5).ema_indicator()
+        macd = MACD(close=df['Close'])
+        df['MACD_H'] = macd.macd_diff()
+        rsi = RSIIndicator(close=df['Close'], window=14)
+        df['RSI14'] = rsi.rsi()
+        
+        # 期待値計算用変数
+        pnls = []
+        unique_dates = np.unique(df.index.date)
+        
+        for date in unique_dates:
+            day = df[df.index.date == date].copy().between_time('09:00', '15:00')
+            if day.empty: continue
+            
+            # 簡易VWAP
+            day['VWAP'] = (day['Close'] * day['Volume']).cumsum() / day['Volume'].cumsum()
+            
+            in_pos = False
+            for ts, row in day.iterrows():
+                cur_t = ts.time()
+                if not in_pos and params['start'] <= cur_t <= params['end']:
+                    # エントリー条件（サイドバーの設定を反映）
+                    cond = True
+                    if params['use_vwap']: cond &= (row['Close'] > row['VWAP'])
+                    if params['use_ema']: cond &= (row['Close'] > row['EMA5'])
+                    
+                    if cond:
+                        entry_p = row['Close'] * 1.0003
+                        in_pos = True; trail_high = row['High']
+                elif in_pos:
+                    if row['High'] > trail_high: trail_high = row['High']
+                    # 決済
+                    if row['Low'] <= entry_p * (1 + params['stop']) or cur_t >= time(14, 55) or (trail_high >= entry_p * 1.005 and row['Low'] <= trail_high * 0.998):
+                        exit_p = row['Close'] * 0.9997
+                        pnls.append((exit_p - entry_p) / entry_p)
+                        in_pos = False; break
+        return np.mean(pnls) if pnls else -999
+    except: return -999
+
+# --- 4. サイドバー ---
 st.sidebar.subheader("🛡️ 戦略プリセット")
 col_p1, col_p2, col_p3 = st.sidebar.columns(3)
 if col_p1.button("通常"): st.session_state['preset'] = "NORMAL"
@@ -73,68 +115,62 @@ if col_p3.button("横這"): st.session_state['preset'] = "RANGE"
 
 st.sidebar.divider()
 st.sidebar.subheader("⚙️ BACK TESTER 設定")
-days_back = st.sidebar.slider("過去日数", 10, 59, 59)
-trailing_start = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5) / 100
-stop_loss = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7) / 100
+days_back_val = st.sidebar.slider("過去日数", 5, 30, 15) # スキャン用には短めが高速
+start_t = st.sidebar.time_input("開始", time(9, 0)); end_t = st.sidebar.time_input("終了", time(9, 15))
+use_vwap_cfg = st.sidebar.checkbox("VWAP優先", value=True)
+use_ema_cfg = st.sidebar.checkbox("EMA5優先", value=True)
+stop_loss_val = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7) / 100
 
-# --- 5. メインレイアウト ---
+# --- 5. メイン ---
 st.markdown("<div class='main-title'>FORE CASTER</div>", unsafe_allow_html=True)
 
-if 'target_tickers' not in st.session_state:
-    st.session_state['target_tickers'] = "8306.T, 7011.T"
+if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "8306.T, 7011.T"
 st.session_state['target_tickers'] = st.text_input("🎯 監視銘柄コード", value=st.session_state['target_tickers'])
 
 tab_top, tab_screen, tab_bt = st.tabs(["ワンタッチ", "スクリーニング", "バックテスト"])
 
-# --- タブ1: ワンタッチ ---
 with tab_top:
-    # 指標タイトルと更新ボタンをコンパクトに横並び
     h_col1, h_col2 = st.columns([0.25, 0.75])
-    with h_col1:
-        st.markdown("<span class='section-header'>🌍 リアルタイム指標</span>", unsafe_allow_html=True)
+    with h_col1: st.markdown("<span class='section-header'>🌍 リアルタイム指標</span>", unsafe_allow_html=True)
     with h_col2:
-        if st.button("🔄更新"):
-            st.cache_data.clear()
-            st.rerun()
+        if st.button("🔄更新"): st.cache_data.clear(); st.rerun()
 
-    # 指標パネル（Expander）
-    with st.expander("詳細を表示 (タップで開閉)", expanded=True):
+    with st.expander("詳細を表示", expanded=True):
         market_data = fetch_market_info()
-        
-        # 銘柄リストを1行ずつループで表示
         for name, info in market_data.items():
-            val = info["val"]
-            pct = info["pct"]
-            
-            if val is not None:
-                delta_class = "up-bg" if pct >= 0 else "down-bg"
-                val_fmt = f"{val:,.1f}" if val > 100 else f"{val:,.2f}"
-                pct_fmt = f"{pct:+.2f}%"
-                
-                # Streamlitの標準markdownで1行を構成（バグ回避のためHTMLタグを最小限に）
-                st.markdown(f"""
-                <div class="market-row">
-                    <div class="market-name">{name}</div>
-                    <div class="market-price">{val_fmt}</div>
-                    <div class="market-delta {delta_class}">{pct_fmt}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="market-row"><div class="market-name">{name}</div><div>取得失敗</div></div>', unsafe_allow_html=True)
-
-        # AI予測
-        vix_val = market_data.get("VIX指数", {}).get("val", 0)
-        st.markdown("<div style='margin-top:15px;'></div>", unsafe_allow_html=True)
-        if vix_val and vix_val > 20:
-            st.warning(f"🤖 **AI予測:** VIX高め({vix_val:.1f})。ボラティリティ警戒地合いです。")
-        elif vix_val and vix_val < 15:
-            st.info(f"🤖 **AI予測:** 市場安定({vix_val:.1f})。順張りチャンスです。")
-        else:
-            st.info("🤖 **AI予測:** 指標は中立。テクニカルに従いましょう。")
-
+            if info["val"]:
+                st.markdown(f'<div class="market-row"><div class="market-name">{name}</div><div class="market-price">{info["val"]:,.1f}</div><div class="market-delta {"up-bg" if info["pct"]>=0 else "down-bg"}">{info["pct"]:+.2f}%</div></div>', unsafe_allow_html=True)
+    
     st.divider()
     st.markdown("<div class='section-header'>🚀 One-Touch 期待値スキャン</div>", unsafe_allow_html=True)
-    if st.button("主要銘柄から期待値Top5を自動抽出", type="primary", use_container_width=True):
-        st.write("※抽出ロジック計算中...")
-        st.session_state['target_tickers'] = "6920.T, 7011.T, 8306.T, 7013.T, 6758.T"
-        st.rerun()
+    if st.button("全42銘柄から期待値Top5を自動抽出", type="primary", use_container_width=True):
+        results = []
+        p_bar = st.progress(0)
+        status = st.empty()
+        
+        scan_params = {
+            'start': start_t, 'end': end_t, 'use_vwap': use_vwap_cfg, 
+            'use_ema': use_ema_cfg, 'stop': stop_loss_val
+        }
+        
+        tickers_list = list(TICKER_NAME_MAP.keys())
+        for i, t in enumerate(tickers_list):
+            status.text(f"分析中: {t} ({TICKER_NAME_MAP[t]})")
+            p_bar.progress((i + 1) / len(tickers_list))
+            ev = run_single_backtest(t, days_back_val, scan_params)
+            if ev != -999: results.append({"code": t, "ev": ev})
+        
+        p_bar.empty(); status.empty()
+        
+        if results:
+            top5 = sorted(results, key=lambda x: x['ev'], reverse=True)[:5]
+            st.session_state['target_tickers'] = ", ".join([d['code'] for d in top5])
+            st.success("抽出完了！監視銘柄を更新しました。")
+            # 期待値テーブル表示
+            res_df = pd.DataFrame(top5)
+            res_df.columns = ["銘柄コード", "期待値(Avg PnL)"]
+            res_df["期待値(Avg PnL)"] = res_df["期待値(Avg PnL)"].apply(lambda x: f"{x:+.2%}")
+            st.table(res_df)
+            st.rerun()
+        else:
+            st.warning("条件に合う銘柄が見つかりませんでした。")
