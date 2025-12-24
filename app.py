@@ -90,12 +90,35 @@ tab_top, tab_screen, tab_bt = st.tabs(["🏠 トップ画面", "🔍 スクリ�
 
 # --- タブ1: トップ画面 ---
 with tab_top:
-    with st.expander("🌍 リアルタイム市場情報 (タップで表示)", expanded=True):
+with st.expander("🌍 リアルタイム市場情報 (タップで表示)", expanded=True):
         market_info = fetch_market_info()
         cols = st.columns(4)
         for i, (name, info) in enumerate(market_info.items()):
-            cols[i % 4].metric(name, f"{info['val']:,.1f}", f"{info['pct']:+.2f}%")
-        
+            # 値が取得できている場合のみフォーマットを適用
+            if info["val"] is not None:
+                val_str = f"{info['val']:,.1f}"
+                pct_str = f"{info['pct']:+.2f}%"
+                cols[i % 4].metric(name, val_str, pct_str)
+            else:
+                cols[i % 4].metric(name, "取得不可", "---")
+          @st.cache_data(ttl=600)
+def fetch_market_info():
+    """地合い情報の取得（エラー対策版）"""
+    data = {}
+    for name, ticker in MARKET_INDICES.items():
+        try:
+            # 取得期間を少し長め（5日分）にして、休日でも直近の値を取れるようにする
+            df = yf.download(ticker, period="5d", progress=False)
+            if not df.empty and len(df) >= 2:
+                latest = float(df['Close'].iloc[-1])
+                prev = float(df['Close'].iloc[-2])
+                change_pct = ((latest - prev) / prev) * 100
+                data[name] = {"val": latest, "pct": change_pct}
+            else:
+                data[name] = {"val": None, "pct": None}
+        except: 
+            data[name] = {"val": None, "pct": None}
+    return data
         # 地合い判定テキスト (日銀会合後のボラティリティを想定)
         vix = market_info.get("VIX指数", {"val": 0})["val"]
         prediction = "🤖 **地合い判定:** "
