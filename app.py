@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, time
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# カスタムCSS（以前のリストデザインを維持）
+# カスタムCSS
 st.markdown("""
     <style>
     .main-title { font-weight: 500; font-size: 26px; margin-bottom: 5px; }
@@ -60,26 +60,21 @@ def fetch_market_info():
     return data
 
 def run_single_backtest(ticker, days_back, params):
-    """1銘柄のバックテストを実行して期待値を返す"""
+    """銘柄のバックテスト期待値を算出（条件緩和版）"""
     start_date = datetime.now() - timedelta(days=days_back)
     try:
+        # スキャン速度向上のため、必要最小限の期間を取得
         df = yf.download(ticker, start=start_date, interval="5m", progress=False, multi_level_index=False)
-        if df.empty: return -999
+        if df.empty or len(df) < 20: return None
         
-        # 指標計算
         df['EMA5'] = EMAIndicator(close=df['Close'], window=5).ema_indicator()
-        macd = MACD(close=df['Close'])
-        df['MACD_H'] = macd.macd_diff()
-        rsi = RSIIndicator(close=df['Close'], window=14)
-        df['RSI14'] = rsi.rsi()
         
-        # 期待値計算用変数
         pnls = []
         unique_dates = np.unique(df.index.date)
         
         for date in unique_dates:
             day = df[df.index.date == date].copy().between_time('09:00', '15:00')
-            if day.empty: continue
+            if day.empty or len(day) < 5: continue
             
             # 簡易VWAP
             day['VWAP'] = (day['Close'] * day['Volume']).cumsum() / day['Volume'].cumsum()
@@ -88,23 +83,24 @@ def run_single_backtest(ticker, days_back, params):
             for ts, row in day.iterrows():
                 cur_t = ts.time()
                 if not in_pos and params['start'] <= cur_t <= params['end']:
-                    # エントリー条件（サイドバーの設定を反映）
-                    cond = True
-                    if params['use_vwap']: cond &= (row['Close'] > row['VWAP'])
-                    if params['use_ema']: cond &= (row['Close'] > row['EMA5'])
+                    # 判定条件
+                    c_vwap = (row['Close'] > row['VWAP']) if params['use_vwap'] else True
+                    c_ema = (row['Close'] > row['EMA5']) if params['use_ema'] else True
                     
-                    if cond:
+                    if c_vwap and c_ema:
                         entry_p = row['Close'] * 1.0003
                         in_pos = True; trail_high = row['High']
                 elif in_pos:
                     if row['High'] > trail_high: trail_high = row['High']
-                    # 決済
-                    if row['Low'] <= entry_p * (1 + params['stop']) or cur_t >= time(14, 55) or (trail_high >= entry_p * 1.005 and row['Low'] <= trail_high * 0.998):
+                    # 決済ロジック
+                    if row['Low'] <= entry_p * (1 + params['stop']) or cur_t >= time(14, 55):
                         exit_p = row['Close'] * 0.9997
                         pnls.append((exit_p - entry_p) / entry_p)
                         in_pos = False; break
-        return np.mean(pnls) if pnls else -999
-    except: return -999
+        
+        return np.mean(pnls) if pnls else None
+    except:
+        return None
 
 # --- 4. サイドバー ---
 st.sidebar.subheader("🛡️ 戦略プリセット")
@@ -114,12 +110,14 @@ if col_p2.button("防御"): st.session_state['preset'] = "DEFENSIVE"
 if col_p3.button("横這"): st.session_state['preset'] = "RANGE"
 
 st.sidebar.divider()
-st.sidebar.subheader("⚙️ BACK TESTER 設定")
-days_back_val = st.sidebar.slider("過去日数", 5, 30, 15) # スキャン用には短めが高速
-start_t = st.sidebar.time_input("開始", time(9, 0)); end_t = st.sidebar.time_input("終了", time(9, 15))
-use_vwap_cfg = st.sidebar.checkbox("VWAP優先", value=True)
-use_ema_cfg = st.sidebar.checkbox("EMA5優先", value=True)
-stop_loss_val = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7) / 100
+st.sidebar.subheader("⚙️ スキャン設定")
+# 期間をデフォルト20日、スライダーを30日までにしてヒット率を上げる
+days_back_val = st.sidebar.slider("分析期間 (日)", 5, 30, 20)
+start_t = st.sidebar.time_input("エントリー開始", time(9, 0))
+end_t = st.sidebar.time_input("エントリー終了", time(9, 20)) # 終了を少し伸ばしてヒット率向上
+use_vwap_cfg = st.sidebar.checkbox("VWAP条件を使用", value=True)
+use_ema_cfg = st.sidebar.checkbox("EMA5条件を使用", value=True)
+stop_loss_val = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -1.0) / 100
 
 # --- 5. メイン ---
 st.markdown("<div class='main-title'>FORE CASTER</div>", unsafe_allow_html=True)
@@ -158,19 +156,25 @@ with tab_top:
             status.text(f"分析中: {t} ({TICKER_NAME_MAP[t]})")
             p_bar.progress((i + 1) / len(tickers_list))
             ev = run_single_backtest(t, days_back_val, scan_params)
-            if ev != -999: results.append({"code": t, "ev": ev})
+            if ev is not None:
+                results.append({"code": t, "name": TICKER_NAME_MAP[t], "ev": ev})
         
         p_bar.empty(); status.empty()
         
         if results:
+            # 期待値が高い順にソート
             top5 = sorted(results, key=lambda x: x['ev'], reverse=True)[:5]
             st.session_state['target_tickers'] = ", ".join([d['code'] for d in top5])
-            st.success("抽出完了！監視銘柄を更新しました。")
-            # 期待値テーブル表示
-            res_df = pd.DataFrame(top5)
-            res_df.columns = ["銘柄コード", "期待値(Avg PnL)"]
-            res_df["期待値(Avg PnL)"] = res_df["期待値(Avg PnL)"].apply(lambda x: f"{x:+.2%}")
-            st.table(res_df)
+            
+            st.success(f"スキャン完了！直近 {days_back_val} 日間で期待値の高い5銘柄をロードしました。")
+            
+            # 結果をテーブルで表示
+            res_display = pd.DataFrame(top5)
+            res_display.columns = ["コード", "銘柄名", "期待値(Avg PnL)"]
+            res_display["期待値(Avg PnL)"] = res_display["期待値(Avg PnL)"].apply(lambda x: f"{x:+.3%}")
+            st.table(res_display)
+            
+            # ページをリロードして入力欄に反映
             st.rerun()
         else:
-            st.warning("条件に合う銘柄が見つかりませんでした。")
+            st.error("指定された期間・条件でトレードが発生した銘柄がありませんでした。サイドバーで「分析期間」を長くするか、「条件」を緩めてみてください。")
