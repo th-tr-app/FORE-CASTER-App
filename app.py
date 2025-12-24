@@ -10,18 +10,19 @@ from datetime import datetime, timedelta, time
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# カスタムCSS
+# カスタムCSS（デザインの心臓部）
 st.markdown("""
     <style>
     .main-title { font-weight: 500; font-size: 26px; margin-bottom: 5px; }
-    .section-header { font-size: 16px !important; font-weight: 600; color: #dddddd; display: inline-block; }
+    .section-header-container { display: flex; align-items: center; margin-bottom: 10px; }
+    .section-header { font-size: 16px !important; font-weight: 600; color: #dddddd; margin-right: 15px; }
 
     /* タイル型グリッド設計 */
     .metric-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr); /* PCは4列 */
         gap: 8px;
-        margin: 5px 0;
+        width: 100%;
     }
 
     /* スマホ(幅640px以下)は強制2列 */
@@ -36,8 +37,9 @@ st.markdown("""
         background-color: #1e2129;
         border: 1px solid #3d414b;
         border-radius: 8px;
-        padding: 8px;
+        padding: 10px;
         text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
 
     .metric-label { font-size: 10px; color: #aaaaaa; margin-bottom: 2px; }
@@ -47,11 +49,12 @@ st.markdown("""
     .delta-plus { color: #00f0a8; }
     .delta-minus { color: #ff4b4b; }
     
-    /* 更新ボタンを小さく右寄せにするための調整 */
-    .stButton > button {
-        padding: 2px 10px !important;
-        font-size: 12px !important;
-        height: auto !important;
+    /* 更新ボタンの小型化 */
+    div.stButton > button {
+        padding: 2px 8px !important;
+        font-size: 11px !important;
+        height: 24px !important;
+        border-radius: 4px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -79,19 +82,25 @@ def fetch_market_info():
         except: data[name] = {"val": None, "pct": None}
     return data
 
-def get_metric_html(name, val, pct):
-    """カードのHTML生成"""
-    if val is None:
-        return f'<div class="metric-card"><div class="metric-label">{name}</div><div class="metric-value">取得失敗</div><div class="metric-delta">---</div></div>'
-    delta_class = "delta-plus" if pct >= 0 else "delta-minus"
-    val_formatted = f"{val:,.0f}" if val > 100 else f"{val:,.2f}"
-    return f"""
-        <div class="metric-card">
-            <div class="metric-label">{name}</div>
-            <div class="metric-value">{val_formatted}</div>
-            <div class="metric-delta {delta_class}">{pct:+.2f}%</div>
-        </div>
-    """
+def render_market_grid(m_info):
+    """全ての指標を一つのHTMLグリッドとして出力"""
+    cards_html = ""
+    for name, info in m_info.items():
+        val = info["val"]
+        pct = info["pct"]
+        if val is None:
+            cards_html += f'<div class="metric-card"><div class="metric-label">{name}</div><div class="metric-value">取得不可</div><div class="metric-delta">---</div></div>'
+        else:
+            delta_class = "delta-plus" if pct >= 0 else "delta-minus"
+            val_formatted = f"{val:,.0f}" if val > 100 else f"{val:,.2f}"
+            cards_html += f"""
+                <div class="metric-card">
+                    <div class="metric-label">{name}</div>
+                    <div class="metric-value">{val_formatted}</div>
+                    <div class="metric-delta {delta_class}">{pct:+.2f}%</div>
+                </div>
+            """
+    st.markdown(f'<div class="metric-grid">{cards_html}</div>', unsafe_allow_html=True)
 
 # --- 4. サイドバー ---
 st.sidebar.subheader("🛡️ 戦略プリセット")
@@ -117,23 +126,23 @@ tab_top, tab_screen, tab_bt = st.tabs(["ワンタッチ", "スクリーニング
 
 # --- タブ1: ワンタッチ ---
 with tab_top:
-    # 指標タイトルと更新ボタンを横並びに配置
-    t_col1, t_col2 = st.columns([0.85, 0.15])
-    with t_col1:
+    # ヘッダー部分（見出しと更新ボタン）
+    h_col1, h_col2 = st.columns([0.8, 0.2])
+    with h_col1:
         st.markdown("<div class='section-header'>🌍 リアルタイム指標</div>", unsafe_allow_html=True)
-    with t_col2:
+    with h_col2:
         if st.button("🔄更新"):
             st.cache_data.clear()
             st.rerun()
 
-    # Expanderで詳細を表示
+    # 指標パネル（Expander）
     with st.expander("詳細を表示 (タップで開閉)", expanded=True):
-        m_info = fetch_market_info()
-        cards_html = "".join([get_metric_html(name, info["val"], info["pct"]) for name, info in m_info.items()])
-        # HTML/CSSで強制的にタイル状に並べる
-        st.markdown(f'<div class="metric-grid">{cards_html}</div>', unsafe_allow_html=True)
+        market_data = fetch_market_info()
+        render_market_grid(market_data) # ここでHTMLグリッドを一気に描画
 
-        vix_val = m_info.get("VIX指数", {}).get("val", 0)
+        # AI予測
+        vix_val = market_data.get("VIX指数", {}).get("val", 0)
+        st.markdown("<div style='margin-top:15px;'></div>", unsafe_allow_html=True)
         if vix_val and vix_val > 20:
             st.warning(f"🤖 **AI予測:** VIX高め。不安定な地合いです。")
         elif vix_val and vix_val < 15:
@@ -144,6 +153,6 @@ with tab_top:
     st.divider()
     st.markdown("<div class='section-header'>🚀 One-Touch 期待値スキャン</div>", unsafe_allow_html=True)
     if st.button("主要銘柄から期待値Top5を自動抽出", type="primary", use_container_width=True):
-        st.write("※抽出ロジック計算中（デモ銘柄をロード）...")
+        st.write("※抽出ロジック計算中...")
         st.session_state['target_tickers'] = "6920.T, 7011.T, 8306.T, 7013.T, 6758.T"
         st.rerun()
