@@ -226,11 +226,11 @@ stop_loss_val = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -1.0) / 100
 
 # タイトルエリア
 st.markdown("""
-<div class="title-container">
-    <h1 class="main-title">FORE CASTER</h1>
-    <p class="sub-title">SCREENING & BACKTEST | ver 1.0</p>
-</div>
-""", unsafe_allow_html=True)
+    <div style='margin-bottom: 20px;'>
+        <h1 style='font-weight: 400; font-size: 46px; margin: 0; padding: 0;'>FORE CASTER</h1>
+        <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.0</h3>
+    </div>
+    """, unsafe_allow_html=True)
 
 # 共通銘柄入力
 if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "8306.T, 7011.T"
