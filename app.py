@@ -4,20 +4,20 @@ import pandas as pd
 import numpy as np
 from ta.trend import EMAIndicator, MACD
 from ta.momentum import RSIIndicator
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, timezone # タイムゾーン対応
 
 # --- 1. ページ設定 ---
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. カスタムCSS (枠線のみカード・余白調整・中央揃え) ---
+# --- 2. カスタムCSS (デザイン最終調整) ---
 st.markdown("""
     <style>
-    /* タイトルエリア (ユーザー様調整済み) */
+    /* タイトルエリア */
     .main-title { font-weight: 400; font-size: 46px; margin: 0; padding: 0; }
     .sub-title { font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa; }
 
-    /* 指標カード（枠線あり・背景透過・中央揃え） */
+    /* 指標カード（中央揃え・行間凝縮・背景透過・枠線あり） */
     .metric-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
@@ -33,7 +33,7 @@ st.markdown("""
     }
 
     .metric-card {
-        background-color: transparent; /* 背景を透明に */
+        background-color: transparent; /* 背景を透明（背景色と同じ）に */
         border: 1px solid #3d414b;    /* 枠線は維持 */
         border-radius: 6px;
         padding: 8px 5px;
@@ -41,7 +41,7 @@ st.markdown("""
         flex-direction: column;
         align-items: center;
         text-align: center;
-        gap: 0px; /* 行間を狭く */
+        gap: 0px; /* 行間を極限まで狭く */
     }
     .card-label { font-size: 12px; color: #aaaaaa; margin: 0; padding: 0; }
     .card-value { font-size: 26px; font-weight: 600; color: #ffffff; margin: -2px 0; padding: 0; }
@@ -65,13 +65,13 @@ st.markdown("""
         border-radius: 4px !important;
     }
 
-    /* AI予測ボックス (マージン調整) */
+    /* AI予測ボックス (余白の均等化) */
     .ai-box {
         background-color: #111827;
         border: 1px solid #1f2937;
         border-radius: 8px;
         padding: 15px;
-        margin: 15px 0; /* 上下のマージンを均等に */
+        margin: 15px 0; /* 上下左右に適切なマージン */
     }
     .ai-label { color: #60a5fa; font-weight: bold; font-size: 14px; margin-bottom: 5px; }
     .ai-text { color: #d1d5db; font-size: 13px; line-height: 1.6; }
@@ -81,7 +81,7 @@ st.markdown("""
 # --- 3. データ取得 ---
 MARKET_INDICES = {
     "日経平均": "^N225", "日経先物(CME)": "NIY=F", "ドル/円": "JPY=X", "NYダウ30種": "^DJI",
-    "原油先物(WTI)": "CL=F", "Gold(COMEX)": "GC=F", "VIX指数": "^VIX", "SOX指数": "^SOX"
+    "原油先物(WTI)": "CL=F", "Gold先物(COMEX)": "GC=F", "VIX指数": "^VIX", "SOX指数": "^SOX"
 }
 
 @st.cache_data(ttl=300)
@@ -99,11 +99,18 @@ def fetch_market_info():
 
 # --- 4. メインレイアウト ---
 
-# タイトルエリア
+# タイトルエリア (ユーザー様調整版)
+st.markdown("""
+    <div style='margin-bottom: 20px;'>
+        <h1 class='main-title'>FORE CASTER</h1>
+        <h3 class='sub-title'>SCREENING & BACKTEST | ver 1.0</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
 st.markdown("""
     <div style='margin-bottom: 20px;'>
         <h1 style='font-weight: 400; font-size: 46px; margin: 0; padding: 0;'>FORE CASTER</h1>
-        <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.2</h3>
+        <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.3</h3>
     </div>
     """, unsafe_allow_html=True)
 
@@ -120,18 +127,21 @@ with tab_top:
         st.cache_data.clear()
         st.rerun()
 
-    # 時刻まで含めた本日の日付を取得
-    now_str = datetime.now().strftime('%Y/%m/%d %H:%M')
-    with st.expander(f"リアルタイム指標 ({now_str})", expanded=True):
+    # 日本時間 (JST) を取得してタイトルに反映
+    jst = timezone(timedelta(hours=9))
+    now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
+    
+    with st.expander(f"リアルタイム指標 ({now_jst})", expanded=True):
         market_data = fetch_market_info()
         
         # 指標カードグリッド
         cards_html = '<div class="metric-grid">'
         for name, info in market_data.items():
             if info["val"] is not None:
-                # 株価指数などは小数なし、ドル円などは小数2桁
+                # 数値のフォーマット調整
                 val = f"{info['val']:,.1f}" if info['val'] > 200 else f"{info['val']:,.2f}"
                 pct = info['pct']
+                # 日本式：＋ならレッド(plus)、－ならグリーン(minus)
                 cls = "plus" if pct >= 0 else "minus"
                 cards_html += f"""
                     <div class="metric-card">
@@ -158,9 +168,9 @@ with tab_top:
                 <div class="ai-text">{ai_msg}</div>
             </div>
         """, unsafe_allow_html=True)
-        # 底面の余白を確保するためのスペーサー
+        # 底面の余白確保
         st.write("")
 
     st.divider()
-    if st.button("Top5を自動抽出", type="primary", use_container_width=True):
-        st.info("銘柄スキャンのバックエンド処理を開始します...")
+    if st.button("ワンタッチ期待値スキャン", type="primary", use_container_width=True):
+        st.info("銘柄スキャンを開始します...")
