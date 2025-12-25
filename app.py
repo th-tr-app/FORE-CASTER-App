@@ -102,13 +102,6 @@ def fetch_market_info():
 # タイトルエリア (ユーザー様調整版)
 st.markdown("""
     <div style='margin-bottom: 20px;'>
-        <h1 class='main-title'>FORE CASTER</h1>
-        <h3 class='sub-title'>SCREENING & BACKTEST | ver 1.0</h3>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("""
-    <div style='margin-bottom: 20px;'>
         <h1 style='font-weight: 400; font-size: 46px; margin: 0; padding: 0;'>FORE CASTER</h1>
         <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.3</h3>
     </div>
@@ -172,5 +165,5 @@ with tab_top:
         st.write("")
 
     st.divider()
-    if st.button("ワンタッチ期待値スキャン", type="primary", use_container_width=True):
+    if st.button("ワンタッチで銘柄スキャン", type="primary", use_container_width=True):
         st.info("銘柄スキャンを開始します...")
