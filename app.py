@@ -1,120 +1,137 @@
 import streamlit as st
+import yfinance as yf
 import pandas as pd
+import numpy as np
+from ta.trend import EMAIndicator, MACD
+from ta.momentum import RSIIndicator
+from datetime import datetime, timedelta, time
 
-# ページ設定
-st.set_page_config(page_title="BACK SCANNER", layout="wide")
+# --- 1. ページ設定 & ロゴ ---
+st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 
-# ==========================================
-# 1. サイドバー（設定・プリセット）
-# ==========================================
-st.sidebar.title("BACK SCANNER 📊")
-st.sidebar.header("⚙️ Screening Preset")
+# サイドバーとメイン画面のロゴ設定
+# image_13.png (サイドバー用ロゴ), image_12.png (サイドバー折りたたみ時アイコン)
+st.logo("image_13.png", icon_image="image_12.png")
 
-# 3つのモード選択ボタン
-col_side1, col_side2, col_side3 = st.sidebar.columns(3)
-if col_side1.button("🚀\n通常"):
-    st.session_state['mode'] = "NORMAL"
-    st.sidebar.success("通常モード適用中")
-if col_side2.button("🛡️\n守り"):
-    st.session_state['mode'] = "DEFENSIVE"
-    st.sidebar.warning("ディフェンシブ適用中")
-if col_side3.button("➡️\n横這"):
-    st.session_state['mode'] = "RANGE"
-    st.sidebar.info("横ばい対策適用中")
+# カスタムCSS（レスポンシブ調整）
+st.markdown("""
+    <style>
+    /* スマホで横並びを維持する設定 */
+    @media (max-width: 640px) {
+        [data-testid="stMetric"] {
+            min-width: 80px !important;
+        }
+        [data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-wrap: wrap !important;
+        }
+        /* 横2列にするための調整（4x4はスマホでは文字が潰れるため、視認性を重視し2x4を推奨しますが、CSSで可能な限り並べます） */
+        div[data-testid="column"] {
+            flex: 1 1 45% !important;
+            min-width: 45% !important;
+        }
+    }
+    th, td { text-align: left !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# 既存のBACK TESTERのサイドバー項目（スライダー等）
+# --- 2. 定数 & マッピング ---
+TICKER_NAME_MAP = {
+    "1605.T": "INPEX", "6920.T": "レーザーテック", "7011.T": "三菱重工",
+    "7203.T": "トヨタ", "8306.T": "三菱UFJ", "9984.T": "ソフトバンクG",
+    "1570.T": "日経レバ", "7013.T": "IHI", "8031.T": "三井物産", "6758.T": "ソニーG"
+}
+
+# 指標の入れ替え & 並び替え
+MARKET_INDICES = {
+    "日経平均": "^N225",
+    "日経先物 (CME)": "NIY=F",
+    "ドル/円": "JPY=X",
+    "NYダウ30種": "^DJI",
+    "原油先物 (WTI)": "CL=F",
+    "Gold (COMEX)": "GC=F",
+    "VIX指数": "^VIX",
+    "SOX指数": "^SOX"
+}
+
+# --- 3. 関数定義 ---
+
+@st.cache_data(ttl=600)
+def fetch_market_info():
+    data = {}
+    for name, ticker in MARKET_INDICES.items():
+        try:
+            df = yf.download(ticker, period="5d", progress=False)
+            if not df.empty and len(df) >= 2:
+                latest = float(df['Close'].iloc[-1])
+                prev = float(df['Close'].iloc[-2])
+                change_pct = ((latest - prev) / prev) * 100
+                data[name] = {"val": latest, "pct": change_pct}
+            else: data[name] = {"val": None, "pct": None}
+        except: data[name] = {"val": None, "pct": None}
+    return data
+
+# --- 4. サイドバー ---
+# タイトルを削除し、パラメータのみ配置
+st.sidebar.subheader("🛡️ 戦略プリセット")
+col_p1, col_p2, col_p3 = st.sidebar.columns(3)
+if col_p1.button("通常"): st.session_state['preset'] = "NORMAL"
+if col_p2.button("防御"): st.session_state['preset'] = "DEFENSIVE"
+if col_p3.button("横這"): st.session_state['preset'] = "RANGE"
+
 st.sidebar.divider()
-st.sidebar.subheader("Detailed Settings")
-ma_span = st.sidebar.slider("移動平均期間", 5, 200, 25)
+st.sidebar.subheader("⚙️ BACK TESTER 設定")
+days_back = st.sidebar.slider("過去日数", 10, 59, 59)
+trailing_start = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5) / 100
+stop_loss = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7) / 100
 
-# ==========================================
-# 2. 共通エリア（銘柄コード入力）
-# ==========================================
-# ここに置くことで、どのタブに切り替えても常に表示されます
-st.subheader("🎯 Target Tickers")
+# --- 5. メインレイアウト ---
+st.markdown("<h1 style='font-weight: 400; font-size: 42px; margin-bottom: 20px;'>FORE CASTER</h1>", unsafe_allow_html=True)
 
-# セッションステートを使って、ワンタッチボタンから自動入力できるようにする
+# 共通銘柄入力
 if 'target_tickers' not in st.session_state:
-    st.session_state['target_tickers'] = "7203.T, 9984.T" # 初期値
+    st.session_state['target_tickers'] = "8306.T, 7011.T"
+st.session_state['target_tickers'] = st.text_input("🎯 監視銘柄コード", value=st.session_state['target_tickers'])
 
-# テキスト入力エリア
-tickers_input = st.text_area(
-    "銘柄コード (自動入力または手動入力)",
-    value=st.session_state['target_tickers'],
-    height=68,
-    key="input_area" # これで書き換え制御が可能
-)
+# タブの名称を短縮
+tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
 
-# ==========================================
-# 3. メインタブエリア
-# ==========================================
-tab1, tab2, tab3 = st.tabs(["🏠 トップ画面 (One-Touch)", "🔍 スクリーニング詳細", "📈 バックテスト詳細"])
+# --- タブ1: トップ画面 ---
+with tab_top:
+    # リアルタイム情報の見出し
+    col_head_l, col_head_r = st.columns([0.8, 0.2])
+    with col_head_l:
+        st.subheader("🌍 リアルタイム指標")
+    with col_head_r:
+        if st.button("🔄 更新"):
+            st.cache_data.clear()
+            st.rerun()
 
-# ------------------------------------------
-# ■ タブ1：トップ画面（ワンタッチ判定 & 地合い）
-# ------------------------------------------
-with tab1:
-    # --- リアルタイム情報 (Expanderで開閉) ---
-    with st.expander("🌍 リアルタイム市場情報 (タップして表示)", expanded=True):
-        # 本来はここでyfinance取得
-        # 指標リスト: 日経先物, NYダウ, ナスダック, ドル円, 原油, Gold, 金利, VIX
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("日経先物 (CME)", "39,500", "+1.2%")
-        col2.metric("NYダウ", "38,800", "+0.5%")
-        col3.metric("ドル/円", "148.50", "-0.10")
-        col4.metric("Gold (COMEX)", "2,050", "+0.8%")
+    with st.expander("詳細を表示 (タップで開閉)", expanded=True):
+        m_info = fetch_market_info()
+        # 4列レイアウト
+        m_cols = st.columns(4)
+        for i, (name, info) in enumerate(m_info.items()):
+            # PCでは2段(4x2)、スマホでは自動的に折り返し
+            with m_cols[i % 4]:
+                if info["val"] is not None:
+                    st.metric(name, f"{info['val']:,.1f}", f"{info['pct']:+.2f}%")
+                else:
+                    st.metric(name, "取得不可", "---")
         
-        col5, col6, col7, col8 = st.columns(4)
-        col5.metric("原油 (WTI)", "75.40", "-1.5%")
-        col6.metric("米10年金利", "4.12%", "+0.05%")
-        col7.metric("VIX指数", "13.5", "-5.0%")
-        col8.metric("ナスダック", "16,200", "+1.1%")
-        
-        st.info("🤖 **AI予測:** 米国株高と円安を背景に、明日の日経平均は**「堅調な上昇」**が予想されます。押し目買い優勢の地合いです。")
+        # --- AI予測ロジック ---
+        vix_val = m_info.get("VIX指数", {}).get("val", 0)
+        st.markdown("---")
+        if vix_val and vix_val > 20:
+            st.warning(f"🤖 **AI予測:** VIXが{vix_val:.1f}と高く、市場に不安が広がっています。突発的な急落に備え、ポジションを小さく保つか、損切り設定を厳格にしてください。")
+        elif vix_val and vix_val < 15:
+            st.info("🤖 **AI予測:** 市場は極めて安定しています。トレンド追随（順張り）が機能しやすい環境です。強気のエントリーを検討できます。")
+        else:
+            st.write("🤖 **AI予測:** 指標に極端な偏りはありません。テクニカル指標のサインに忠実なトレードを推奨します。")
 
     st.divider()
-
-    # --- ワンタッチボタン ---
-    st.write("### 🚀 AI Auto-Analysis")
-    st.write("現在の地合い設定に基づき、スクリーニングからバックテストまで一括実行し、Top5を抽出します。")
-    
-    if st.button("ワンタッチ判定を実行 (Start)", type="primary", use_container_width=True):
-        with st.spinner("全市場をスキャン中... バックテスト実行中..."):
-            import time
-            time.sleep(1) # 処理してるフリ
-            
-            # --- 処理結果のダミー ---
-            # ここで本来は計算を行い、Top5を選出します
-            top5_results = [
-                {"Code": "6758.T", "Name": "ソニーG", "PF": 2.5, "WinRate": "68%"},
-                {"Code": "8035.T", "Name": "東エレク", "PF": 2.1, "WinRate": "62%"},
-                {"Code": "6861.T", "Name": "キーエンス", "PF": 1.9, "WinRate": "60%"},
-                {"Code": "4063.T", "Name": "信越化学", "PF": 1.8, "WinRate": "58%"},
-                {"Code": "7203.T", "Name": "トヨタ", "PF": 1.5, "WinRate": "55%"},
-            ]
-            
-            # 1. 結果サマリー表示
-            st.success("分析完了！有望銘柄トップ5を抽出しました。")
-            st.table(pd.DataFrame(top5_results))
-            
-            # 2. コードを入力枠に自動転送
-            new_codes = ", ".join([d["Code"] for d in top5_results])
-            st.session_state['target_tickers'] = new_codes
-            st.experimental_rerun() # 画面をリロードして入力枠を更新
-
-# ------------------------------------------
-# ■ タブ2：スクリーニング詳細
-# ------------------------------------------
-with tab2:
-    st.header("🔍 Custom Screening")
-    st.write("トップ画面で抽出された銘柄、または入力された銘柄の詳細条件を確認します。")
-    # ここにスクリーニングのパラメータ調整画面などが入る
-
-# ------------------------------------------
-# ■ タブ3：バックテスト詳細
-# ------------------------------------------
-with tab3:
-    st.header("📈 Backtest Detail")
-    st.write(f"現在選択中の銘柄: **{tickers_input}**")
-    st.write("上記の銘柄について、個別の詳細バックテストチャートを表示します。")
-    # ここにBACK TESTERのチャート描画機能が入る
+    st.subheader("🚀 One-Touch 期待値スキャン")
+    if st.button("主要銘柄から期待値Top5を自動抽出", type="primary", use_container_width=True):
+        st.write("※分析エンジン準備中。サンプル銘柄をロードします...")
+        st.session_state['target_tickers'] = "6920.T, 7011.T, 8306.T, 7013.T, 6758.T"
+        st.rerun()
