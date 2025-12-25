@@ -10,14 +10,14 @@ from datetime import datetime, timedelta, time
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. カスタムCSS (枠線復活・行間凝縮) ---
+# --- 2. カスタムCSS (枠線のみカード・余白調整・中央揃え) ---
 st.markdown("""
     <style>
-    /* タイトルエリア */
+    /* タイトルエリア (ユーザー様調整済み) */
     .main-title { font-weight: 400; font-size: 46px; margin: 0; padding: 0; }
     .sub-title { font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa; }
 
-    /* 指標カード（中央揃え・行間凝縮・枠線あり） */
+    /* 指標カード（枠線あり・背景透過・中央揃え） */
     .metric-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
@@ -33,15 +33,15 @@ st.markdown("""
     }
 
     .metric-card {
-        background-color: #1e2129;
-        border: 1px solid #3d414b; /* 枠線を復活 */
+        background-color: transparent; /* 背景を透明に */
+        border: 1px solid #3d414b;    /* 枠線は維持 */
         border-radius: 6px;
-        padding: 8px 5px; /* 上下余白を絞る */
+        padding: 8px 5px;
         display: flex;
         flex-direction: column;
         align-items: center;
         text-align: center;
-        gap: 0px; /* 行間を極小化 */
+        gap: 0px; /* 行間を狭く */
     }
     .card-label { font-size: 12px; color: #aaaaaa; margin: 0; padding: 0; }
     .card-value { font-size: 26px; font-weight: 600; color: #ffffff; margin: -2px 0; padding: 0; }
@@ -65,16 +65,16 @@ st.markdown("""
         border-radius: 4px !important;
     }
 
-    /* AI予測ボックス */
+    /* AI予測ボックス (マージン調整) */
     .ai-box {
         background-color: #111827;
         border: 1px solid #1f2937;
         border-radius: 8px;
-        padding: 12px;
-        margin-top: 15px;
+        padding: 15px;
+        margin: 15px 0; /* 上下のマージンを均等に */
     }
-    .ai-label { color: #60a5fa; font-weight: bold; font-size: 14px; margin-bottom: 3px; }
-    .ai-text { color: #d1d5db; font-size: 13px; line-height: 1.5; }
+    .ai-label { color: #60a5fa; font-weight: bold; font-size: 14px; margin-bottom: 5px; }
+    .ai-text { color: #d1d5db; font-size: 13px; line-height: 1.6; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -103,7 +103,7 @@ def fetch_market_info():
 st.markdown("""
     <div style='margin-bottom: 20px;'>
         <h1 style='font-weight: 400; font-size: 46px; margin: 0; padding: 0;'>FORE CASTER</h1>
-        <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.2</h3>
+        <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.1</h3>
     </div>
     """, unsafe_allow_html=True)
 
@@ -120,18 +120,18 @@ with tab_top:
         st.cache_data.clear()
         st.rerun()
 
-    # 今日の日付を取得してタイトルに反映
-    today_str = datetime.now().strftime('%Y/%m/%d')
-    with st.expander(f"リアルタイム指標 ({today_str})", expanded=True):
+    # 時刻まで含めた本日の日付を取得
+    now_str = datetime.now().strftime('%Y/%m/%d %H:%M')
+    with st.expander(f"リアルタイム指標 ({now_str})", expanded=True):
         market_data = fetch_market_info()
         
         # 指標カードグリッド
         cards_html = '<div class="metric-grid">'
         for name, info in market_data.items():
             if info["val"] is not None:
-                val = f"{info['val']:,.1f}" if info['val'] > 100 else f"{info['val']:,.2f}"
+                # 株価指数などは小数なし、ドル円などは小数2桁
+                val = f"{info['val']:,.1f}" if info['val'] > 200 else f"{info['val']:,.2f}"
                 pct = info['pct']
-                # 日本式：＋ならレッド(plus)、－ならグリーン(minus)
                 cls = "plus" if pct >= 0 else "minus"
                 cards_html += f"""
                     <div class="metric-card">
@@ -144,7 +144,7 @@ with tab_top:
         cards_html += '</div>'
         st.markdown(cards_html, unsafe_allow_html=True)
 
-        # AI予測
+        # AI予測 (マージン調整済み)
         vix_val = market_data.get("VIX指数", {}).get("val", 0)
         ai_msg = "地合いは中立的です。個別のテクニカルサインを重視しましょう。"
         if vix_val and vix_val > 20:
@@ -158,7 +158,9 @@ with tab_top:
                 <div class="ai-text">{ai_msg}</div>
             </div>
         """, unsafe_allow_html=True)
+        # 底面の余白を確保するためのスペーサー
+        st.write("")
 
     st.divider()
     if st.button("Top5を自動抽出", type="primary", use_container_width=True):
-        st.info("銘柄スキャンを開始します...")
+        st.info("銘柄スキャンのバックエンド処理を開始します...")
