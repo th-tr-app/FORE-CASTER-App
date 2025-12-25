@@ -10,28 +10,14 @@ from datetime import datetime, timedelta, time
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. カスタムCSS (視認性向上・フラットデザイン) ---
+# --- 2. カスタムCSS (中央揃え・日本式カラー) ---
 st.markdown("""
     <style>
     /* タイトルエリア */
     .main-title { font-weight: 400; font-size: 46px; margin: 0; padding: 0; }
     .sub-title { font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa; }
 
-    /* リアルタイム指標ヘッダー */
-    .header-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-top: 15px;
-        margin-bottom: 5px;
-    }
-    .section-title {
-        font-size: 22px;
-        font-weight: 600;
-        color: #eeeeee;
-    }
-
-    /* 指標カード（背景同化・フォント拡大） */
+    /* 指標カード（中央揃え・フラットデザイン） */
     .metric-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
@@ -43,35 +29,38 @@ st.markdown("""
         .metric-grid {
             grid-template-columns: repeat(2, 1fr) !important;
         }
-        .card-value { font-size: 24px !important; } /* スマホでも大きく表示 */
+        .card-value { font-size: 24px !important; }
     }
 
     .metric-card {
-        background-color: transparent; /* 背景色と同じに */
-        border: none; /* 枠線を消去 */
+        background-color: transparent;
+        border: none;
         padding: 5px;
         display: flex;
         flex-direction: column;
+        align-items: center; /* 中央揃え */
+        text-align: center;   /* テキスト中央揃え */
     }
     .card-label { font-size: 14px; color: #aaaaaa; margin-bottom: 2px; }
     .card-value { font-size: 28px; font-weight: 600; color: #ffffff; }
     
+    /* 騰落率バッジ (日本式：上昇レッド / 下落グリーン) */
     .delta-badge {
         font-size: 13px;
         font-weight: 600;
-        padding: 2px 8px;
+        padding: 2px 10px;
         border-radius: 4px;
         width: fit-content;
         margin-top: 5px;
     }
-    .plus { background-color: #1e3a2a; color: #00f0a8; }
-    .minus { background-color: #3a1e1e; color: #ff4b4b; }
+    .plus { background-color: #3a1e1e; color: #ff4b4b; } /* 上昇：レッド */
+    .minus { background-color: #1e3a2a; color: #00f0a8; } /* 下落：グリーン */
 
-    /* 更新ボタン */
+    /* 更新ボタン (左揃え用調整) */
     div.stButton > button {
-        padding: 4px 12px !important;
+        padding: 4px 16px !important;
         font-size: 14px !important;
-        height: auto !important;
+        border-radius: 4px !important;
     }
 
     /* AI予測ボックス */
@@ -112,23 +101,25 @@ def fetch_market_info():
 st.markdown("""
     <div style='margin-bottom: 20px;'>
         <h1 style='font-weight: 400; font-size: 46px; margin: 0; padding: 0;'>FORE CASTER</h1>
-        <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.2</h3>
+        <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.3</h3>
     </div>
     """, unsafe_allow_html=True)
 
-if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "8306.T, 7011.T"
+# 監視銘柄入力
+if 'target_tickers' not in st.session_state: 
+    st.session_state['target_tickers'] = "8306.T, 7011.T"
 st.session_state['target_tickers'] = st.text_input("🎯 監視銘柄コード", value=st.session_state['target_tickers'])
 
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
 
 with tab_top:
-    # 指標タイトルとボタン
-    st.markdown('<div class="header-row"><span class="section-title">🌍 リアルタイム指標</span></div>', unsafe_allow_html=True)
+    # 更新ボタンを左揃えで配置
     if st.button("🔄 更新"):
         st.cache_data.clear()
         st.rerun()
 
-    with st.expander("詳細を表示 (タップで開閉)", expanded=True):
+    # Expanderの名称を変更
+    with st.expander("リアルタイム指標 (タップで開閉)", expanded=True):
         market_data = fetch_market_info()
         
         # 指標カード
@@ -137,6 +128,7 @@ with tab_top:
             if info["val"] is not None:
                 val = f"{info['val']:,.1f}" if info['val'] > 100 else f"{info['val']:,.2f}"
                 pct = info['pct']
+                # 色判定：＋ならレッド(plusクラス)、ーならグリーン(minusクラス)
                 cls = "plus" if pct >= 0 else "minus"
                 cards_html += f"""
                     <div class="metric-card">
@@ -149,13 +141,13 @@ with tab_top:
         cards_html += '</div>'
         st.markdown(cards_html, unsafe_allow_html=True)
 
-        # AI予測の表示（ここで確実に描画）
+        # AI予測
         vix_val = market_data.get("VIX指数", {}).get("val", 0)
-        ai_msg = "市場指標は中立です。個別のテクニカルサインを重視しましょう。"
+        ai_msg = "市場指標は中立的です。個別のテクニカルサインを重視しましょう。"
         if vix_val and vix_val > 20:
-            ai_msg = f"VIX指数が {vix_val:.1f} と警戒水域です。ボラティリティの拡大に備え、ポジションサイズを調整してください。"
+            ai_msg = f"VIX指数が {vix_val:.1f} と警戒水域です。ボラティリティの拡大に備え、リスク管理を徹底してください。"
         elif vix_val and vix_val < 15:
-            ai_msg = f"VIX指数は {vix_val:.1f} で非常に安定しています。順張りロジックが機能しやすい良好な地合いです。"
+            ai_msg = f"VIX指数は {vix_val:.1f} で安定しています。トレンド追随が機能しやすい良好な地合いです。"
 
         st.markdown(f"""
             <div class="ai-box">
@@ -166,4 +158,5 @@ with tab_top:
 
     st.divider()
     if st.button("Top5を自動抽出", type="primary", use_container_width=True):
-        st.info("期待値スキャン中...")
+        st.info("銘柄スキャンを実行します。しばらくお待ちください...")
+        # (スキャンロジックの呼び出し)
