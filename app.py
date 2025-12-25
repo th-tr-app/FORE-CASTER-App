@@ -112,7 +112,7 @@ def fetch_market_info():
 st.markdown("""
     <div style='margin-bottom: 20px;'>
         <h1 class='main-title'>FORE CASTER</h1>
-        <h3 class='sub-title'>SCREENING & BACKTEST | ver 1.01</h3>
+        <h3 class='sub-title'>SCREENING & BACKTEST | ver 1.1</h3>
     </div>
     """, unsafe_allow_html=True)
 
