@@ -94,7 +94,7 @@ if 'target_tickers' not in st.session_state:
 st.session_state['target_tickers'] = st.text_input("🎯 監視銘柄コード", value=st.session_state['target_tickers'])
 
 # タブの名称を短縮
-tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
+tab_top, tab_screen, tab_bt = st.tabs(["ワンタッチ", "スクリーニング", "バックテスト"])
 
 # --- タブ1: トップ画面 ---
 with tab_top:
