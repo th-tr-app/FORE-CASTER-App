@@ -228,7 +228,7 @@ stop_loss_val = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -1.0) / 100
 st.markdown("""
 <div class="title-container">
     <h1 class="main-title">FORE CASTER</h1>
-    <p class="sub-title">DAY TRADING MANAGER | ver 5.8</p>
+    <p class="sub-title">SCREENING & BACKTEST | ver 1.0</p>
 </div>
 """, unsafe_allow_html=True)
 
