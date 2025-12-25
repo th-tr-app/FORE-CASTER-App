@@ -10,82 +10,80 @@ from datetime import datetime, timedelta, time
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. カスタムCSS ---
+# --- 2. カスタムCSS (視認性向上・フラットデザイン) ---
 st.markdown("""
     <style>
-    /* リアルタイム指標ヘッダーの横並び調整 */
-    .header-wrapper {
+    /* タイトルエリア */
+    .main-title { font-weight: 400; font-size: 46px; margin: 0; padding: 0; }
+    .sub-title { font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa; }
+
+    /* リアルタイム指標ヘッダー */
+    .header-row {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        margin-top: 10px;
+        gap: 10px;
+        margin-top: 15px;
         margin-bottom: 5px;
     }
     .section-title {
-        font-size: 20px;
+        font-size: 22px;
         font-weight: 600;
         color: #eeeeee;
-        display: flex;
-        align-items: center;
-        gap: 8px;
     }
 
-    /* グリッドシステム (PC:4列 / スマホ:2列) */
+    /* 指標カード（背景同化・フォント拡大） */
     .metric-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 12px;
+        gap: 15px;
         width: 100%;
+        margin-top: 10px;
     }
     @media (max-width: 640px) {
         .metric-grid {
             grid-template-columns: repeat(2, 1fr) !important;
         }
+        .card-value { font-size: 24px !important; } /* スマホでも大きく表示 */
     }
 
-    /* カードデザイン */
     .metric-card {
-        background-color: #1e2129;
-        border: 1px solid #3d414b;
-        border-radius: 8px;
-        padding: 12px;
+        background-color: transparent; /* 背景色と同じに */
+        border: none; /* 枠線を消去 */
+        padding: 5px;
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
-        min-height: 100px;
     }
-    .card-label { font-size: 11px; color: #aaaaaa; margin-bottom: 5px; }
-    .card-value { font-size: 22px; font-weight: 600; color: #ffffff; }
+    .card-label { font-size: 14px; color: #aaaaaa; margin-bottom: 2px; }
+    .card-value { font-size: 28px; font-weight: 600; color: #ffffff; }
     
     .delta-badge {
-        font-size: 11px;
+        font-size: 13px;
         font-weight: 600;
         padding: 2px 8px;
         border-radius: 4px;
         width: fit-content;
-        margin-top: 8px;
+        margin-top: 5px;
     }
-    .plus { background-color: #1e3a2a; color: #00f0a8; border: 1px solid #2e5a3a; }
-    .minus { background-color: #3a1e1e; color: #ff4b4b; border: 1px solid #5a2e2e; }
+    .plus { background-color: #1e3a2a; color: #00f0a8; }
+    .minus { background-color: #3a1e1e; color: #ff4b4b; }
 
-    /* 更新ボタンの小型化と配置 */
+    /* 更新ボタン */
     div.stButton > button {
-        padding: 2px 10px !important;
-        font-size: 12px !important;
-        height: 32px !important;
-        border-radius: 4px !important;
+        padding: 4px 12px !important;
+        font-size: 14px !important;
+        height: auto !important;
     }
 
-    /* AI予測ボックスのデザイン */
-    .ai-container {
+    /* AI予測ボックス */
+    .ai-box {
         background-color: #111827;
         border: 1px solid #1f2937;
         border-radius: 8px;
-        padding: 12px;
-        margin-top: 15px;
+        padding: 15px;
+        margin-top: 20px;
     }
-    .ai-header { color: #60a5fa; font-weight: bold; font-size: 13px; margin-bottom: 4px; }
-    .ai-body { color: #d1d5db; font-size: 13px; line-height: 1.5; }
+    .ai-label { color: #60a5fa; font-weight: bold; font-size: 15px; margin-bottom: 5px; }
+    .ai-text { color: #d1d5db; font-size: 14px; line-height: 1.6; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -110,37 +108,30 @@ def fetch_market_info():
 
 # --- 4. メインレイアウト ---
 
-# タイトルエリア (ユーザー様調整済み)
+# タイトルエリア
 st.markdown("""
     <div style='margin-bottom: 20px;'>
-        <h1 style='font-weight: 400; font-size: 46px; margin: 0; padding: 0;'>FORE CASTER</h1>
-        <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.0</h3>
+        <h1 class='main-title'>FORE CASTER</h1>
+        <h3 class='sub-title'>SCREENING & BACKTEST | ver 1.0</h3>
     </div>
     """, unsafe_allow_html=True)
 
-# 監視銘柄入力
 if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "8306.T, 7011.T"
 st.session_state['target_tickers'] = st.text_input("🎯 監視銘柄コード", value=st.session_state['target_tickers'])
 
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
 
 with tab_top:
-    # 指標タイトルとボタンの横並び (レイアウト調整)
-    col_t1, col_t2 = st.columns([0.7, 0.3])
-    with col_t1:
-        st.markdown('<div class="section-title">🌍 リアルタイム指標</div>', unsafe_allow_html=True)
-    with col_t2:
-        # ボタンを右端に寄せるためにコンテナを調整
-        st.write('<div style="text-align: right;">', unsafe_allow_html=True)
-        if st.button("🔄 更新"):
-            st.cache_data.clear()
-            st.rerun()
-        st.write('</div>', unsafe_allow_html=True)
+    # 指標タイトルとボタン
+    st.markdown('<div class="header-row"><span class="section-title">🌍 リアルタイム指標</span></div>', unsafe_allow_html=True)
+    if st.button("🔄 更新"):
+        st.cache_data.clear()
+        st.rerun()
 
     with st.expander("詳細を表示 (タップで開閉)", expanded=True):
         market_data = fetch_market_info()
         
-        # 指標カードの描画
+        # 指標カード
         cards_html = '<div class="metric-grid">'
         for name, info in market_data.items():
             if info["val"] is not None:
@@ -158,22 +149,21 @@ with tab_top:
         cards_html += '</div>'
         st.markdown(cards_html, unsafe_allow_html=True)
 
-        # --- AI予測ロジックの復元 ---
+        # AI予測の表示（ここで確実に描画）
         vix_val = market_data.get("VIX指数", {}).get("val", 0)
-        ai_text = "指標は中立的です。個別のテクニカル指標に従いましょう。"
+        ai_msg = "市場指標は中立です。個別のテクニカルサインを重視しましょう。"
         if vix_val and vix_val > 20:
-            ai_text = f"VIX指数が{vix_val:.1f}と高まっています。突発的な変動に注意し、損切りラインを厳格に設定してください。"
+            ai_msg = f"VIX指数が {vix_val:.1f} と警戒水域です。ボラティリティの拡大に備え、ポジションサイズを調整してください。"
         elif vix_val and vix_val < 15:
-            ai_text = f"市場は極めて安定（VIX: {vix_val:.1f}）しています。トレンド追随（順張り）が機能しやすい環境です。強気のエントリーを検討できます。"
+            ai_msg = f"VIX指数は {vix_val:.1f} で非常に安定しています。順張りロジックが機能しやすい良好な地合いです。"
 
         st.markdown(f"""
-            <div class="ai-container">
-                <div class="ai-header">🤖 AI予測</div>
-                <div class="ai-body">{ai_text}</div>
+            <div class="ai-box">
+                <div class="ai-label">🤖 AI予測</div>
+                <div class="ai-text">{ai_msg}</div>
             </div>
         """, unsafe_allow_html=True)
 
     st.divider()
     if st.button("Top5を自動抽出", type="primary", use_container_width=True):
         st.info("期待値スキャン中...")
-        # (スキャンのバックエンド処理は必要に応じてここに追加)
