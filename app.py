@@ -10,12 +10,26 @@ from datetime import datetime, timedelta, timezone, time
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. カスタムCSS (確定デザイン復元) ---
+# --- 2. カスタムCSS (デザイン完全固定) ---
 st.markdown("""
     <style>
-    /* タイトルエリア (ユーザー様確定デザイン) */
-    .main-title { font-weight: 400 !important; font-size: 46px; margin: 0; padding: 0; }
-    .sub-title { font-weight: 300 !important; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa; }
+    /* メインタイトル: font-weight 400 */
+    .main-title { 
+        font-family: 'Inter', sans-serif;
+        font-weight: 400 !important; 
+        font-size: 46px !important; 
+        margin: 0 !important; 
+        padding: 0 !important; 
+    }
+    /* サブタイトル: font-weight 300, size 20px */
+    .sub-title { 
+        font-family: 'Inter', sans-serif;
+        font-weight: 300 !important; 
+        font-size: 20px !important; 
+        margin: 0 !important; 
+        padding: 0 !important; 
+        color: #aaaaaa !important; 
+    }
 
     /* 指標カード (🏠タブ) */
     .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; margin-top: 5px; }
@@ -43,7 +57,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. 銘柄名マッピング ---
+# --- 3. 銘柄名マッピング & セッション管理 ---
 TICKER_NAME_MAP = {
     "1605.T": "INPEX", "1802.T": "大林組", "1812.T": "鹿島建設", "3436.T": "SUMCO",
     "4403.T": "日油", "4506.T": "住友ファーマ", "4507.T": "塩野義製薬", "4568.T": "第一三共",
@@ -58,7 +72,6 @@ TICKER_NAME_MAP = {
     "9984.T": "ソフトバンクG", "1570.T": "日経レバ"
 }
 
-# セッション管理
 if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "8267.T"
 if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 
@@ -71,8 +84,8 @@ for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェン�
 st.sidebar.divider()
 st.sidebar.header("⚙️ バックテスト設定")
 days_back = st.sidebar.slider("過去何日分を取得", 10, 59, 59)
-start_entry_t = st.sidebar.time_input("開始時間", time(9, 0))
-end_entry_t = st.sidebar.time_input("終了時間", time(9, 15))
+start_entry_input = st.sidebar.time_input("開始時間", time(9, 0))
+end_entry_input = st.sidebar.time_input("終了時間", time(9, 15))
 st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
 st.sidebar.subheader("📉 エントリー条件")
@@ -120,6 +133,7 @@ def fetch_daily_stats_maps(ticker, start):
     except: return {}, {}
 
 # --- 6. メインレイアウト ---
+# タイトル・サブタイトルを厳密なCSSクラスで描画
 st.markdown(f"""
     <div style='margin-bottom: 20px;'>
         <h1 class='main-title'>FORE CASTER</h1>
@@ -142,85 +156,130 @@ with tab_top:
         st.markdown(cards + '</div>', unsafe_allow_html=True)
 
 with tab_bt:
-    tickers = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
+    tickers_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
     if st.button("バックテスト実行", type="primary", use_container_width=True):
         s_date = datetime.now() - timedelta(days=days_back); all_trades = []
         progress = st.progress(0)
-        for i, ticker in enumerate(tickers):
-            progress.progress((i + 1) / len(tickers))
+        for i, ticker in enumerate(tickers_list):
+            progress.progress((i + 1) / len(tickers_list))
             try:
-                df = yf.download(ticker, start=s_date, interval="5m", progress=False)
+                # auto_adjust=False, multi_level_index=False で5.8の取得形式に合わせる
+                df = yf.download(ticker, start=s_date, interval="5m", progress=False, auto_adjust=False, multi_level_index=False)
                 prev_m, open_m = fetch_daily_stats_maps(ticker, s_date)
                 if df.empty: continue
-                df.index = df.index.tz_convert('Asia/Tokyo') if df.index.tzinfo else df.index.tz_localize('UTC').tz_convert('Asia/Tokyo')
+                
+                # インデックスの正規化
+                if df.index.tzinfo is None: df.index = df.index.tz_localize('UTC').tz_convert('Asia/Tokyo')
+                else: df.index = df.index.tz_convert('Asia/Tokyo')
+                
+                # テクニカル指標の計算
                 df['EMA5'] = EMAIndicator(close=df['Close'], window=5).ema_indicator()
-                df['RSI14'] = RSIIndicator(close=df['Close'], window=14).rsi(); df['RSI_P'] = df['RSI14'].shift(1)
-                macd = MACD(close=df['Close']); df['MH'] = macd.macd_diff(); df['MHP'] = df['MH'].shift(1)
+                df['RSI14'] = RSIIndicator(close=df['Close'], window=14).rsi()
+                df['RSI_P'] = df['RSI14'].shift(1)
+                macd_obj = MACD(close=df['Close'])
+                df['MH'] = macd_obj.macd_diff()
+                df['MHP'] = df['MH'].shift(1)
                 
                 for date in np.unique(df.index.date):
-                    day = df[df.index.date == date].copy().between_time('09:00', '15:00')
-                    if day.empty: continue
-                    day['VWAP'] = (day['Close'] * day['Volume']).cumsum() / day['Volume'].cumsum()
-                    pc = prev_m.get(date.strftime('%Y-%m-%d')); do = open_m.get(date.strftime('%Y-%m-%d'))
-                    if pc is None or do is None: continue
-                    gap_p = (do - pc) / pc
-                    in_pos = False; t_high = 0; t_active = False
+                    day_df = df[df.index.date == date].copy().between_time('09:00', '15:00')
+                    if day_df.empty: continue
+                    # VWAP計算
+                    tp = (day_df['High'] + day_df['Low'] + day_df['Close']) / 3
+                    day_df['VWAP'] = (tp * day_df['Volume']).cumsum() / day_df['Volume'].cumsum()
                     
-                    for ts, row in day.iterrows():
+                    pc = prev_m.get(date.strftime('%Y-%m-%d'))
+                    do = open_m.get(date.strftime('%Y-%m-%d'))
+                    if pc is None or do is None: continue
+                    gap_val = (do - pc) / pc
+                    
+                    in_pos = False; t_high = 0; t_active = False; entry_p = 0; stop_p = 0; entry_t = None
+                    
+                    for ts, row in day_df.iterrows():
+                        cur_t = ts.time()
                         if not in_pos:
-                            if start_entry_t <= ts.time() <= end_entry_t and gap_min <= gap_p <= gap_max:
-                                c_v = (row['Close'] > row['VWAP']) if use_vwap else True
-                                c_e = (row['Close'] > row['EMA5']) if use_ema else True
-                                c_r = (row['RSI14'] > 45 and row['RSI14'] > row['RSI_P']) if use_rsi else True
-                                c_m = (row['MH'] > row['MHP']) if use_macd else True
-                                if c_v and c_e and c_r and c_m:
-                                    entry_p = row['Close'] * 1.0003; in_pos = True; stop_p = entry_p * (1 + s_loss); t_high = row['High']
-                                    pat = get_trade_pattern(row, gap_p); entry_t = ts; entry_vwap = row['VWAP']
+                            # 判定ロジック：サイドバー条件との連動を修正
+                            if start_entry_input <= cur_t <= end_entry_input and gap_min <= gap_val <= gap_max:
+                                cond_v = (row['Close'] > row['VWAP']) if use_vwap else True
+                                cond_e = (row['Close'] > row['EMA5']) if use_ema else True
+                                cond_r = (row['RSI14'] > 45 and row['RSI14'] > row['RSI_P']) if use_rsi else True
+                                cond_m = (row['MH'] > row['MHP']) if use_macd else True
+                                
+                                if cond_v and cond_e and cond_r and cond_m:
+                                    entry_p = row['Close'] * 1.0003
+                                    in_pos = True
+                                    entry_t = ts
+                                    stop_p = entry_p * (1 + s_loss)
+                                    t_high = row['High']
+                                    pat_type = get_trade_pattern(row, gap_val)
+                                    entry_vwap_val = row['VWAP']
                         else:
+                            # 決済ロジック
                             t_high = max(t_high, row['High'])
                             if not t_active and t_high >= entry_p * (1 + t_start): t_active = True
-                            ex_p = None; rsn = ""
-                            if t_active and row['Low'] <= t_high * (1 - t_pct): ex_p = t_high * (1 - t_pct) * 0.9997; rsn = "トレーリング"
-                            elif row['Low'] <= stop_p: ex_p = stop_p * 0.9997; rsn = "損切り"
-                            elif ts.time() >= time(14, 55): ex_p = row['Close'] * 0.9997; rsn = "時間切れ"
-                            if ex_p:
-                                all_trades.append({'Ticker': ticker, 'Entry': entry_t, 'PnL': (ex_p - entry_p)/entry_p, 'In': entry_p, 'Out': ex_p, 'Pattern': pat, 'Gap': gap_p, 'Reason': rsn, 'EntryVWAP': entry_vwap, 'PrevClose': pc, 'DayOpen': do})
+                            
+                            exit_p = None; rsn_msg = ""
+                            if t_active and row['Low'] <= t_high * (1 - t_pct):
+                                exit_p = t_high * (1 - t_pct) * 0.9997; rsn_msg = "トレーリング"
+                            elif row['Low'] <= stop_p:
+                                exit_p = stop_p * 0.9997; rsn_msg = "損切り"
+                            elif cur_t >= time(14, 55):
+                                exit_p = row['Close'] * 0.9997; rsn_msg = "時間切れ"
+                                
+                            if exit_p:
+                                all_trades.append({
+                                    'Ticker': ticker, 'Entry': entry_t, 'PnL': (exit_p - entry_p)/entry_p, 
+                                    'In': entry_p, 'Out': exit_p, 'Pattern': pat_type, 'Gap': gap_val, 
+                                    'Reason': rsn_msg, 'EntryVWAP': entry_vwap_val, 'PrevClose': pc, 'DayOpen': do
+                                })
                                 in_pos = False; break
-            except: continue
+            except Exception as e:
+                st.error(f"Error processing {ticker}: {e}")
+                continue
+                
         progress.empty()
         if all_trades:
-            res = pd.DataFrame(all_trades)
+            res_df = pd.DataFrame(all_trades)
             bt1, bt2, bt3, bt4, bt5 = st.tabs(["📊 サマリー", "🤖 勝ちパターン", "📉 ギャップ分析", "🧐 VWAP分析", "📝 詳細ログ"])
             with bt1:
-                wins = res[res['PnL']>0]['PnL']; losses = res[res['PnL']<=0]['PnL']
-                pf = wins.sum()/abs(losses.sum()) if not losses.empty and losses.sum() != 0 else 0
-                st.markdown(f'<div class="summary-container"><div class="summary-box"><div class="summary-label">総トレード数</div><div class="summary-value">{len(res)}回</div></div><div class="summary-box"><div class="summary-label">勝率</div><div class="summary-value">{(res["PnL"]>0).mean():.1%}</div></div><div class="summary-box"><div class="summary-label">PF</div><div class="summary-value">{pf:.2f}</div></div><div class="summary-box"><div class="summary-label">期待値</div><div class="summary-value">{res["PnL"].mean():.2%}</div></div></div>', unsafe_allow_html=True)
-                report = ["=================\n BACKTEST REPORT \n================="]
-                for t in tickers:
-                    tdf = res[res['Ticker'] == t]; t_name = TICKER_NAME_MAP.get(t, t)
-                    if tdf.empty: continue
-                    tw = tdf[tdf['PnL']>0]['PnL']; tl = tdf[tdf['PnL']<=0]['PnL']
-                    tpf = tw.sum()/abs(tl.sum()) if not tl.empty and tl.sum() != 0 else 0
-                    report.append(f">>> TICKER: {t} | {t_name}")
-                    report.append(f"トレード数: {len(tdf)} | 勝率: {(tdf['PnL']>0).mean():.1%} | 利益平均: {tw.mean() if not tw.empty else 0:+.2%} | 損失平均: {tl.mean() if not tl.empty else 0:+.2%} | PF: {tpf:.2f} | 期待値: {tdf['PnL'].mean():+.2%}\n")
-                st.code("\n".join(report), language="text")
+                wins_s = res_df[res_df['PnL']>0]['PnL']; losses_s = res_df[res_df['PnL']<=0]['PnL']
+                pf_val = wins_s.sum()/abs(losses_s.sum()) if not losses_s.empty and losses_s.sum() != 0 else 0
+                st.markdown(f"""
+                <div class='summary-container'>
+                    <div class='summary-box'><div class='summary-label'>総トレード数</div><div class='summary-value'>{len(res_df)}回</div></div>
+                    <div class='summary-box'><div class='summary-label'>勝率</div><div class='summary-value'>{(res_df['PnL']>0).mean():.1%}</div></div>
+                    <div class='summary-box'><div class='summary-label'>PF</div><div class='summary-value'>{pf_val:.2f}</div></div>
+                    <div class='summary-box'><div class='summary-label'>期待値</div><div class='summary-value'>{res_df['PnL'].mean():.2%}</div></div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # レポート出力
+                report_lines = ["=================\n BACKTEST REPORT \n================="]
+                for tk in tickers_list:
+                    tdf_single = res_df[res_df['Ticker'] == tk]
+                    if tdf_single.empty: continue
+                    nm = TICKER_NAME_MAP.get(tk, tk)
+                    w_s = tdf_single[tdf_single['PnL']>0]['PnL']; l_s = tdf_single[tdf_single['PnL']<=0]['PnL']
+                    t_pf_val = w_s.sum()/abs(l_s.sum()) if not l_s.empty and l_s.sum() != 0 else 0
+                    report_lines.append(f">>> TICKER: {tk} | {nm}")
+                    report_lines.append(f"トレード数: {len(tdf_single)} | 勝率: {(tdf_single['PnL']>0).mean():.1%} | 利益平均: {w_s.mean() if not w_s.empty else 0:+.2%} | 損失平均: {l_s.mean() if not l_s.empty else 0:+.2%} | PF: {t_pf_val:.2f} | 期待値: {tdf_single['PnL'].mean():+.2%}\n")
+                st.code("\n".join(report_lines), language="text")
             with bt2:
-                st.markdown("### 🤖 パターン別成績")
-                pat_df = res.groupby('Pattern')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
-                pat_df.columns = ['パターン', '回数', '勝率', '平均損益']
-                st.dataframe(pat_df.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'}), use_container_width=True, hide_index=True)
+                # パターン別成績
+                pat_summary = res_df.groupby('Pattern')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
+                pat_summary.columns = ['パターン', '回数', '勝率', '平均損益']
+                st.dataframe(pat_summary.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'}), use_container_width=True, hide_index=True)
             with bt3:
-                st.markdown("### 📉 ギャップ方向別の成績")
-                res['GapDir'] = res['Gap'].apply(lambda x: 'GU' if x > 0 else 'GD')
-                st.dataframe(res.groupby('GapDir')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).style.format({'<lambda_0>': '{:.1%}', 'mean': '{:+.2%}'}), use_container_width=True)
+                # ギャップ分析
+                res_df['GapDir'] = res_df['Gap'].apply(lambda x: 'GU' if x > 0 else 'GD')
+                st.dataframe(res_df.groupby('GapDir')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).style.format({'<lambda_0>': '{:.1%}', 'mean': '{:+.2%}'}), use_container_width=True)
             with bt4:
-                st.markdown("### 🧐 VWAP乖離別の成績")
-                res['VWAP乖離'] = ((res['In'] - res['EntryVWAP']) / res['EntryVWAP']) * 100
-                st.dataframe(res.groupby(pd.cut(res['VWAP乖離'], bins=5))['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).style.format({'<lambda_0>': '{:.1%}', 'mean': '{:+.2%}'}), use_container_width=True)
+                # VWAP乖離分析
+                res_df['VWAP乖離'] = ((res_df['In'] - res_df['EntryVWAP']) / res_df['EntryVWAP']) * 100
+                st.dataframe(res_df.groupby(pd.cut(res_df['VWAP乖離'], bins=5))['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).style.format({'<lambda_0>': '{:.1%}', 'mean': '{:+.2%}'}), use_container_width=True)
             with bt5:
-                st.markdown("### 📝 詳細ログ")
-                log_df = res[['Ticker', 'Entry', 'Pattern', 'PnL', 'Reason', 'In', 'Out']].copy()
-                log_df['Entry'] = log_df['Entry'].dt.strftime('%Y-%m-%d %H:%M')
-                st.dataframe(log_df.style.format({'PnL': '{:+.2%}'}), use_container_width=True, hide_index=True)
+                # 詳細ログ
+                log_disp = res_df[['Ticker', 'Entry', 'Pattern', 'PnL', 'Reason', 'In', 'Out']].copy()
+                log_disp['Entry'] = log_disp['Entry'].dt.strftime('%Y-%m-%d %H:%M')
+                st.dataframe(log_disp.style.format({'PnL': '{:+.2%}'}), use_container_width=True, hide_index=True)
         else:
-            st.warning("条件に合うトレードはありませんでした。")
+            st.warning("条件に合うトレードはありませんでした。サイドバーのエントリー条件（VWAP/EMA等）を外して再試行してください。")
