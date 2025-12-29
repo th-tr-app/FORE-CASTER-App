@@ -23,11 +23,14 @@ st.markdown("""
         background-color: transparent; border: 1px solid #3d414b; border-radius: 6px; 
         padding: 8px 5px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0px; 
     }
-    .card-label { font-size: 12px; color: #aaaaaa; }
-    .card-value { font-size: 26px; font-weight: 600; color: #ffffff; margin: -2px 0; }
-    .delta-badge { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 4px; margin-top: 2px; }
+  .card-label { font-size: 12px; color: #aaaaaa; }
+    .card-value { font-size: 26px; font-weight: 600; color: #ffffff; }
+    .delta-badge { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 4px; }
     .plus { background-color: #3a1e1e; color: #ff4b4b; }
     .minus { background-color: #1e3a2a; color: #00f0a8; }
+    .ai-box { background-color: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; margin: 15px 0; }
+    </style>
+    """, unsafe_allow_html=True)
 
     /* バックテストサマリー (📈タブ 5.8再現) */
     .summary-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 15px 0; }
@@ -102,7 +105,10 @@ TICKER_NAME_MAP = {
 # --- 4. ロジック関数群 ---
 @st.cache_data(ttl=300)
 def fetch_market_info():
-    indices = {"日経平均": "^N225", "日経先物(CME)": "NIY=F", "ドル/円": "JPY=X", "NYダウ30種": "^DJI", "原油先物(WTI)": "CL=F", "Gold先物(COMEX)": "GC=F", "VIX指数": "^VIX", "SOX指数": "^SOX"}
+MARKET_INDICES = {
+    "日経平均": "^N225", "日経先物(CME)": "NIY=F", "ドル/円": "JPY=X", "NYダウ30種": "^DJI",
+    "原油先物(WTI)": "CL=F", "Gold先物(COMEX)": "GC=F", "VIX指数": "^VIX", "SOX指数": "^SOX"
+}
     data = {}
     for name, ticker in indices.items():
         try:
@@ -159,7 +165,7 @@ s_loss = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7, step=0.05) /
 st.markdown("""
     <div style='margin-bottom: 20px;'>
         <h1 style='font-weight: 400; font-size: 46px; margin: 0; padding: 0;'>FORE CASTER</h1>
-        <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.64</h3>
+        <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.65</h3>
     </div>
     """, unsafe_allow_html=True)
 
