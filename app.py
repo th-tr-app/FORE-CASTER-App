@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone, time
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. カスタムCSS (サマリーボックスを 5.8 風に) ---
+# --- 2. カスタムCSS (5.8サマリー完全再現) ---
 st.markdown("""
     <style>
     .main-title { font-weight: 400; font-size: 46px; margin: 0; padding: 0; }
@@ -25,22 +25,22 @@ st.markdown("""
     }
     .card-label { font-size: 12px; color: #aaaaaa; }
     .card-value { font-size: 26px; font-weight: 600; color: #ffffff; margin: -2px 0; }
-    .delta-badge { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 4px; margin-top: 2px; }
+    .delta-badge { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 4px; margin-top: 2px; }
     .plus { background-color: #3a1e1e; color: #ff4b4b; }
     .minus { background-color: #1e3a2a; color: #00f0a8; }
 
     /* バックテストサマリー (📈タブ 5.8再現) */
-    .summary-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 15px 0; }
+    .summary-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 15px 0; }
     @media (max-width: 768px) { .summary-container { grid-template-columns: repeat(2, 1fr); } }
     .summary-box { 
-        background-color: #1e2129; /* 濃いグレー */
-        border-radius: 8px; 
-        padding: 20px 10px; 
+        background-color: #1e2129; 
+        border-radius: 6px; 
+        padding: 18px 5px; 
         text-align: center; 
         border: 1px solid #2d3139; 
     }
-    .summary-label { font-size: 13px; color: #888888; margin-bottom: 8px; font-weight: 300; }
-    .summary-value { font-size: 30px; font-weight: bold; color: #ffffff; }
+    .summary-label { font-size: 11px; color: #888888; margin-bottom: 5px; }
+    .summary-value { font-size: 28px; font-weight: bold; color: #ffffff; }
 
     div[data-testid="stCheckbox"] label p { font-size: 14px !important; }
     .ai-box { background-color: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; margin: 15px 0; }
@@ -53,15 +53,11 @@ st.markdown("""
 if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "8267.T"
 if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 
-# --- 4. ロジック関数群 ---
-def get_trade_pattern(row, gap_pct):
-    check_vwap = row['VWAP'] if pd.notna(row['VWAP']) else row['Close']
-    if (gap_pct <= -0.004) and (row['Close'] > check_vwap): return "A：反転狙い"
-    elif (-0.003 <= gap_pct < 0.003) and (row['Close'] > row['EMA5']): return "D：上昇継続"
-    elif (gap_pct >= 0.005) and (row['RSI14'] >= 65): return "C：ブレイク"
-    elif (gap_pct >= 0.003) and (row['Close'] > row['EMA5']): return "B：押目上昇"
-    return "E：他タイプ"
+TICKER_NAME_MAP = {
+    "1605.T": "INPEX", "8267.T": "イオン", "8306.T": "三菱UFJ", "7011.T": "三菱重工", "9984.T": "ソフトバンクG", "1570.T": "日経レバ"
+}
 
+# --- 4. ロジック関数群 ---
 @st.cache_data(ttl=300)
 def fetch_market_info():
     indices = {"日経平均": "^N225", "日経先物(CME)": "NIY=F", "ドル/円": "JPY=X", "NYダウ30種": "^DJI", "原油先物(WTI)": "CL=F", "Gold先物(COMEX)": "GC=F", "VIX指数": "^VIX", "SOX指数": "^SOX"}
@@ -89,23 +85,18 @@ def fetch_daily_stats_maps(ticker, start):
         return {d.strftime('%Y-%m-%d'): c for d, c in zip(df.index, df['Close'].shift(1)) if pd.notna(c)}, {d.strftime('%Y-%m-%d'): o for d, o in zip(df.index, df['Open']) if pd.notna(o)}
     except: return {}, {}
 
-# --- 5. サイドバー (🎲 戦略プリセット & 修正済み決済ステップ) ---
+# --- 5. サイドバー ---
 st.sidebar.markdown("### 🎲 戦略プリセット")
-label_n = "通常フィルター" + (" [ 選択中 ]" if st.session_state['preset'] == "NORMAL" else "")
-label_d = "ディフェンシブ" + (" [ 選択中 ]" if st.session_state['preset'] == "DEFENSIVE" else "")
-label_r = "横ばい相場対応" + (" [ 選択中 ]" if st.session_state['preset'] == "RANGE" else "")
-
-if st.sidebar.button(label_n, type="primary" if st.session_state['preset'] == "NORMAL" else "secondary"):
+if st.sidebar.button("通常フィルター" + (" [ 選択中 ]" if st.session_state['preset'] == "NORMAL" else ""), type="primary" if st.session_state['preset'] == "NORMAL" else "secondary"):
     st.session_state['preset'] = "NORMAL"; st.rerun()
-if st.sidebar.button(label_d, type="primary" if st.session_state['preset'] == "DEFENSIVE" else "secondary"):
+if st.sidebar.button("ディフェンシブ" + (" [ 選択中 ]" if st.session_state['preset'] == "DEFENSIVE" else ""), type="primary" if st.session_state['preset'] == "DEFENSIVE" else "secondary"):
     st.session_state['preset'] = "DEFENSIVE"; st.rerun()
-if st.sidebar.button(label_r, type="primary" if st.session_state['preset'] == "RANGE" else "secondary"):
+if st.sidebar.button("横ばい相場対応" + (" [ 選択中 ]" if st.session_state['preset'] == "RANGE" else ""), type="primary" if st.session_state['preset'] == "RANGE" else "secondary"):
     st.session_state['preset'] = "RANGE"; st.rerun()
 
 st.sidebar.divider()
 st.sidebar.header("⚙️ バックテスト設定")
 days_back = st.sidebar.slider("過去何日分を取得", 10, 59, 59)
-st.sidebar.subheader("⏰ 時間設定")
 start_entry = st.sidebar.time_input("開始時間", time(9, 0))
 end_entry = st.sidebar.time_input("終了時間", time(9, 15))
 st.sidebar.markdown("<br>", unsafe_allow_html=True)
@@ -118,16 +109,15 @@ st.sidebar.divider()
 gap_min = st.sidebar.slider("寄付ギャップダウン下限 (%)", -10.0, 0.0, -3.0, 0.05) / 100
 gap_max = st.sidebar.slider("寄付ギャップアップ上限 (%)", -5.0, 5.0, 1.0, 0.05) / 100
 st.sidebar.subheader("💰 決済ルール")
-# 0.05刻みのステップを維持
 t_start = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5, step=0.05) / 100
 t_pct = st.sidebar.number_input("下がったら成行注文 (%)", 0.1, 5.0, 0.2, step=0.05) / 100
 s_loss = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7, step=0.05) / 100
 
 # --- 6. メインレイアウト ---
-st.markdown("""
+st.markdown(f"""
     <div style='margin-bottom: 20px;'>
-        <h1 style='font-weight: 400; font-size: 46px; margin: 0; padding: 0;'>FORE CASTER</h1>
-        <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.62</h3>
+        <h1 class='main-title'>FORE CASTER</h1>
+        <h3 class='sub-title'>SCREENING & BACKTEST | ver 1.63</h3>
     </div>
     """, unsafe_allow_html=True)
 
@@ -144,24 +134,22 @@ with tab_top:
         for n, i in m_data.items():
             if i.get("val"):
                 v = f"{i['val']:,.1f}" if i['val'] > 200 else f"{i['val']:,.2f}"
-                c = "plus" if i['pct'] >= 0 else "minus"
-                cards += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {c}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
+                cls = "plus" if i['pct'] >= 0 else "minus"
+                cards += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards + '</div>', unsafe_allow_html=True)
 
 with tab_bt:
     tickers = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
     if st.button("バックテスト実行", type="primary", use_container_width=True):
-        start_date = datetime.now() - timedelta(days=days_back); trades = []
+        s_date = datetime.now() - timedelta(days=days_back); trades = []
         progress = st.progress(0)
         for i, ticker in enumerate(tickers):
             progress.progress((i + 1) / len(tickers))
-            df = fetch_intraday(ticker, start_date)
-            prev_m, open_m = fetch_daily_stats_maps(ticker, start_date)
+            df = fetch_intraday(ticker, s_date)
+            prev_m, open_m = fetch_daily_stats_maps(ticker, s_date)
             if df.empty: continue
             df.index = df.index.tz_convert('Asia/Tokyo') if df.index.tzinfo else df.index.tz_localize('UTC').tz_convert('Asia/Tokyo')
             df['EMA5'] = EMAIndicator(close=df['Close'], window=5).ema_indicator()
-            df['RSI14'] = RSIIndicator(close=df['Close'], window=14).rsi()
-            df['MACD_H'] = MACD(close=df['Close']).macd_diff()
             for date in np.unique(df.index.date):
                 day = df[df.index.date == date].copy().between_time('09:00', '15:00')
                 if day.empty: continue
@@ -183,12 +171,12 @@ with tab_bt:
                         elif row['Low'] <= stop_p: ex_p = stop_p * 0.9997
                         elif ts.time() >= time(14, 55): ex_p = row['Close'] * 0.9997
                         if ex_p:
-                            trades.append({'Ticker': ticker, 'PnL': (ex_p - entry_p)/entry_p})
+                            trades.append({'Ticker': ticker, 'PnL': (ex_p - entry_p)/entry_p, 'In': entry_p, 'Out': ex_p})
                             in_pos = False; break
         progress.empty()
         res = pd.DataFrame(trades)
         if not res.empty:
-            bt1, bt2, bt3 = st.tabs(["📊 サマリー", "🤖 勝ちパターン", "📝 詳細ログ"])
+            bt1, bt2, bt3, bt4, bt5 = st.tabs(["📊 サマリー", "🤖 勝ちパターン", "📉 ギャップ分析", "🧐 VWAP分析", "📝 詳細ログ"])
             with bt1:
                 cnt = len(res); wr = (res['PnL']>0).mean(); ev = res['PnL'].mean()
                 gross_win = res[res['PnL']>0]['PnL'].sum(); gross_loss = abs(res[res['PnL']<=0]['PnL'].sum())
@@ -201,5 +189,20 @@ with tab_bt:
                     <div class="summary-box"><div class="summary-label">期待値</div><div class="summary-value">{ev:.2%}</div></div>
                 </div>
                 """, unsafe_allow_html=True)
-            with bt2: st.write("詳細分析準備中")
-            with bt3: st.dataframe(res, use_container_width=True)
+                
+                # BACKTEST REPORT
+                report = []
+                report.append("=================\n BACKTEST REPORT \n=================")
+                report.append(f"\nPeriod: {s_date.strftime('%Y-%m-%d')} - {datetime.now().strftime('%Y-%m-%d')}\n")
+                for t in tickers:
+                    tdf = res[res['Ticker'] == t]
+                    if tdf.empty: continue
+                    t_name = TICKER_NAME_MAP.get(t, t)
+                    wins = tdf[tdf['PnL'] > 0]; losses = tdf[tdf['PnL'] <= 0]
+                    avg_w = wins['PnL'].mean() if not wins.empty else 0
+                    avg_l = losses['PnL'].mean() if not losses.empty else 0
+                    t_pf = wins['PnL'].sum() / abs(losses['PnL'].sum()) if not losses.empty and losses['PnL'].sum() != 0 else 0
+                    report.append(f">>> TICKER: {t} | {t_name}")
+                    report.append(f"トレード数: {len(tdf)} | 勝率: {(tdf['PnL']>0).mean():.1%} | 利益平均: {avg_w:+.2%} | 損失平均: {avg_l:+.2%} | PF: {t_pf:.2f} | 期待値: {tdf['PnL'].mean():+.2%}\n")
+                st.caption("右上のコピーボタンで全文コピーできます↓")
+                st.code("\n".join(report), language="text")
