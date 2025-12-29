@@ -51,10 +51,11 @@ st.sidebar.markdown("### ⚙️ BACK TESTER 5.8 設定")
 # ここに5.8のサイドバー設定（スライダー等）を移植予定
 
 # --- 5. メインレイアウト ---
-st.markdown(f"""
+# タイトルエリア
+st.markdown("""
     <div style='margin-bottom: 20px;'>
-        <h1 class='main-title'>FORE CASTER</h1>
-        <h3 class='sub-title'>SCREENING & BACKTEST | ver 1.6</h3>
+        <h1 style='font-weight: 400; font-size: 46px; margin: 0; padding: 0;'>FORE CASTER</h1>
+        <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.62</h3>
     </div>
     """, unsafe_allow_html=True)
 
