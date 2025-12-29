@@ -53,8 +53,50 @@ st.markdown("""
 if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "8267.T"
 if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 
+# --- 銘柄名マッピング ---
 TICKER_NAME_MAP = {
-    "1605.T": "INPEX", "8267.T": "イオン", "8306.T": "三菱UFJ", "7011.T": "三菱重工", "9984.T": "ソフトバンクG", "1570.T": "日経レバ"
+    "1605.T": "INPEX",
+    "1802.T": "大林組",
+    "1812.T": "鹿島建設",
+    "3436.T": "SUMCO",
+    "4403.T": "日油",
+    "4506.T": "住友ファーマ",
+    "4507.T": "塩野義製薬",
+    "4568.T": "第一三共",
+    "5020.T": "ENEOS",
+    "6315.T": "TOWA",
+    "6361.T": "荏原製作所",
+    "6460.T": "セガサミーHLDGS",
+    "6501.T": "日立",
+    "6506.T": "安川電機",
+    "6702.T": "富士通",
+    "6723.T": "ルネサスエレクトロニクス",
+    "6758.T": "ソニーグループ",
+    "6762.T": "TDK",
+    "6902.T": "デンソー",
+    "6920.T": "レーザーテック",
+    "6963.T": "ローム",
+    "6981.T": "村田製作所",
+    "7003.T": "三井E&S",
+    "7011.T": "三菱重工業",
+    "7013.T": "I H I",
+    "7203.T": "トヨタ自動車",
+    "7269.T": "スズキ",
+    "7270.T": "SUBARU",
+    "7453.T": "良品計画",
+    "7751.T": "キャノン",
+    "7752.T": "リコー",
+    "8002.T": "丸紅",
+    "8031.T": "三井物産",
+    "8053.T": "住友商事",
+    "8058.T": "三菱商事",
+    "8267.T": "イオン",
+    "8306.T": "三菱UFJ",
+    "9433.T": "KDDI",
+    "9502.T": "中部電力",
+    "9843.T": "ニトリ",
+    "9984.T": "ソフトバンクG",
+    "1570.T": "日経レバ",
 }
 
 # --- 4. ロジック関数群 ---
@@ -114,10 +156,10 @@ t_pct = st.sidebar.number_input("下がったら成行注文 (%)", 0.1, 5.0, 0.2
 s_loss = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7, step=0.05) / 100
 
 # --- 6. メインレイアウト ---
-st.markdown(f"""
+st.markdown("""
     <div style='margin-bottom: 20px;'>
-        <h1 class='main-title'>FORE CASTER</h1>
-        <h3 class='sub-title'>SCREENING & BACKTEST | ver 1.63</h3>
+        <h1 style='font-weight: 400; font-size: 46px; margin: 0; padding: 0;'>FORE CASTER</h1>
+        <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.64</h3>
     </div>
     """, unsafe_allow_html=True)
 
