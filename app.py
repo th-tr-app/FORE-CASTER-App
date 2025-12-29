@@ -149,7 +149,7 @@ stop_loss = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7, 0.05) / 1
 st.markdown("""
     <div style='margin-bottom: 20px;'>
         <h1 style='font-weight: 400; font-size: 46px; margin: 0; padding: 0;'>FORE CASTER</h1>
-        <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.62</h3>
+        <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.621</h3>
     </div>
     """, unsafe_allow_html=True)
 
