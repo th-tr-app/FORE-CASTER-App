@@ -237,7 +237,6 @@ with tab_bt:
             res = pd.DataFrame(trades); w = res[res['PnL']>0]['PnL']; l = res[res['PnL']<=0]['PnL']
             pf = w.sum()/abs(l.sum()) if not l.empty and l.sum()!=0 else 0
             st.markdown(f"<div class='summary-container'><div class='summary-box'><div class='summary-label'>総トレード数</div><div class='summary-value'>{len(res)}回</div></div><div class='summary-box'><div class='summary-label'>勝率</div><div class='summary-value'>{(res['PnL']>0).mean():.1%}</div></div><div class='summary-box'><div class='summary-label'>PF</div><div class='summary-value'>{pf:.2f}</div></div><div class='summary-box'><div class='summary-label'>期待値</div><div class='summary-value'>{res['PnL'].mean():.2%}</div></div></div>", unsafe_allow_html=True)
-    st.caption("右上のコピーボタンで全文コピーできます↓")
             report = ["=================\n BACKTEST REPORT \n================="]
             for tk in t_list:
                 tdf = res[res['Ticker'] == tk]; nm = TICKER_NAME_MAP.get(tk, tk)
