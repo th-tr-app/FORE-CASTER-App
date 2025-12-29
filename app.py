@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone, time
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. カスタムCSS ---
+# --- 2. カスタムCSS (フォントサイズ・デザイン調整) ---
 st.markdown("""
     <style>
     /* タイトルエリアデザイン */
@@ -30,6 +30,11 @@ st.markdown("""
     .plus { background-color: #3a1e1e; color: #ff4b4b; }
     .minus { background-color: #1e3a2a; color: #00f0a8; }
 
+    /* エントリー条件のチェックボックスフォントサイズ調整 (スライダー等のサイズに合わせる) */
+    div[data-testid="stCheckbox"] label p {
+        font-size: 14px !important;
+    }
+
     /* バックテスト・サマリーボックス */
     .metric-container { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
     @media (max-width: 640px) { .metric-container { grid-template-columns: 1fr 1fr; } }
@@ -42,12 +47,6 @@ st.markdown("""
     
     /* サイドバーボタン幅 */
     .stSidebar [data-testid="stVerticalBlock"] button { width: 100%; }
-
-    /* エントリー条件のチェックボックスフォントサイズ調整 */
-    div[data-testid="stCheckbox"] label p {
-        font-size: 14px !important;
-    }
-
     th, td { text-align: left !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -73,7 +72,6 @@ TICKER_NAME_MAP = {
 # --- 4. ロジック関数 ---
 
 def get_trade_pattern(row, gap_pct):
-    """勝ちパターン判定ロジック（B救済版）"""
     check_vwap = row['VWAP'] if pd.notna(row['VWAP']) else row['Close']
     if (gap_pct <= -0.004) and (row['Close'] > check_vwap): return "A：反転狙い"
     elif (-0.003 <= gap_pct < 0.003) and (row['Close'] > row['EMA5']): return "D：上昇継続"
@@ -115,7 +113,7 @@ def fetch_market_info():
         except: data[name] = {"val": None, "pct": None}
     return data
 
-# --- 5. サイドバー (戦略プリセット & 修正) ---
+# --- 5. サイドバー (戦略プリセット & バックテスト設定) ---
 st.sidebar.markdown("### ♟️ 戦略プリセット")
 col_s1, col_s2, col_s3 = st.sidebar.columns(3)
 if col_s1.button("通常フィルター"): st.session_state['preset'] = "NORMAL"
@@ -181,10 +179,9 @@ with tab_top:
 
     st.divider()
     if st.button("ワンタッチで銘柄スキャン実行", type="primary", use_container_width=True):
-        st.success("スキャン完了！(ver 1.4のロジックでTop5を抽出しました)")
-        st.rerun()
+        st.success("スキャン完了！")
 
-# --- タブ3: バックテスト ---
+# --- タブ3: バックテスト (5.8移植済み) ---
 with tab_bt:
     tickers = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
     bt_exec = st.button("バックテスト実行", type="primary", use_container_width=True)
@@ -257,9 +254,7 @@ with tab_bt:
         progress_bar.empty()
         res_df = pd.DataFrame(all_trades)
         
-        if res_df.empty:
-            st.warning("条件に合うトレードはありませんでした。")
-        else:
+        if not res_df.empty:
             b_tab1, b_tab2, b_tab3, b_tab4 = st.tabs(["📊 サマリー", "🤖 勝ちパターン", "📉 ギャップ分析", "📝 詳細ログ"])
             with b_tab1:
                 cnt = len(res_df); wr = (res_df['PnL']>0).mean()
@@ -273,10 +268,8 @@ with tab_bt:
                 </div>
                 """, unsafe_allow_html=True)
             with b_tab2:
-                pat_stats = res_df.groupby('Pattern')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
-                pat_stats.columns = ['パターン', '数', '勝率', '平均']
-                st.dataframe(pat_stats, use_container_width=True, hide_index=True)
+                st.dataframe(res_df.groupby('Pattern')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']), use_container_width=True)
             with b_tab3:
-                st.write("ギャップ方向別の分析")
+                st.write("ギャップ方向別分析準備中")
             with b_tab4:
                 st.dataframe(res_df, use_container_width=True)
