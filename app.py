@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone, time
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. カスタムCSS (5.8サマリー完全再現) ---
+# --- 2. カスタムCSS ---
 st.markdown("""
     <style>
     .main-title { font-weight: 400; font-size: 46px; margin: 0; padding: 0; }
@@ -33,11 +33,7 @@ st.markdown("""
     .summary-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 15px 0; }
     @media (max-width: 768px) { .summary-container { grid-template-columns: repeat(2, 1fr); } }
     .summary-box { 
-        background-color: #1e2129; 
-        border-radius: 6px; 
-        padding: 18px 5px; 
-        text-align: center; 
-        border: 1px solid #2d3139; 
+        background-color: #1e2129; border-radius: 6px; padding: 18px 5px; text-align: center; border: 1px solid #2d3139; 
     }
     .summary-label { font-size: 11px; color: #888888; margin-bottom: 5px; }
     .summary-value { font-size: 28px; font-weight: bold; color: #ffffff; }
@@ -49,12 +45,22 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. セッション管理 & 定数 ---
+# --- 3. セッション管理 & 銘柄名マッピング ---
 if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "8267.T"
 if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 
 TICKER_NAME_MAP = {
-    "1605.T": "INPEX", "8267.T": "イオン", "8306.T": "三菱UFJ", "7011.T": "三菱重工", "9984.T": "ソフトバンクG", "1570.T": "日経レバ"
+    "1605.T": "INPEX", "1802.T": "大林組", "1812.T": "鹿島建設", "3436.T": "SUMCO",
+    "4403.T": "日油", "4506.T": "住友ファーマ", "4507.T": "塩野義製薬", "4568.T": "第一三共",
+    "5020.T": "ENEOS", "6315.T": "TOWA", "6361.T": "荏原製作所", "6460.T": "セガサミーHLDGS",
+    "6501.T": "日立", "6506.T": "安川電機", "6702.T": "富士通", "6723.T": "ルネサスエレクトロニクス",
+    "6758.T": "ソニーグループ", "6762.T": "TDK", "6902.T": "デンソー", "6920.T": "レーザーテック",
+    "6963.T": "ローム", "6981.T": "村田製作所", "7003.T": "三井E&S", "7011.T": "三菱重工業",
+    "7013.T": "I H I", "7203.T": "トヨタ自動車", "7269.T": "スズキ", "7270.T": "SUBARU",
+    "7453.T": "良品計画", "7751.T": "キャノン", "7752.T": "リコー", "8002.T": "丸紅",
+    "8031.T": "三井物産", "8053.T": "住友商事", "8058.T": "三菱商事", "8267.T": "イオン",
+    "8306.T": "三菱UFJ", "9433.T": "KDDI", "9502.T": "中部電力", "9843.T": "ニトリ",
+    "9984.T": "ソフトバンクG", "1570.T": "日経レバ",
 }
 
 # --- 4. ロジック関数群 ---
@@ -179,8 +185,7 @@ with tab_bt:
             bt1, bt2, bt3, bt4, bt5 = st.tabs(["📊 サマリー", "🤖 勝ちパターン", "📉 ギャップ分析", "🧐 VWAP分析", "📝 詳細ログ"])
             with bt1:
                 cnt = len(res); wr = (res['PnL']>0).mean(); ev = res['PnL'].mean()
-                gross_win = res[res['PnL']>0]['PnL'].sum(); gross_loss = abs(res[res['PnL']<=0]['PnL'].sum())
-                pf = gross_win/gross_loss if gross_loss > 0 else 0
+                pf = (res[res['PnL']>0]['PnL'].sum() / abs(res[res['PnL']<=0]['PnL'].sum())) if abs(res[res['PnL']<=0]['PnL'].sum()) > 0 else 0
                 st.markdown(f"""
                 <div class="summary-container">
                     <div class="summary-box"><div class="summary-label">総トレード数</div><div class="summary-value">{cnt}回</div></div>
@@ -190,19 +195,17 @@ with tab_bt:
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # BACKTEST REPORT
-                report = []
-                report.append("=================\n BACKTEST REPORT \n=================")
+                # BACKTEST REPORT (銘柄名マッピング反映)
+                report = ["=================\n BACKTEST REPORT \n================="]
                 report.append(f"\nPeriod: {s_date.strftime('%Y-%m-%d')} - {datetime.now().strftime('%Y-%m-%d')}\n")
                 for t in tickers:
                     tdf = res[res['Ticker'] == t]
                     if tdf.empty: continue
-                    t_name = TICKER_NAME_MAP.get(t, t)
+                    t_name = TICKER_NAME_MAP.get(t, t) # マッピングから取得、なければコード表示
                     wins = tdf[tdf['PnL'] > 0]; losses = tdf[tdf['PnL'] <= 0]
-                    avg_w = wins['PnL'].mean() if not wins.empty else 0
-                    avg_l = losses['PnL'].mean() if not losses.empty else 0
-                    t_pf = wins['PnL'].sum() / abs(losses['PnL'].sum()) if not losses.empty and losses['PnL'].sum() != 0 else 0
-                    report.append(f">>> TICKER: {t} | {t_name}")
-                    report.append(f"トレード数: {len(tdf)} | 勝率: {(tdf['PnL']>0).mean():.1%} | 利益平均: {avg_w:+.2%} | 損失平均: {avg_l:+.2%} | PF: {t_pf:.2f} | 期待値: {tdf['PnL'].mean():+.2%}\n")
+                    t_wr = (tdf['PnL']>0).mean(); t_ev = tdf['PnL'].mean()
+                    t_pf = (wins['PnL'].sum() / abs(losses['PnL'].sum())) if not losses.empty and losses['PnL'].sum() != 0 else 0
+                    report.append(f">>> TICKER: {t} | {t_name}") # 指定の形式で出力
+                    report.append(f"トレード数: {len(tdf)} | 勝率: {t_wr:.1%} | 利益平均: {wins['PnL'].mean():+.2% if not wins.empty else 0} | 損失平均: {losses['PnL'].mean():+.2% if not losses.empty else 0} | PF: {t_pf:.2f} | 期待値: {t_ev:+.2%}\n")
                 st.caption("右上のコピーボタンで全文コピーできます↓")
                 st.code("\n".join(report), language="text")
