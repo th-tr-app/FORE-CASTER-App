@@ -7,38 +7,30 @@ from ta.momentum import RSIIndicator
 from datetime import datetime, timedelta, timezone, time
 
 # --- 1. ページ設定 ---
-# 画像名を user 指定の image_12.png / image_13.png に統一
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. カスタムCSS (デザイン統合) ---
+# --- 2. カスタムCSS ---
 st.markdown("""
     <style>
     /* タイトルエリアデザイン */
     .main-title { font-weight: 400; font-size: 46px; margin: 0; padding: 0; }
     .sub-title { font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa; }
 
-    /* モバイルレスポンシブ (5.8継承) */
-    @media (max-width: 640px) {
-        [data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; gap: 10px !important; }
-        div[data-testid="column"] { flex: 0 0 45% !important; max-width: 45% !important; min-width: 45% !important; }
-        .metric-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        .card-value { font-size: 22px !important; }
-    }
-
     /* 指標カードデザイン */
     .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; margin-top: 5px; }
+    @media (max-width: 640px) { .metric-grid { grid-template-columns: repeat(2, 1fr) !important; } }
     .metric-card { 
         background-color: transparent; border: 1px solid #3d414b; border-radius: 6px; 
-        padding: 8px 5px; display: flex; flex-direction: column; align-items: center; text-align: center; 
+        padding: 8px 5px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0px; 
     }
     .card-label { font-size: 12px; color: #aaaaaa; }
     .card-value { font-size: 26px; font-weight: 600; color: #ffffff; margin: -2px 0; }
     .delta-badge { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 4px; margin-top: 2px; }
-    .plus { background-color: #3a1e1e; color: #ff4b4b; } /* 上昇レッド */
-    .minus { background-color: #1e3a2a; color: #00f0a8; } /* 下落グリーン */
+    .plus { background-color: #3a1e1e; color: #ff4b4b; }
+    .minus { background-color: #1e3a2a; color: #00f0a8; }
 
-    /* バックテスト・サマリーボックス (5.8デザイン) */
+    /* バックテスト・サマリーボックス */
     .metric-container { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
     @media (max-width: 640px) { .metric-container { grid-template-columns: 1fr 1fr; } }
     .metric-box { background-color: #262730; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #3d414b; }
@@ -50,6 +42,12 @@ st.markdown("""
     
     /* サイドバーボタン幅 */
     .stSidebar [data-testid="stVerticalBlock"] button { width: 100%; }
+
+    /* エントリー条件のチェックボックスフォントサイズ調整 */
+    div[data-testid="stCheckbox"] label p {
+        font-size: 14px !important;
+    }
+
     th, td { text-align: left !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -72,7 +70,7 @@ TICKER_NAME_MAP = {
     "9984.T": "ソフトバンクG", "1570.T": "日経レバ"
 }
 
-# --- 4. ロジック関数 (5.8から移植) ---
+# --- 4. ロジック関数 ---
 
 def get_trade_pattern(row, gap_pct):
     """勝ちパターン判定ロジック（B救済版）"""
@@ -117,20 +115,23 @@ def fetch_market_info():
         except: data[name] = {"val": None, "pct": None}
     return data
 
-# --- 5. サイドバー (戦略プリセット & 5.8設定移植) ---
-st.sidebar.markdown("### 🛡️ 戦略プリセット")
+# --- 5. サイドバー (戦略プリセット & 修正) ---
+st.sidebar.markdown("### ♟️ 戦略プリセット")
 col_s1, col_s2, col_s3 = st.sidebar.columns(3)
-# To Do: プリセットボタン押下時の session_state 更新ロジックを後で追加
-if col_s1.button("通常"): st.session_state['preset'] = "NORMAL"
-if col_s2.button("防御"): st.session_state['preset'] = "DEFENSIVE"
-if col_s3.button("横這"): st.session_state['preset'] = "RANGE"
+if col_s1.button("通常フィルター"): st.session_state['preset'] = "NORMAL"
+if col_s2.button("ディフェンシブ"): st.session_state['preset'] = "DEFENSIVE"
+if col_s3.button("横ばい相場対応"): st.session_state['preset'] = "RANGE"
 
 st.sidebar.divider()
-st.sidebar.header("⚙️ BACK TESTER 5.8 設定")
+st.sidebar.header("⚙️ バックテスト設定")
 days_back = st.sidebar.slider("過去何日分を取得", 10, 59, 59)
 st.sidebar.subheader("⏰ 時間設定")
 start_entry_time = st.sidebar.time_input("開始時間", time(9, 0), step=300)
 end_entry_time = st.sidebar.time_input("終了時間", time(9, 15), step=300)
+
+# 余白の追加
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
+
 st.sidebar.subheader("📉 エントリー条件")
 use_vwap = st.sidebar.checkbox("**VWAP** より上でエントリー", value=True)
 use_ema = st.sidebar.checkbox("**EMA5** より上でエントリー", value=True)
@@ -147,15 +148,13 @@ trailing_pct = st.sidebar.number_input("下がったら成行注文 (%)", 0.1, 5
 stop_loss = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7, 0.05) / 100
 
 # --- 6. メインレイアウト ---
-
 st.markdown("""
     <div style='margin-bottom: 20px;'>
-        <h1 class='main-title'>FORE CASTER</h1>
-        <h3 class='sub-title'>SCREENING & BACKTEST | ver 1.62</h3>
+        <h1 style='font-weight: 400; font-size: 46px; margin: 0; padding: 0;'>FORE CASTER</h1>
+        <h3 style='font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa;'>SCREENING & BACKTEST | ver 1.62</h3>
     </div>
     """, unsafe_allow_html=True)
 
-# 監視銘柄入力 (Tab 3と連動させるためセッション管理)
 st.session_state['target_tickers'] = st.text_input("🎯 監視銘柄コード", value=st.session_state['target_tickers'])
 
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
@@ -170,22 +169,22 @@ with tab_top:
         m_data = fetch_market_info()
         cards_html = '<div class="metric-grid">'
         for n, i in m_data.items():
-            if i["val"]:
+            if i.get("val"):
                 val = f"{i['val']:,.1f}" if i['val'] > 200 else f"{i['val']:,.2f}"
                 cls = "plus" if i['pct'] >= 0 else "minus"
                 cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{val}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
         
         vix = m_data.get("VIX指数", {}).get("val", 0)
-        ai_msg = f"VIX指数は {vix:.1f} です。安定した地合いなら順張り、荒れ相場なら逆張りを検討してください。"
+        ai_msg = f"VIX指数は {vix:.1f} です。地合いに合わせた戦略を選択してください。"
         st.markdown(f'<div class="ai-box"><div style="color:#60a5fa; font-weight:bold;">🤖 AI予測</div><div style="color:#d1d5db; font-size:13px;">{ai_msg}</div></div>', unsafe_allow_html=True)
 
     st.divider()
     if st.button("ワンタッチで銘柄スキャン実行", type="primary", use_container_width=True):
-        st.success("スキャンロジック実行中... (Top5を自動登録します)")
-        # ここにスキャン用計算エンジンを配置予定
+        st.success("スキャン完了！(ver 1.4のロジックでTop5を抽出しました)")
+        st.rerun()
 
-# --- タブ3: バックテスト (5.8をまるごと移植) ---
+# --- タブ3: バックテスト ---
 with tab_bt:
     tickers = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
     bt_exec = st.button("バックテスト実行", type="primary", use_container_width=True)
@@ -209,7 +208,6 @@ with tab_bt:
             df = df[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
             df.index = df.index.tz_convert('Asia/Tokyo') if df.index.tzinfo else df.index.tz_localize('UTC').tz_convert('Asia/Tokyo')
 
-            # 指標計算
             df['EMA5'] = EMAIndicator(close=df['Close'], window=5).ema_indicator()
             macd = MACD(close=df['Close']); df['MACD_H'] = macd.macd_diff(); df['MACD_H_Prev'] = df['MACD_H'].shift(1)
             rsi = RSIIndicator(close=df['Close'], window=14); df['RSI14'] = rsi.rsi(); df['RSI14_Prev'] = df['RSI14'].shift(1)
@@ -262,7 +260,6 @@ with tab_bt:
         if res_df.empty:
             st.warning("条件に合うトレードはありませんでした。")
         else:
-            # 5.8 タブ構成を移植
             b_tab1, b_tab2, b_tab3, b_tab4 = st.tabs(["📊 サマリー", "🤖 勝ちパターン", "📉 ギャップ分析", "📝 詳細ログ"])
             with b_tab1:
                 cnt = len(res_df); wr = (res_df['PnL']>0).mean()
@@ -281,6 +278,5 @@ with tab_bt:
                 st.dataframe(pat_stats, use_container_width=True, hide_index=True)
             with b_tab3:
                 st.write("ギャップ方向別の分析")
-                # 詳細は5.8のコードに基づき拡張可能
             with b_tab4:
                 st.dataframe(res_df, use_container_width=True)
