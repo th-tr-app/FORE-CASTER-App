@@ -10,31 +10,40 @@ from datetime import datetime, timedelta, timezone, time
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. カスタムCSS ---
+# --- 2. カスタムCSS (確定デザイン) ---
 st.markdown("""
     <style>
+    /* タイトルエリア (確定版) */
     .main-title { font-weight: 400; font-size: 46px; margin: 0; padding: 0; }
     .sub-title { font-weight: 300; font-size: 20px; margin: 0; padding: 0; color: #aaaaaa; }
+
+    /* 指標カード (🏠タブ) */
     .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; margin-top: 5px; }
     @media (max-width: 640px) { .metric-grid { grid-template-columns: repeat(2, 1fr) !important; } }
-    .metric-card { background-color: transparent; border: 1px solid #3d414b; border-radius: 6px; padding: 8px 5px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+    .metric-card { 
+        background-color: transparent; border: 1px solid #3d414b; border-radius: 6px; 
+        padding: 8px 5px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0px; 
+    }
     .card-label { font-size: 12px; color: #aaaaaa; }
     .card-value { font-size: 26px; font-weight: 600; color: #ffffff; margin: -2px 0; }
-    .delta-badge { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 4px; margin-top: 2px; }
+    .delta-badge { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 4px; margin-top: 2px; }
     .plus { background-color: #3a1e1e; color: #ff4b4b; }
     .minus { background-color: #1e3a2a; color: #00f0a8; }
+
+    /* バックテストサマリー (📈タブ 5.8再現) */
     .summary-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 15px 0; }
     @media (max-width: 768px) { .summary-container { grid-template-columns: repeat(2, 1fr); } }
     .summary-box { background-color: #1e2129; border-radius: 6px; padding: 18px 5px; text-align: center; border: 1px solid #2d3139; }
     .summary-label { font-size: 11px; color: #888888; margin-bottom: 5px; }
     .summary-value { font-size: 28px; font-weight: bold; color: #ffffff; }
+
     div[data-testid="stCheckbox"] label p { font-size: 14px !important; }
     .stSidebar [data-testid="stVerticalBlock"] button { width: 100%; text-align: left; }
     th, td { text-align: left !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. 銘柄名マッピング ---
+# --- 3. 銘柄名マッピング & セッション管理 ---
 TICKER_NAME_MAP = {
     "1605.T": "INPEX", "1802.T": "大林組", "1812.T": "鹿島建設", "3436.T": "SUMCO",
     "4403.T": "日油", "4506.T": "住友ファーマ", "4507.T": "塩野義製薬", "4568.T": "第一三共",
@@ -49,9 +58,11 @@ TICKER_NAME_MAP = {
     "9984.T": "ソフトバンクG", "1570.T": "日経レバ"
 }
 
-# --- 4. サイドバー設定 (全項目復元) ---
-st.sidebar.markdown("### 🎲 戦略プリセット")
+if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "8267.T"
 if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
+
+# --- 4. サイドバー設定 (全項目統合) ---
+st.sidebar.markdown("### 🎲 戦略プリセット")
 for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェンシブ"), ("RANGE","横ばい相場対応")]:
     if st.sidebar.button(l + (" [ 選択中 ]" if st.session_state['preset']==p else ""), type="primary" if st.session_state['preset']==p else "secondary"):
         st.session_state['preset'] = p; st.rerun()
@@ -59,8 +70,7 @@ for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェン�
 st.sidebar.divider()
 st.sidebar.header("⚙️ バックテスト設定")
 days_back = st.sidebar.slider("過去何日分を取得", 10, 59, 59)
-start_entry = st.sidebar.time_input("開始時間", time(9, 0))
-end_entry = st.sidebar.time_input("終了時間", time(9, 15))
+start_entry = st.sidebar.time_input("開始時間", time(9, 0)); end_entry = st.sidebar.time_input("終了時間", time(9, 15))
 st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
 st.sidebar.subheader("📉 エントリー条件")
@@ -108,8 +118,13 @@ def fetch_daily_stats_maps(ticker, start):
     except: return {}, {}
 
 # --- 6. メインレイアウト ---
-st.markdown(f"<div style='margin-bottom:20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 1.63</h3></div>", unsafe_allow_html=True)
-if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "8267.T"
+st.markdown(f"""
+    <div style='margin-bottom: 20px;'>
+        <h1 class='main-title'>FORE CASTER</h1>
+        <h3 class='sub-title'>SCREENING & BACKTEST | ver 1.63</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
 st.session_state['target_tickers'] = st.text_input("🎯 監視銘柄コード", value=st.session_state['target_tickers'])
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
 
@@ -150,12 +165,12 @@ with tab_bt:
                     for ts, row in day.iterrows():
                         if not in_pos:
                             if start_entry <= ts.time() <= end_entry and gap_min <= gap <= gap_max:
-                                c_vwap = (row['Close'] > row['VWAP']) if use_vwap else True
-                                c_ema = (row['Close'] > row['EMA5']) if use_ema else True
-                                c_rsi = (row['RSI14'] > 45 and row['RSI14'] > row['RSI_P']) if use_rsi else True
-                                c_macd = (row['MH'] > row['MHP']) if use_macd else True
-                                if c_vwap and c_ema and c_rsi and c_macd:
-                                    entry_p = row['Close'] * 1.0003; in_pos = True; stop_p = entry_p * (1 + s_loss); t_high = row['High']; pat = get_trade_pattern(row, gap)
+                                c_v = (row['Close'] > row['VWAP']) if use_vwap else True
+                                c_e = (row['Close'] > row['EMA5']) if use_ema else True
+                                c_r = (row['RSI14'] > 45 and row['RSI14'] > row['RSI_P']) if use_rsi else True
+                                c_m = (row['MH'] > row['MHP']) if use_macd else True
+                                if c_v and c_e and c_r and c_m:
+                                    entry_p = row['Close'] * 1.0003; in_pos = True; stop_p = entry_p * (1 + s_loss); t_high = row['High']; pat = get_trade_pattern(row, gap); entry_t = ts
                         else:
                             t_high = max(t_high, row['High'])
                             if not t_active and t_high >= entry_p * (1 + t_start): t_active = True
@@ -167,22 +182,23 @@ with tab_bt:
                                 trades.append({'Ticker': ticker, 'PnL': (ex_p - entry_p)/entry_p, 'Pattern': pat})
                                 in_pos = False; break
             except: continue
-        progress.empty(); res = pd.DataFrame(trades)
-        if not res.empty:
-            bt1, bt2, bt3 = st.tabs(["📊 サマリー", "🤖 勝ちパターン", "📝 詳細ログ"])
-            with bt1:
-                wins = res[res['PnL']>0]['PnL']; losses = res[res['PnL']<=0]['PnL']
-                pf = wins.sum()/abs(losses.sum()) if not losses.empty and losses.sum() != 0 else 0
-                st.markdown(f'<div class="summary-container"><div class="summary-box"><div class="summary-label">総トレード数</div><div class="summary-value">{len(res)}回</div></div><div class="summary-box"><div class="summary-label">勝率</div><div class="summary-value">{(res["PnL"]>0).mean():.1%}</div></div><div class="summary-box"><div class="summary-label">PF</div><div class="summary-value">{pf:.2f}</div></div><div class="summary-box"><div class="summary-label">期待値</div><div class="summary-value">{res["PnL"].mean():.2%}</div></div></div>', unsafe_allow_html=True)
-                report = ["=================\n BACKTEST REPORT \n================="]
-                for t in tickers:
-                    tdf = res[res['Ticker'] == t]; t_name = TICKER_NAME_MAP.get(t, t)
-                    if tdf.empty: continue
-                    tw = tdf[tdf['PnL']>0]['PnL']; tl = tdf[tdf['PnL']<=0]['PnL']
-                    tpf = tw.sum()/abs(tl.sum()) if not tl.empty and tl.sum() != 0 else 0
-                    report.append(f">>> TICKER: {t} | {t_name}")
-                    report.append(f"トレード数: {len(tdf)} | 勝率: {(tdf['PnL']>0).mean():.1%} | 利益平均: {tw.mean() if not tw.empty else 0:+.2%} | 損失平均: {tl.mean() if not tl.empty else 0:+.2%} | PF: {tpf:.2f} | 期待値: {tdf['PnL'].mean():+.2%}\n")
-                st.code("\n".join(report), language="text")
-            with bt2:
-                st.dataframe(res.groupby('Pattern')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).style.format({'<lambda_0>': '{:.1%}', 'mean': '{:+.2%}'}), use_container_width=True)
-            with bt3: st.dataframe(res, use_container_width=True)
+        progress.empty()
+        if trades:
+            res = pd.DataFrame(trades)
+            wins = res[res['PnL']>0]['PnL']; losses = res[res['PnL']<=0]['PnL']
+            pf = wins.sum()/abs(losses.sum()) if not losses.empty and losses.sum() != 0 else 0
+            
+            st.markdown(f'<div class="summary-container"><div class="summary-box"><div class="summary-label">総トレード数</div><div class="summary-value">{len(res)}回</div></div><div class="summary-box"><div class="summary-label">勝率</div><div class="summary-value">{(res["PnL"]>0).mean():.1%}</div></div><div class="summary-box"><div class="summary-label">PF</div><div class="summary-value">{pf:.2f}</div></div><div class="summary-box"><div class="summary-label">期待値</div><div class="summary-value">{res["PnL"].mean():.2%}</div></div></div>', unsafe_allow_html=True)
+            
+            # REPORT
+            report = ["=================\n BACKTEST REPORT \n================="]
+            for t in tickers:
+                tdf = res[res['Ticker'] == t]; t_name = TICKER_NAME_MAP.get(t, t)
+                if tdf.empty: continue
+                tw = tdf[tdf['PnL']>0]['PnL']; tl = tdf[tdf['PnL']<=0]['PnL']
+                tpf = tw.sum()/abs(tl.sum()) if not tl.empty and tl.sum() != 0 else 0
+                report.append(f">>> TICKER: {t} | {t_name}")
+                report.append(f"トレード数: {len(tdf)} | 勝率: {(tdf['PnL']>0).mean():.1%} | 利益平均: {tw.mean() if not tw.empty else 0:+.2%} | 損失平均: {tl.mean() if not tl.empty else 0:+.2%} | PF: {tpf:.2f} | 期待値: {tdf['PnL'].mean():+.2%}\n")
+            st.code("\n".join(report), language="text")
+        else:
+            st.warning("条件に合うトレードはありませんでした。")
