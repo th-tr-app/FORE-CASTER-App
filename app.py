@@ -125,10 +125,12 @@ use_macd = st.sidebar.checkbox("**MACD** が上向き", value=True)
 st.sidebar.divider()
 gap_min = st.sidebar.slider("寄付ギャップダウン下限 (%)", -10.0, 0.0, -3.0, 0.05) / 100
 gap_max = st.sidebar.slider("寄付ギャップアップ上限 (%)", -5.0, 5.0, 1.0, 0.05) / 100
+
 st.sidebar.subheader("💰 決済ルール")
-trailing_start = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5) / 100
-trailing_pct = st.sidebar.number_input("下がったら成行注文 (%)", 0.1, 5.0, 0.2) / 100
-stop_loss = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7) / 100
+# ステップ値を 0.05 刻みに修正
+trailing_start = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5, step=0.05) / 100
+trailing_pct = st.sidebar.number_input("下がったら成行注文 (%)", 0.1, 5.0, 0.2, step=0.05) / 100
+stop_loss = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7, step=0.05) / 100
 
 # --- 6. メインレイアウト ---
 st.markdown("""
