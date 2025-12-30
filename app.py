@@ -25,11 +25,11 @@ st.markdown("""
     .plus { background-color: #3a1e1e; color: #ff4b4b; }
     .minus { background-color: #1e3a2a; color: #00f0a8; }
 
-    .summary-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 15px 0; }
-    @media (max-width: 768px) { .summary-container { grid-template-columns: repeat(2, 1fr); } }
-    .summary-box { background-color: #1e2129; border-radius: 6px; padding: 18px 5px; text-align: center; border: 1px solid #2d3139; }
-    .summary-label { font-size: 11px; color: #888888; margin-bottom: 5px; }
-    .summary-value { font-size: 28px; font-weight: bold; color: #ffffff; }
+    .summary-container {{ display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }}
+    @media (max-width: 640px) {{ .summary-container {{ grid-template-columns: 1fr 1fr; }} }}
+    .summary-box {{ background-color: #262730; padding: 15px; border-radius: 8px; text-align: center; }}
+    .summary-label {{ font-size: 12px; color: #aaaaaa; }}
+    .summary-value {{ font-size: 24px; font-weight: bold; color: #ffffff; }}
 
     .ai-box { background-color: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; margin: 15px 0; }
     div[data-testid="stCheckbox"] label p { font-size: 14px !important; }
