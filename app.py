@@ -10,14 +10,15 @@ from datetime import datetime, timedelta, timezone, time
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. カスタムCSS ---
+# --- 2. カスタムCSS (デザイン完全固定) ---
 st.markdown("""
     <style>
     .main-title { font-weight: 400 !important; font-size: 46px !important; margin: 0 !important; padding: 0 !important; line-height: 1.1; }
     .sub-title { font-weight: 300 !important; font-size: 20px !important; margin: 0 !important; padding: 0 !important; color: #aaaaaa !important; line-height: 1.1; }
     
-    /* 表（データフレーム）のフォントサイズ調整 */
+    /* 表全体のフォントサイズと左揃えの強制設定 */
     [data-testid="stDataFrame"] { font-size: 13px !important; }
+    th, td { text-align: left !important; }
 
     .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; margin-top: 15px; }
     @media (max-width: 640px) { .metric-grid { grid-template-columns: repeat(2, 1fr) !important; } }
@@ -37,9 +38,6 @@ st.markdown("""
     .ai-box { background-color: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; margin: 15px 0; }
     div[data-testid="stCheckbox"] label p { font-size: 14px !important; }
     .stSidebar [data-testid="stVerticalBlock"] button { width: 100%; text-align: left; }
-    
-    /* 表の左揃えをグローバルに設定 */
-    th, td { text-align: left !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -149,7 +147,8 @@ with tab_bt:
                 for date in np.unique(df.index.date)[-days_back_bt:]:
                     day = df[df.index.date == date].copy().between_time('09:00', '15:00')
                     if day.empty: continue
-                    day['VWAP'] = (day['Close'] * day['Volume']).cumsum() / day['Volume'].cumsum()
+                    tp = (day['High'] + day['Low'] + day['Close']) / 3
+                    day['VWAP'] = (tp * day['Volume']).cumsum() / day['Volume'].cumsum()
                     pc = prev_m.get(date.strftime('%Y-%m-%d')); do = open_m.get(date.strftime('%Y-%m-%d'))
                     if pc is None or do is None: continue
                     gap_pct = (do - pc) / pc
@@ -191,34 +190,40 @@ with tab_bt:
                     rpt.append(f"トレード数: {len(tdf)} | 勝率: {(tdf['PnL']>0).mean():.1%} | 利益平均: {tw.mean():+.2%} | 損失平均: {tl.mean():+.2%} | PF: {tw.sum()/abs(tl.sum()):.2f} | 期待値: {tdf['PnL'].mean():+.2%}\n")
                 st.code("\n".join(rpt), language="text")
 
-            with st2: # 勝ちパターン分析 (完全左揃え)
+            with st2:
                 st.markdown("### 🤖 勝ちパターン分析")
                 st.caption("チャートパターン別の成績分析と、ベストなエントリー条件の言語化をします。自身の「得意な形」が一目で分かります。")
                 st.divider()
                 for tk in t_list:
                     tdf = res_df[res_df['Ticker'] == tk].copy()
                     if tdf.empty: continue
-                    nm = TICKER_NAME_MAP.get(tk, tk)
-                    st.markdown(f"#### [{tk}] {nm}") 
-                    
+                    st.markdown(f"#### [{tk}] {TICKER_NAME_MAP.get(tk, tk)}") 
                     p_sum = tdf.groupby('Pattern')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
                     p_sum.columns = ['パターン', 'トレード数', '勝率', '平均損益']
                     p_sum['勝率'] = p_sum['勝率'].apply(lambda x: f"{x:.1%}")
                     p_sum['平均損益'] = p_sum['平均損益'].apply(lambda x: f"{x:+.2%}")
-                    # すべてのカラムを左揃えに設定
+                    # 全カラムを左揃えに設定
                     st.dataframe(p_sum.style.set_properties(**{'text-align': 'left'}), hide_index=True, use_container_width=True)
                     
+                    # --- KeyError回避済みの言語化ロジック ---
                     tdf['Gap(%)'] = tdf['Gap'] * 100
                     tdf['VWAP乖離(%)'] = ((tdf['In'] - tdf['EntryVWAP']) / tdf['EntryVWAP']) * 100
-                    best_g = tdf.groupby(pd.cut(tdf['Gap(%)'], bins=np.arange(-3.0, 3.5, 0.5)), observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
-                    best_g = best_g.loc[best_g['<lambda_0>'].idxmax()]
-                    best_v = tdf.groupby(pd.cut(tdf['VWAP乖離(%)'], bins=np.arange(-1.0, 1.2, 0.2)), observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
-                    best_v = best_v.loc[best_v['<lambda_0>'].idxmax()]
-                    best_t = tdf.groupby(tdf['Entry'].dt.strftime('%H:%M'))['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
-                    best_t = best_t.loc[best_t['<lambda_0>'].idxmax()]
+                    
+                    g_stats = tdf.groupby(pd.cut(tdf['Gap(%)'], bins=np.arange(-3.0, 3.5, 0.5)), observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()])
+                    if not g_stats.empty:
+                        best_g_idx = g_stats['<lambda_0>'].idxmax()
+                        best_g = g_stats.loc[best_g_idx]
+                        gap_type = "ギャップアップ" if best_g_idx.left >= 0 else "ギャップダウン"
+                        
+                        v_stats = tdf.groupby(pd.cut(tdf['VWAP乖離(%)'], bins=np.arange(-1.0, 1.2, 0.2)), observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()])
+                        best_v_idx = v_stats['<lambda_0>'].idxmax()
+                        best_v = v_stats.loc[best_v_idx]
+                        
+                        t_stats = tdf.groupby(tdf['Entry'].dt.strftime('%H:%M'))['PnL'].agg(['count', lambda x: (x>0).mean()])
+                        best_t_idx = t_stats['<lambda_0>'].idxmax()
+                        best_t = t_stats.loc[best_t_idx]
 
-                    gap_type = "ギャップアップ" if best_g['index'].left >= 0 else "ギャップダウン"
-                    st.info(f"**🏆 最高勝率パターン**\n\n最も勝率が高かったのは、**{gap_type} ({best_g['index'].left:.1f}% ～ {best_g['index'].right:.1f}%)** スタートで、VWAPから **{best_v['index'].left:.1f}% ～ {best_v['index'].right:.1f}%** の位置にある時、**{best_t['Entry']}** にエントリーするパターンです。\n\n(Gap勝率: {best_g['<lambda_0>']:.1%} / VWAP勝率: {best_v['<lambda_0>']:.1%} / 時間勝率: {best_t['<lambda_0>']:.1%})")
+                        st.info(f"**🏆 最高勝率パターン**\n\n最も勝率が高かったのは、**{gap_type} ({best_g_idx.left:.1f}% ～ {best_g_idx.right:.1f}%)** スタートで、VWAPから **{best_v_idx.left:.1f}% ～ {best_v_idx.right:.1f}%** の位置にある時、**{best_t_idx}** にエントリーするパターンです。\n\n(Gap勝率: {best_g['<lambda_0>']:.1%} / VWAP勝率: {best_v['<lambda_0>']:.1%} / 時間勝率: {best_t['<lambda_0>']:.1%})")
                     st.divider()
 
             with st6:
