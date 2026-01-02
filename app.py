@@ -255,11 +255,13 @@ with tab_bt:
         st.session_state['bt_results'] = pd.DataFrame(all_trades) if not len(all_trades)==0 else None
         st.session_state['bt_period'] = f"{start_dt.strftime('%Y-%m-%d')} - {end_dt.strftime('%Y-%m-%d')}"
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True) # 余白
+
     res_df = st.session_state['bt_results']
     if res_df is not None:
         tabs = st.tabs(["📊 サマリー", "🤖 勝ちパターン", "📉 ギャップ分析", "🧐 VWAP分析", "🕒 時間帯分析", "📝 詳細ログ"])
-         with tabs[0]: # サマリー (PF表示名変更、サイズ統一)
+        
+        with tabs[0]: # サマリー (PF表示名変更、サイズ統一)
             w_f = res_df[res_df['PnL']>0]['PnL']; l_f = res_df[res_df['PnL']<=0]['PnL']
             pf_f = w_f.sum()/abs(l_f.sum()) if not l_f.empty and l_f.sum()!=0 else 0
             st.markdown(f"""
