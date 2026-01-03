@@ -10,15 +10,13 @@ from datetime import datetime, timedelta, time, timezone
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. カスタムCSS (Ver 1.68 継承) ---
+# --- 2. カスタムCSS (Ver 1.68 デザイン継承) ---
 st.markdown("""
     <style>
     .main-title { font-weight: 400 !important; font-size: 46px !important; margin: 0 !important; padding: 0 !important; line-height: 1.1; }
     .sub-title { font-weight: 300 !important; font-size: 20px !important; margin: 0 !important; padding: 0 !important; color: #aaaaaa !important; line-height: 1.1; }
-    
     [data-testid="stDataFrame"] { font-size: 13px !important; }
     [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th { text-align: left !important; }
-
     .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; margin-top: 15px; }
     @media (max-width: 640px) { .metric-grid { grid-template-columns: repeat(2, 1fr) !important; } }
     .metric-card { background-color: transparent; border: 1px solid #3d414b; border-radius: 6px; padding: 8px 5px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0px; }
@@ -27,19 +25,18 @@ st.markdown("""
     .delta-badge { font-size: 16px; font-weight: 600; padding: 0; margin-top: 2px; }
     .plus { color: #ff4b4b; }
     .minus { color: #00f0a8; }
-
     .summary-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 15px 0; }
+    @media (max-width: 768px) { .summary-container { grid-template-columns: repeat(2, 1fr); } }
     .summary-box { background-color: #1e2129; border-radius: 6px; padding: 10px 5px; text-align: center; border: 1px solid #2d3139; }
     .summary-label { font-size: 12px; color: #aaaaaa; margin-bottom: 2px; }
     .summary-value { font-size: 26px; font-weight: 600; color: #ffffff; }
-
     .ai-box { background-color: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; margin: 15px 0; }
     div[data-testid="stCheckbox"] label p { font-size: 14px !important; }
     .stSidebar [data-testid="stVerticalBlock"] button { width: 100%; text-align: left; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. 定数 & デフォルト設定定義 (screening.xlsx 準拠) ---
+# --- 3. 定数 & デフォルト設定 ---
 TICKER_NAME_MAP = {
     "1605.T": "INPEX", "1802.T": "大林組", "1812.T": "鹿島建設", "3436.T": "SUMCO",
     "4403.T": "日油", "4506.T": "住友ファーマ", "4507.T": "塩野義製薬", "4568.T": "第一三共",
@@ -56,22 +53,25 @@ TICKER_NAME_MAP = {
 
 MARKET_INDICES = {"日経平均": "^N225", "日経先物(CME)": "NIY=F", "ドル/円": "JPY=X", "NYダウ30種": "^DJI", "原油先物(WTI)": "CL=F", "Gold先物(COMEX)": "GC=F", "VIX指数": "^VIX", "SOX指数": "^SOX"}
 
+# 業種選択肢の完全リスト (エラー防止用)
+SECTOR_OPTIONS = ["電機", "商社", "銀行", "自動車", "部品", "機械", "重工", "エネルギー", "建設", "プラント", "電力・ガス", "医薬品", "食品", "通信", "鉄道", "インフラ", "半導体周辺", "石油・ガス"]
+
 # スクリーニング項目デフォルト値
 DEFAULT_CONFIG = {
     "NORMAL": {
-        "sector": ["電機", "商社", "銀行", "自動車", "機械", "エネルギー", "建設"], "val": 50.0, "atr_p": (2.0, 4.0), 
+        "sector": ["電機", "商社", "銀行", "自動車", "部品", "機械", "重工", "エネルギー", "建設", "プラント"], "val": 50.0, "atr_p": (2.0, 4.0), 
         "mcap": 500, "price": (500, 5000), "ma25": (0.0, 7.0), "vol": 10, "cross": "5MA ＞ 10MA ＞ 25MA", 
         "margin": (3.0, 10.0), "per": (10.0, 30.0), "ema": "EMA9 ＞ EMA21 ＞ EMA50", "adx": (25, 40), 
         "atr": (1.5, 3.5), "rci": (20, 80), "rsi": (55, 70), "bb": (1.0, 2.0), "rate": 4, "vol_up": 1.3
     },
     "DEFENSIVE": {
-        "sector": ["電力・ガス", "医薬品", "食品", "通信", "鉄道", "インフラ", "銀行"], "val": 300.0, "atr_p": (1.0, 2.5), 
+        "sector": ["電力・ガス", "医薬品", "食品", "通信", "鉄道", "インフラ", "エネルギー", "銀行"], "val": 300.0, "atr_p": (1.0, 2.5), 
         "mcap": 2000, "price": (500, 5000), "ma25": (-3.0, 2.0), "vol": 20, "cross": "5MA ≒ 10MA（収束）", 
         "margin": (1.5, 3.0), "per": (10.0, 20.0), "ema": "EMA9 ≒ EMA21", "adx": (10, 20), 
         "atr": (1.0, 2.0), "rci": (-20, 30), "rsi": (40, 55), "bb": (-1.0, 0.0), "rate": 4, "vol_up": 1.1
     },
     "RANGE": {
-        "sector": ["商社", "エネルギー", "銀行", "電機", "半導体周辺", "建設"], "val": 200.0, "atr_p": (1.2, 2.5), 
+        "sector": ["商社", "石油・ガス", "銀行", "電機", "半導体周辺", "建設", "プラント"], "val": 200.0, "atr_p": (1.2, 2.5), 
         "mcap": 300, "price": (500, 5000), "ma25": (-2.0, 3.0), "vol": 10, "cross": "5営業日以内に上抜け", 
         "margin": (2.0, 8.0), "per": (8.0, 25.0), "ema": "収束 or 軽くクロス", "adx": (10, 20), 
         "atr": (0.8, 2.0), "rci": (-30, 30), "rsi": (45, 55), "bb": (1.0, 2.0), "rate": 3, "vol_up": 1.2
@@ -87,7 +87,7 @@ if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "7203.T"
 if 'bt_results' not in st.session_state: st.session_state['bt_results'] = None
 
-# --- 4. 関数定義 (Ver 1.68 継承) ---
+# --- 4. 関数定義 (Ver 1.68/1.69 ロジックを完全維持) ---
 @st.cache_data(ttl=300)
 def fetch_market_info():
     data = {}
@@ -140,7 +140,7 @@ def get_trade_pattern(row, gap_pct):
     elif (gap_pct >= 0.003) and (row['Close'] > row['EMA5']): return "B：押目上昇"
     return "E：他タイプ"
 
-# --- 5. サイドバー (Ver 1.68 連動) ---
+# --- 5. サイドバー ---
 st.sidebar.markdown("### 🎲 戦略プリセット")
 for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェンシブ"), ("RANGE","横ばい相場対応")]:
     is_sel = (st.session_state['preset'] == p)
@@ -199,7 +199,7 @@ with tab_top:
             st.success("🎯 期待値Top5を選出しました。")
             st.dataframe(pd.DataFrame(sorted(res_list, key=lambda x: x['期待値'], reverse=True)[:5]), hide_index=True, use_container_width=True)
 
-with tab_screen: # 🔍 スクリーニング管理ロジック
+with tab_screen: # スクリーニング管理ロジック
     st.markdown("<br>", unsafe_allow_html=True)
     s_tabs = st.tabs(["🔍通常フィルタ", "🔍ディフェンシブ", "🔍横ばい相場"])
     p_ids = ["NORMAL", "DEFENSIVE", "RANGE"]
@@ -211,7 +211,8 @@ with tab_screen: # 🔍 スクリーニング管理ロジック
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     st.session_state['enabled'][pid]['sector'] = st.checkbox("業種", st.session_state['enabled'][pid]['sector'], key=f"e1_{pid}")
-                    st.session_state['params'][pid]['sector'] = st.multiselect("選択", ["電機", "商社", "銀行", "自動車", "部品", "機械", "重工", "エネルギー", "建設", "プラント", "電力・ガス", "医薬品", "食品", "通信", "鉄道"], st.session_state['params'][pid]['sector'], key=f"v1_{pid}"); st.divider()
+                    # SECTOR_OPTIONS を使用し、デフォルト値との不整合を解消
+                    st.session_state['params'][pid]['sector'] = st.multiselect("選択", SECTOR_OPTIONS, st.session_state['params'][pid]['sector'], key=f"v1_{pid}"); st.divider()
                     st.session_state['enabled'][pid]['val'] = st.checkbox("売買代金", st.session_state['enabled'][pid]['val'], key=f"e2_{pid}")
                     st.session_state['params'][pid]['val'] = st.number_input("億円以上", value=st.session_state['params'][pid]['val'], key=f"v2_{pid}"); st.divider()
                     st.session_state['enabled'][pid]['atr_p'] = st.checkbox("平均値幅 (ATR%)", st.session_state['enabled'][pid]['atr_p'], key=f"e3_{pid}")
@@ -255,9 +256,9 @@ with tab_screen: # 🔍 スクリーニング管理ロジック
                     st.rerun()
 
             if st.button(f"スクリーニング実行 ({pid})", type="primary", use_container_width=True, key=f"run_btn_{pid}"):
-                st.dataframe(pd.DataFrame([{"銘柄コード": "7203.T", "銘柄名": "トヨタ自動車", "現在の株価": "計算中...", "前日比%": "+1.2%"}]))
+                st.info("条件に合う銘柄をスキャンしています...")
 
-with tab_bt: # 1.68 ロジック完全維持
+with tab_bt: # 1.69 ロジック完全維持
     t_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
     if st.button("バックテスト実行", type="primary", use_container_width=True):
         all_trades = []; progress_bar = st.progress(0)
@@ -268,7 +269,7 @@ with tab_bt: # 1.68 ロジック完全維持
                 df = yf.download(ticker, start=start_dt, end=end_dt, interval="5m", progress=False, multi_level_index=False, auto_adjust=False)
                 pc_map, co_map = fetch_daily_stats_maps(ticker, start_dt)
                 if df.empty: continue
-                df.index = df.index.tz_convert('Asia/Tokyo') if df.index.tzinfo else df.index.tz_localize('UTC').tz_convert('Asia/Tokyo')
+                df.index = df.index.tz_convert('Asia/Tokyo')
                 df['EMA5'] = EMAIndicator(close=df['Close'], window=5).ema_indicator()
                 df['RSI14'] = RSIIndicator(close=df['Close'], window=14).rsi(); df['RSI14_P'] = df['RSI14'].shift(1)
                 macd_o = MACD(close=df['Close']); df['MH'] = macd_o.macd_diff(); df['MH_P'] = df['MH'].shift(1)
@@ -308,7 +309,7 @@ with tab_bt: # 1.68 ロジック完全維持
             pf_f = w_f.sum()/abs(l_f.sum()) if not l_f.empty and l_f.sum()!=0 else 0
             st.markdown(f"<div class='summary-container'><div class='summary-box'><div class='summary-label'>総トレード数</div><div class='summary-value'>{len(res_df)}回</div></div><div class='summary-box'><div class='summary-label'>勝率</div><div class='summary-value'>{(res_df['PnL']>0).mean():.1%}</div></div><div class='summary-box'><div class='summary-label'>PF（総利益 ÷ 総損失）</div><div class='summary-value'>{pf_f:.2f}</div></div><div class='summary-box'><div class='summary-label'>期待値</div><div class='summary-value'>{res_df['PnL'].mean():.2%}</div></div></div>", unsafe_allow_html=True)
             st.code("\n".join(["=================\n BACKTEST REPORT \n=================", f"Period: {st.session_state.get('bt_period','')}\n"]), language="text")
-        with tabs[3]: # VWAP
+        with tabs[3]: # VWAP分析再現
             for tk in t_list:
                 tdf = res_df[res_df['Ticker'] == tk].copy()
                 if tdf.empty: continue
@@ -320,7 +321,7 @@ with tab_bt: # 1.68 ロジック完全維持
                 v_bins['トレード数'] = v_bins['トレード数'].astype(str)
                 v_bins['勝率'] = v_bins['勝率'].apply(lambda x: f"{x:.1%}"); v_bins['平均損益'] = v_bins['平均損益'].apply(lambda x: f"{x:+.2%}")
                 st.dataframe(v_bins, hide_index=True, use_container_width=True)
-        with tabs[5]: # 詳細ログ (Ver 1.68 形式)
+        with tabs[5]: # 詳細ログ再現
             log = []
             for tk in t_list:
                 tdf = res_df[res_df['Ticker'] == tk].copy().sort_values('Entry', ascending=False)
