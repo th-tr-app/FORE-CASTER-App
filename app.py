@@ -35,13 +35,7 @@ st.markdown("""
         margin-top: -20px !important;
         margin-bottom: -15px !important;
     }
-    .tight-button-container div[data-testid="stButton"] button {
-        height: 32px !important;
-        padding-top: 0px !important;
-        padding-bottom: 0px !important;
-        margin: 0 !important;
-    }
-
+ 
     /* バックテストサマリー */
     .summary-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 15px 0; }
     @media (max-width: 768px) { .summary-container { grid-template-columns: repeat(2, 1fr); } }
