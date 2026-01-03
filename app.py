@@ -40,7 +40,7 @@ st.markdown("""
     }
     .update-header-container div[data-testid="stButton"] button {
         height: 32px !important;
-        padding: 0 15px !important;
+        padding: 0 !important;
         margin: 0 !important;
     }
     .update-timestamp {
