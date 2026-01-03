@@ -196,7 +196,7 @@ with tab_top:
     jst = timezone(timedelta(hours=9)); now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
     m_data = fetch_market_info()
     # 「🔄 指標更新」ボタンを開閉ボックスの中の上部左端へ移動
-    with st.expander(f"リアルタイム指標 ({now_jst})", expanded=True):
+    with st.expander(f"リアルタイム指標＿ ({now_jst})", expanded=True):
         if st.button("🔄 指標更新"): st.cache_data.clear(); st.rerun()
         cards_html = '<div class="metric-grid">'
         for n in MARKET_INDICES.keys():
