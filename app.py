@@ -10,17 +10,18 @@ from datetime import datetime, timedelta, time, timezone
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. カスタムCSS (デザイン完全継承 ＋ 位置合わせ調整) ---
+# --- 2. カスタムCSS (Ver 1.68 デザインを完全継承) ---
 st.markdown("""
     <style>
     .main-title { font-weight: 400 !important; font-size: 46px !important; margin: 0 !important; padding: 0 !important; line-height: 1.1; }
-    .sub-title { font-weight: 300 !important; font-size: 20px !important; margin: 0 0 10px 0 !important; padding: 0 !important; color: #aaaaaa !important; line-height: 1.1; }
+    .sub-title { font-weight: 300 !important; font-size: 20px !important; margin: 0 !important; padding: 0 !important; color: #aaaaaa !important; line-height: 1.1; }
     
+    /* 表全体のフォントサイズと左揃え */
     [data-testid="stDataFrame"] { font-size: 13px !important; }
     [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th { text-align: left !important; }
 
-    /* 指標カードレイアウト */
-    .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; margin-top: 5px; }
+    /* リアルタイム指標カード */
+    .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; margin-top: 15px; }
     @media (max-width: 640px) { .metric-grid { grid-template-columns: repeat(2, 1fr) !important; } }
     .metric-card { background-color: transparent; border: 1px solid #3d414b; border-radius: 6px; padding: 8px 5px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0px; }
     .card-label { font-size: 12px; color: #aaaaaa; }
@@ -29,88 +30,69 @@ st.markdown("""
     .plus { color: #ff4b4b; }
     .minus { color: #00f0a8; }
 
-    /* 更新ボタンと日時の位置合わせ (ここを修正) */
-    .align-header-container {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-        height: 32px;
-        margin-top: -38px !important; /* ボタンを日時と同じ高さまで引き上げる */
-        margin-bottom: 5px !important;
-    }
-    
-    .update-timestamp {
-        color: #aaaaaa;
-        font-size: 14px;
-        font-family: monospace;
-        margin-top: 5px; /* テキストの位置をボタンに合わせる微調整 */
-    }
+    /* バックテストサマリー */
+    .summary-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 15px 0; }
+    @media (max-width: 768px) { .summary-container { grid-template-columns: repeat(2, 1fr); } }
+    .summary-box { background-color: #1e2129; border-radius: 6px; padding: 10px 5px; text-align: center; border: 1px solid #2d3139; }
+    .summary-label { font-size: 12px; color: #aaaaaa; margin-bottom: 2px; }
+    .summary-value { font-size: 26px; font-weight: 600; color: #ffffff; }
 
-    /* ボタン自体のサイズ調整 */
-    div[data-testid="stButton"] button {
-        height: 32px !important;
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-        line-height: 32px !important;
-    }
-
-    .ai-box { background-color: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; margin: 10px 0; }
+    .ai-box { background-color: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; margin: 15px 0; }
     div[data-testid="stCheckbox"] label p { font-size: 14px !important; }
     .stSidebar [data-testid="stVerticalBlock"] button { width: 100%; text-align: left; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. マッピング & セッション管理 (230銘柄) ---
+# --- 3. マッピング & セッション管理 ---
+# 日経平均構成銘柄(225) + 指定5銘柄 = 230銘柄リスト
 TICKER_NAME_MAP = {
-    # 水産・食品
-    "1332.T": "ニッスイ", "2002.T": "日清粉G", "2269.T": "明治HD", "2282.T": "日本ハム", "2501.T": "サッポロHD",
-    "2502.T": "アサヒG", "2503.T": "キリンHD", "2801.T": "キッコーマン", "2802.T": "味の素", "2871.T": "ニチレイ", "2914.T": "JT",
-    # 繊維・化学
-    "3101.T": "東洋紡", "3103.T": "ユニチカ", "3401.T": "帝人", "3402.T": "東レ", "3861.T": "王子HD", "3863.T": "日本製紙",
+    "1332.T": "ニッスイ", "1605.T": "INPEX", "1721.T": "コムシスHD", "1801.T": "大成建", "1802.T": "大林組",
+    "1803.T": "清水建", "1808.T": "長谷工", "1812.T": "鹿島", "1925.T": "大和ハウス", "1928.T": "積水ハウス",
+    "1963.T": "日揮HD", "2002.T": "日清粉G", "2269.T": "明治HD", "2282.T": "日本ハム", "2413.T": "エムスリー",
+    "2432.T": "ディーエヌエー", "2501.T": "サッポロHD", "2502.T": "アサヒ", "2503.T": "キリンHD", "2531.T": "宝HD",
+    "2801.T": "キッコーマン", "2802.T": "味の素", "2871.T": "ニチレイ", "2914.T": "ＪＴ", "3086.T": "Ｊフロント",
+    "3092.T": "ＺＯＺＯ", "3099.T": "三越伊勢丹", "3101.T": "東洋紡", "3103.T": "ユニチカ", "3231.T": "野村不動産",
+    "3289.T": "東急不動産", "3382.T": "セブン＆アイ", "3401.T": "帝人", "3402.T": "東レ", "3405.T": "クラレ",
+    "3407.T": "旭化成", "3436.T": "SUMCO", "3659.T": "ネクソン", "3861.T": "王子HD", "3863.T": "日本製紙",
     "4004.T": "レゾナック", "4005.T": "住友化学", "4021.T": "日産化学", "4042.T": "東ソー", "4043.T": "トクヤマ",
     "4061.T": "デンカ", "4063.T": "信越化学", "4151.T": "協和キリン", "4183.T": "三井化学", "4188.T": "三菱ケミＧ",
-    "4208.T": "ＵＢＥ", "4452.T": "花王", "4901.T": "富士フイルム", "4911.T": "資生堂",
-    "4502.T": "武田薬品", "4503.T": "アステラス製薬", "4506.T": "住友ファーマ", "4507.T": "塩野義製薬", "4519.T": "中外製薬",
-    "4523.T": "エーザイ", "4543.T": "テルモ", "4568.T": "第一三共", "4578.T": "大塚ＨＤ",
-    # 石油・ゴム・金属
-    "5019.T": "出光興産", "5020.T": "ＥＮＥＯＳ", "5101.T": "横浜ゴム", "5108.T": "ブリヂストン",
-    "5201.T": "ＡＧＣ", "5202.T": "日本板硝子", "5232.T": "住友大阪セメント", "5233.T": "太平洋セメント", "5301.T": "東海カーボン",
-    "5332.T": "ＴＯＴＯ", "5333.T": "日本碍子", "5401.T": "日本製鉄", "5406.T": "神戸製鋼所", "5411.T": "ＪＦＥ",
-    "5541.T": "大平洋金属", "5631.T": "日本製鋼所", "5706.T": "三井金属", "5711.T": "三菱マテリアル", "5713.T": "住友金属鉱山",
-    "5714.T": "ＤＯＷＡ", "5801.T": "古河電気工業", "5802.T": "住友電気工業", "5803.T": "フジクラ",
-    # 機械・電機
+    "4208.T": "ＵＢＥ", "4307.T": "野村総研", "4324.T": "電通グループ", "4452.T": "花王", "4502.T": "武田薬品",
+    "4503.T": "アステラス製薬", "4506.T": "住友ファーマ", "4507.T": "塩野義製薬", "4519.T": "中外製薬", "4523.T": "エーザイ",
+    "4543.T": "テルモ", "4568.T": "第一三共", "4578.T": "大塚ＨＤ", "4661.T": "ＯＬＣ", "4689.T": "ラインヤフー",
+    "4704.T": "トレンド", "4751.T": "サイバーエージェント", "4755.T": "楽天グループ", "4901.T": "富士フイルム", "4902.T": "コニカミノルタ",
+    "4911.T": "資生堂", "4912.T": "ライオン", "5019.T": "出光興産", "5020.T": "ＥＮＥＯＳ", "5101.T": "横浜ゴム",
+    "5108.T": "ブリヂストン", "5201.T": "ＡＧＣ", "5202.T": "日本板硝子", "5232.T": "住友大阪セメント", "5233.T": "太平洋セメント",
+    "5301.T": "東海カーボン", "5332.T": "ＴＯＴＯ", "5333.T": "日本碍子", "5401.T": "日本製鉄", "5406.T": "神戸製鋼",
+    "5411.T": "ＪＦＥ", "5541.T": "大平洋金属", "5631.T": "日本製鋼所", "5706.T": "三井金属", "5711.T": "三菱マテリアル",
+    "5713.T": "住友金属鉱山", "5714.T": "ＤＯＷＡ", "5801.T": "古河電気工業", "5802.T": "住友電気工業", "5803.T": "フジクラ",
     "6098.T": "リクルート", "6103.T": "オークマ", "6113.T": "アマダ", "6146.T": "ディスコ", "6273.T": "ＳＭＣ",
     "6301.T": "小松製作所", "6302.T": "住友重機械", "6305.T": "日立建機", "6326.T": "クボタ", "6361.T": "荏原製作所",
     "6367.T": "ダイキン工業", "6471.T": "日本精工", "6472.T": "ＮＴＮ", "6473.T": "ジェイテクト", "6479.T": "ミネベアミツミ",
-    "6501.T": "日立", "6503.T": "三菱電機", "6504.T": "富士電機", "6506.T": "安川電機", "6594.T": "ニデック",
-    "6645.T": "オムロン", "6701.T": "日本電気", "6702.T": "富士通", "6723.T": "ルネサス", "6724.T": "セイコーエプソン",
-    "6752.T": "パナソニック", "6753.T": "シャープ", "6758.T": "ソニーグループ", "6762.T": "ＴＤＫ", "6770.T": "アルプスアルパイン",
-    "6841.T": "横河電機", "6857.T": "アドバンテスト", "6902.T": "デンソー", "6920.T": "レーザーテック", "6952.T": "カシオ",
-    "6954.T": "ファナック", "6971.T": "京セラ", "6976.T": "太陽誘電", "6981.T": "村田製作所", "6988.T": "日東電工", "7735.T": "SCREEN",
-    # 輸送・精密
-    "7011.T": "三菱重工業", "7012.T": "川崎重工業", "7013.T": "ＩＨＩ", "7186.T": "横浜ＦＧ", "7201.T": "日産自動車",
-    "7202.T": "いすゞ自動車", "7203.T": "トヨタ自動車", "7205.T": "日野自動車", "7211.T": "三菱自動車工業", "7261.T": "マツダ",
-    "7267.T": "本田技研工業", "7269.T": "スズキ", "7270.T": "ＳＵＢＡＲＵ", "7272.T": "ヤマハ発動機",
-    "7731.T": "ニコン", "7733.T": "オリンパス", "7741.T": "ＨＯＹＡ", "7751.T": "キヤノン", "7752.T": "リコー", "7762.T": "シチズン時計",
-    # 商社・金融・不動産・サービス・通信
-    "1721.T": "コムシスHD", "1801.T": "大成建設", "1802.T": "大林組", "1803.T": "清水建設", "1808.T": "長谷工", "1812.T": "鹿島建設",
-    "1925.T": "大和ハウス", "1928.T": "積水ハウス", "1963.T": "日揮HD", "8001.T": "伊藤忠", "8002.T": "丸紅", "8015.T": "豊田通商",
-    "8031.T": "三井物産", "8035.T": "東京エレクトロン", "8053.T": "住友商事", "8058.T": "三菱商事", "8233.T": "高島屋", "8252.T": "丸井グループ",
-    "8253.T": "クレディセゾン", "8267.T": "イオン", "8304.T": "あおぞら銀行", "8306.T": "三菱ＵＦＪ", "8308.T": "りそなＨＤ",
-    "8309.T": "三井住友トラスト", "8316.T": "三井住友ＦＧ", "8331.T": "千葉銀行", "8354.T": "ふくおかＦＧ", "8411.T": "みずほＦＧ",
-    "8591.T": "オリックス", "8601.T": "大和証券Ｇ", "8604.T": "野村ＨＤ", "8630.T": "ＳＯＭＰＯ", "8725.T": "ＭＳ＆ＡＤ",
-    "8750.T": "第一生命ＨＤ", "8766.T": "東京海上", "8795.T": "Ｔ＆Ｄ", "8801.T": "三井不動産", "8802.T": "三菱地所", "8804.T": "東京建物",
-    "8830.T": "住友不動産", "2413.T": "エムスリー", "2432.T": "ディーエヌエー", "4307.T": "野村総研", "4324.T": "電通グループ",
-    "4661.T": "ＯＬＣ", "4689.T": "ラインヤフー", "4704.T": "トレンド", "4751.T": "サイバーエージェント", "4755.T": "楽天グループ",
-    "9001.T": "東武鉄道", "9005.T": "東急", "9007.T": "小田急電鉄", "9008.T": "京王電鉄", "9009.T": "京成電鉄", "9020.T": "ＪＲ東日本",
-    "9021.T": "ＪＲ西日本", "9022.T": "ＪＲ東海", "9101.T": "日本郵船", "9104.T": "商船三井", "9107.T": "川崎汽船", "9201.T": "日本航空",
-    "9202.T": "ＡＮＡ", "9301.T": "三菱倉庫", "9432.T": "ＮＴＴ", "9433.T": "ＫＤＤＩ", "9434.T": "ソフトバンク", "9501.T": "東電ＨＤ",
-    "9502.T": "中部電力", "9503.T": "関西電力", "9531.T": "東京瓦斯", "9532.T": "大阪瓦斯", "9602.T": "東宝", "9735.T": "セコム",
-    "9766.T": "コナミＧ", "9843.T": "ニトリＨＤ", "9983.T": "ファーストリテイリング", "9984.T": "ソフトバンクグループ", "4062.T": "イビデン",
-    "3697.T": "ＳＨＩＦＴ", "6532.T": "ベイカレント", "9613.T": "ＮＴＴデータ", "6963.T": "ローム", "2768.T": "双日", "5831.T": "しずおかＦＧ",
-    # 指定5銘柄
-    "4403.T": "日油", "6315.T": "TOWA", "6460.T": "セガサミーHLDGS", "7003.T": "三井E&S", "1570.T": "日経レバ"
+    "6501.T": "日立", "6503.T": "三菱電機", "6504.T": "富士電機", "6506.T": "安川電機", "6645.T": "オムロン",
+    "6701.T": "日本電気", "6702.T": "富士通", "6723.T": "ルネサス", "6724.T": "セイコーエプソン", "6752.T": "パナソニック",
+    "6753.T": "シャープ", "6758.T": "ソニーグループ", "6762.T": "ＴＤＫ", "6770.T": "アルプスアルパイン", "6841.T": "横河電機",
+    "6857.T": "アドバンテスト", "6902.T": "デンソー", "6920.T": "レーザーテック", "6952.T": "カシオ", "6954.T": "ファナック",
+    "6971.T": "京セラ", "6976.T": "太陽誘電", "6981.T": "村田製作所", "6988.T": "日東電工", "7011.T": "三菱重工業",
+    "7012.T": "川崎重工業", "7013.T": "ＩＨＩ", "7186.T": "横浜ＦＧ", "7201.T": "日産自動車", "7202.T": "いすゞ自動車",
+    "7203.T": "トヨタ自動車", "7205.T": "日野自動車", "7211.T": "三菱自動車工業", "7261.T": "マツダ", "7267.T": "本田技研工業",
+    "7269.T": "スズキ", "7270.T": "ＳＵＢＡＲＵ", "7272.T": "ヤマハ発動機", "7731.T": "ニコン", "7733.T": "オリンパス",
+    "7735.T": "ＳＣＲＥＥＮ", "7741.T": "ＨＯＹＡ", "7751.T": "キヤノン", "7752.T": "リコー", "7762.T": "シチズン時計",
+    "7832.T": "バンダイナムコ", "7911.T": "ＴＯＰＰＡＮ", "7912.T": "大日本印刷", "7951.T": "ヤマハ", "7974.T": "任天堂",
+    "8001.T": "伊藤忠", "8002.T": "丸紅", "8015.T": "豊田通商", "8031.T": "三井物産", "8035.T": "東京エレクトロン",
+    "8053.T": "住友商事", "8058.T": "三菱商事", "8233.T": "高島屋", "8252.T": "丸井グループ", "8253.T": "クレディセゾン",
+    "8267.T": "イオン", "8304.T": "あおぞら銀行", "8306.T": "三菱ＵＦＪ", "8308.T": "りそなＨＤ", "8309.T": "三井住友トラスト",
+    "8316.T": "三井住友ＦＧ", "8331.T": "千葉銀行", "8354.T": "ふくおかＦＧ", "8411.T": "みずほＦＧ", "8591.T": "オリックス",
+    "8601.T": "大和証券Ｇ", "8604.T": "野村ＨＤ", "8630.T": "ＳＯＭＰＯ", "8725.T": "ＭＳ＆ＡＤ", "8750.T": "第一生命ＨＤ",
+    "8766.T": "東京海上", "8795.T": "Ｔ＆Ｄ", "8801.T": "三井不動産", "8802.T": "三菱地所", "8804.T": "東京建物",
+    "8830.T": "住友不動産", "9001.T": "東武鉄道", "9005.T": "東急", "9007.T": "小田急電鉄", "9008.T": "京王電鉄",
+    "9009.T": "京成電鉄", "9020.T": "ＪＲ東日本", "9021.T": "ＪＲ西日本", "9022.T": "ＪＲ東海", "9101.T": "日本郵船",
+    "9104.T": "商船三井", "9107.T": "川崎汽船", "9201.T": "日本航空", "9202.T": "ＡＮＡ", "9301.T": "三菱倉庫",
+    "9432.T": "ＮＴＴ", "9433.T": "ＫＤＤＩ", "9434.T": "ソフトバンク", "9501.T": "東電ＨＤ", "9502.T": "中部電力",
+    "9503.T": "関西電力", "9531.T": "東京瓦斯", "9532.T": "大阪瓦斯", "9602.T": "東宝", "9735.T": "セコム",
+    "9766.T": "コナミＧ", "9843.T": "ニトリＨＤ", "9983.T": "ファーストリテイリング", "9984.T": "ソフトバンクグループ", "6594.T": "ニデック",
+    "4062.T": "イビデン", "3697.T": "ＳＨＩＦＴ", "6532.T": "ベイカレント", "9613.T": "ＮＴＴデータ", "6963.T": "ローム",
+    "4307.T": "野村総研", "2768.T": "双日", "5831.T": "しずおかＦＧ", "4403.T": "日油", "6315.T": "TOWA",
+    "6460.T": "セガサミーHLDGS", "7003.T": "三井E&S", "1570.T": "日経レバ"
 }
 
 MARKET_INDICES = {
@@ -122,7 +104,7 @@ if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] 
 if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 if 'bt_results' not in st.session_state: st.session_state['bt_results'] = None
 
-# --- 4. 関数定義 (Ver 1.68 ロジックを完全維持) ---
+# --- 4. 関数定義 (Ver 1.68 の計算エンジンを完全維持) ---
 @st.cache_data(ttl=300)
 def fetch_market_info():
     data = {}
@@ -175,7 +157,7 @@ def get_trade_pattern(row, gap_pct):
     elif (gap_pct >= 0.003) and (row['Close'] > row['EMA5']): return "B：押目上昇"
     return "E：他タイプ"
 
-# --- 5. サイドバー ---
+# --- 5. サイドバー (Ver 1.68 構成) ---
 st.sidebar.markdown("### 🎲 戦略プリセット")
 for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェンシブ"), ("RANGE","横ばい相場対応")]:
     is_sel = (st.session_state['preset'] == p)
@@ -209,24 +191,13 @@ ticker_input = st.text_input("🎯 監視銘柄コード", st.session_state['tar
 st.session_state['target_tickers'] = ticker_input
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
 
-# --- タブ1: ワンタッチ (水平位置合わせ版) ---
+# --- タブ1: ワンタッチ (Ver 1.68 復旧 ＆ ボタン移動) ---
 with tab_top:
     jst = timezone(timedelta(hours=9)); now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
     m_data = fetch_market_info()
-    with st.expander("リアルタイム指標", expanded=True):
-        # ボタンと日時を同じ高さに揃えるコンテナ
-        st.markdown(f'''
-            <div class="align-header-container">
-                <div id="btn-spacer"></div>
-                <div class="update-timestamp">{now_jst}</div>
-            </div>
-        ''', unsafe_allow_html=True)
-        
-        # カラムを使ってボタンを左端に配置しつつ、CSSで高さを引き上げる
-        c_btn, c_spacer = st.columns([1, 4])
-        with c_btn:
-            if st.button("🔄 指標更新"): st.cache_data.clear(); st.rerun()
-        
+    # 「🔄 指標更新」ボタンを開閉ボックスの中の上部左端へ移動
+    with st.expander(f"リアルタイム指標 ({now_jst})", expanded=True):
+        if st.button("🔄 指標更新"): st.cache_data.clear(); st.rerun()
         cards_html = '<div class="metric-grid">'
         for n in MARKET_INDICES.keys():
             i = m_data.get(n, {})
@@ -237,7 +208,6 @@ with tab_top:
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
         vix = m_data.get("VIX指数", {}).get("val", 0)
         st.markdown(f'<div class="ai-box"><div style="color:#60a5fa; font-weight:bold;">🤖 AI予測</div><div style="color:#d1d5db; font-size:13px;">VIX指数は {vix:.1f} です。地合いに合わせた戦略を選択してください。</div></div>', unsafe_allow_html=True)
-    
     if st.button("ワンタッチで銘柄スキャン実行", type="primary", use_container_width=True):
         res_list = []; prg = st.progress(0); tks = list(TICKER_NAME_MAP.keys())
         for idx, t in enumerate(tks):
@@ -248,7 +218,7 @@ with tab_top:
             top5 = sorted(res_list, key=lambda x: x['ev'], reverse=True)[:5]
             st.session_state['target_tickers'] = ", ".join([d['code'] for d in top5]); st.rerun()
 
-# --- タブ2: スクリーニング ---
+# --- タブ2: スクリーニング (新規構築用) ---
 with tab_screen:
     st.markdown("<br>", unsafe_allow_html=True)
     s_tabs = st.tabs(["🔍通常フィルタ", "🔍ディフェンシブ", "🔍横ばい相場"])
@@ -256,7 +226,28 @@ with tab_screen:
         with s_tab:
             exp_t = f"🔍 スクリーニング設定 ({['通常', 'ディフェンシブ', '横ばい'][i]})"
             with st.expander(exp_t, expanded=True):
-                st.info("条件設定パラメーターがここに表示されます。")
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    st.checkbox("業種", True, key=f"c1_{i}"); st.multiselect("業種選択", ["情報・通信", "電気機器", "銀行業"], key=f"v1_{i}"); st.divider()
+                    st.checkbox("売買代金", True, key=f"c2_{i}"); st.number_input("億円以上", 10.0, key=f"v2_{i}"); st.divider()
+                    st.checkbox("平均値幅 (ATR%)", True, key=f"c3_{i}"); st.slider("最小%", 0.5, 5.0, 1.5, key=f"v3_{i}"); st.divider()
+                    st.checkbox("時価総額", True, key=f"c4_{i}"); st.number_input("億円以上 (総額)", 500, key=f"v4_{i}"); st.divider()
+                    st.checkbox("株価の範囲", True, key=f"c5_{i}"); st.slider("価格(円)", 100, 10000, (500, 5000), key=f"v5_{i}"); st.divider()
+                    st.checkbox("25日移動平均乖離率", True, key=f"c6_{i}"); st.slider("乖離%", -20.0, 20.0, (-5.0, 5.0), key=f"v6_{i}"); st.divider()
+                with c2:
+                    st.checkbox("出来高", True, key=f"c7_{i}"); st.number_input("万株以上", 10, key=f"v7_{i}"); st.divider()
+                    st.checkbox("移動平均上抜け", False, key=f"c8_{i}"); st.selectbox("MA種類", ["5日線", "25日線", "75日線"], key=f"v8_{i}"); st.divider()
+                    st.checkbox("信用倍率", True, key=f"c9_{i}"); st.number_input("倍率以下", 10.0, key=f"v9_{i}"); st.divider()
+                    st.checkbox("PER (株価収益率)", True, key=f"c10_{i}"); st.slider("PER範囲", 0.0, 100.0, (10.0, 30.0), key=f"v10_{i}"); st.divider()
+                    st.checkbox("EMA (9日・21日)", False, key=f"c11_{i}"); st.multiselect("EMA条件", ["9日上抜け", "21日上抜け"], key=f"v11_{i}"); st.divider()
+                    st.checkbox("ADX (方向性指数)", True, key=f"c12_{i}"); st.slider("強度スコア", 0, 100, 25, key=f"v12_{i}"); st.divider()
+                with c3:
+                    st.checkbox("ATR (最小値幅)", True, key=f"c13_{i}"); st.number_input("円単位", 10.0, key=f"v13_{i}"); st.divider()
+                    st.checkbox("RCI (順位相関計数)", False, key=f"c14_{i}"); st.slider("9日RCI", -100, 100, 0, key=f"v14_{i}"); st.divider()
+                    st.checkbox("RSI (14日)", True, key=f"c15_{i}"); st.slider("RSIレンジ", 0, 100, (30, 70), key=f"v15_{i}"); st.divider()
+                    st.checkbox("ボリンジャーバンド", False, key=f"c16_{i}"); st.slider("σ範囲", -3.0, 3.0, (1.0, 2.0), step=0.1, key=f"v16_{i}"); st.divider()
+                    st.checkbox("コンセンサス", True, key=f"c17_{i}"); st.select_slider("メモリ", options=[0,1,2,3,4,5], value=3, key=f"v17_{i}"); st.divider()
+                    st.checkbox("出来高増加率", True, key=f"c18_{i}"); st.slider("前日比倍", 1.0, 5.0, 1.2, key=f"v18_{i}"); st.divider()
             st.button("スクリーニング実行", key=f"run_s_{i}", type="primary", use_container_width=True)
 
 # --- タブ3: バックテスト (Ver 1.68 ロジックを完全維持) ---
