@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, time, timezone
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. カスタムCSS (Ver 1.81 デザイン完全維持) ---
+# --- 2. カスタムCSS (Ver 1.81 デザイン完全継承) ---
 st.markdown("""
     <style>
     .main-title { font-weight: 400 !important; font-size: 46px !important; margin: 0 !important; padding: 0 !important; line-height: 1.1; }
@@ -32,8 +32,6 @@ st.markdown("""
     .ai-box { background-color: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; margin: 15px 0; }
     div[data-testid="stCheckbox"] label p { font-size: 14px !important; }
     .stSidebar [data-testid="stVerticalBlock"] button { width: 100%; text-align: left; }
-    
-    /* リセットボタンコンテナ用 */
     .reset-btn-container { margin-top: 15px; padding-top: 10px; border-top: 1px solid #3d414b; }
     </style>
     """, unsafe_allow_html=True)
@@ -90,11 +88,12 @@ TICKER_NAME_MAP = {
     "4403.T": "日油", "6315.T": "TOWA", "6460.T": "セガサミーHLDGS", "7003.T": "三井E&S", "1570.T": "日経レバ"
 }
 
-# 初回起動時に全設定値をセッションに登録 (エラー対策の要)
+# 初期化ループ
 for i in range(3):
     for k, v in SCREENING_DEFAULTS[i].items():
-        if f"scr_{i}_{k}" not in st.session_state:
-            st.session_state[f"scr_{i}_{k}"] = v
+        skey = f"scr_{i}_{k}"
+        if skey not in st.session_state:
+            st.session_state[skey] = v
 
 TICKER_NAME_MAP = {
     # 水産・食品 (不足分はGitHubにて入力してください)
@@ -187,12 +186,12 @@ tp_val = st.sidebar.number_input("下がったら成行注文 (%)", 0.1, 5.0, 0.
 sl_val = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7, step=0.05) / 100
 
 # --- 6. メインレイアウト ---
-st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 1.84</h3></div>", unsafe_allow_html=True)
+st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 1.85</h3></div>", unsafe_allow_html=True)
 ticker_input = st.text_input("🎯 監視銘柄コード", st.session_state['target_tickers'])
 st.session_state['target_tickers'] = ticker_input
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
 
-# --- タブ1: ワンタッチ (Ver 1.81 の手動修正を完全固定) ---
+# --- タブ1: ワンタッチ (Ver 1.81 UIを100%固定) ---
 with tab_top:
     jst = timezone(timedelta(hours=9)); now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
     m_data = fetch_market_info()
@@ -208,7 +207,7 @@ with tab_top:
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
         vix = m_data.get("VIX指数", {}).get("val", 0)
         st.markdown(f'<div class="ai-box"><div style="color:#60a5fa; font-weight:bold;">🤖 AI予測</div><div style="color:#d1d5db; font-size:13px;">VIX指数は {vix:.1f} です。地合いに合わせた戦略を選択してください。</div></div>', unsafe_allow_html=True)
-    if st.button("ワンタッチで銘柄スキャン実行", type="primary", use_container_width=True):
+    if st.button("ワンタッチで銘柄スキャン", type="primary", use_container_width=True):
         res_list = []; prg = st.progress(0); tks = list(TICKER_NAME_MAP.keys())
         for idx, t in enumerate(tks):
             prg.progress((idx + 1) / len(tks))
@@ -218,7 +217,7 @@ with tab_top:
             top5 = sorted(res_list, key=lambda x: x['ev'], reverse=True)[:5]
             st.session_state['target_tickers'] = ", ".join([d['code'] for d in top5]); st.rerun()
 
-# --- タブ2: スクリーニング (リセットボタン搭載・エラー対策済) ---
+# --- タブ2: スクリーニング (リセット機能 ＆ エラー修正) ---
 with tab_screen:
     st.markdown("<br>", unsafe_allow_html=True)
     s_tabs = st.tabs(["🔍通常フィルタ", "🔍ディフェンシブ", "🔍横ばい相場"])
@@ -233,44 +232,53 @@ with tab_screen:
                 with c1:
                     st.checkbox("**株価の範囲**", True, key=f"c_p_{i}")
                     st.caption("予算に合わせたフィルタリング")
-                    st.slider("価格(円)", 100, 10000, key=f"scr_{i}_price"); st.divider()
+                    st.slider("価格(円)", 100, 10000, key=f"scr_{i}_price")
+                    
                     st.checkbox("**売買代金**", True, key=f"c_v_{i}")
                     st.caption("株価 × 出来高")
-                    st.number_input("億円以上", key=f"scr_{i}_val_min"); st.divider()
+                    st.number_input("億円以上", key=f"scr_{i}_val_min")
+                    
                     st.checkbox("**平均値幅 (ATR%)**", True, key=f"c_atrp_{i}")
                     st.caption("ボラティリティの強さ")
-                    st.slider("期待範囲%", 0.5, 5.0, key=f"scr_{i}_atr_p"); st.divider()
+                    st.slider("期待範囲%", 0.5, 5.0, key=f"scr_{i}_atr_p")
+                    
                     st.checkbox("**移動平均上抜け/並び**", True, key=f"c_ma_{i}")
                     st.caption("5MA/10MA/25MAの相関")
-                    st.selectbox("条件選択", ma_opts, index=ma_opts.index(st.session_state[f"scr_{i}_ma_opt"]), key=f"sel_ma_{i}"); st.divider()
+                    st.selectbox("条件選択", ma_opts, index=ma_opts.index(st.session_state[f"scr_{i}_ma_opt"]), key=f"sel_ma_{i}")
                 with c2:
                     st.checkbox("**EMA (9日・21日)**", True, key=f"c_ema_{i}")
                     st.caption("直近の価格トレンド")
-                    st.selectbox("EMA基準", ema_opts, index=ema_opts.index(st.session_state[f"scr_{i}_ema_opt"]), key=f"sel_ema_{i}"); st.divider()
+                    st.selectbox("EMA基準", ema_opts, index=ema_opts.index(st.session_state[f"scr_{i}_ema_opt"]), key=f"sel_ema_{i}")
+                    
                     st.checkbox("**ADX (方向性指数)**", True, key=f"c_adx_{i}")
                     st.caption("トレンドの強弱")
-                    st.slider("強度スコア", 0, 100, key=f"scr_{i}_adx"); st.divider()
+                    st.slider("強度スコア", 0, 100, key=f"scr_{i}_adx")
+                    
                     st.checkbox("**RCI (順位相関計数)**", True, key=f"c_rci_{i}")
                     st.caption("価格の過熱感：カスタム計算")
-                    st.slider("RCI範囲", -100, 100, key=f"scr_{i}_rci"); st.divider()
+                    st.slider("RCI範囲", -100, 100, key=f"scr_{i}_rci")
+                    
                     st.checkbox("**RSI (14日)**", True, key=f"c_rsi_{i}")
                     st.caption("相対的な買われすぎ・売られすぎ")
-                    st.slider("RSIレンジ", 0, 100, key=f"scr_{i}_rsi"); st.divider()
+                    st.slider("RSIレンジ", 0, 100, key=f"scr_{i}_rsi")
                 with c3:
                     st.checkbox("**出来高**", True, key=f"c_vol_{i}")
                     st.caption("最低限の流動性確保")
-                    st.number_input("万株以上", key=f"scr_{i}_vol_min"); st.divider()
+                    st.number_input("万株以上", key=f"scr_{i}_vol_min")
+                    
                     st.checkbox("**出来高増加率**", True, key=f"c_vup_{i}")
                     st.caption("前日比での注目度アップ")
-                    st.slider("増加倍率", 1.0, 5.0, key=f"scr_{i}_vup_min"); st.divider()
+                    st.slider("増加倍率", 1.0, 5.0, key=f"scr_{i}_vup_min")
+                    
                     st.checkbox("**25日移動平均乖離率**", True, key=f"c_ma25_{i}")
                     st.caption("中長期トレンドからの乖離")
-                    st.slider("偏差%", -20.0, 20.0, key=f"scr_{i}_ma25_p"); st.divider()
+                    st.slider("偏差%", -20.0, 20.0, key=f"scr_{i}_ma25_p")
+                    
                     st.checkbox("**ボリンジャーバンド**", True, key=f"c_bb_{i}")
                     st.caption("α範囲による逆張り・順張り目安")
-                    st.slider("σ範囲", -3.0, 3.0, step=0.1, key=f"scr_{i}_bb_p"); st.divider()
+                    st.slider("σ範囲", -3.0, 3.0, step=0.1, key=f"scr_{i}_bb_p")
 
-                # 【修正】リセットボタン：セッション状態を書き換えてから st.rerun()
+                # 【リセットボタン】セッション値を上書きして再描画
                 st.markdown('<div class="reset-btn-container">', unsafe_allow_html=True)
                 if st.button("初期設定値に戻す", key=f"reset_btn_{i}", use_container_width=True):
                     for k, v in SCREENING_DEFAULTS[i].items():
