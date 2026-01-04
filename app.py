@@ -20,12 +20,20 @@ st.markdown("""
     [data-testid="stDataFrame"] { font-size: 13px !important; }
     [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th { text-align: left !important; }
 
-　　 /* 【修正箇所】小見出し（チェックボックスのラベル）のフォントサイズを強制拡大 */
-    div[data-testid="stCheckbox"] label span p, 
+　　 /* 【修正箇所】スクリーニング項目の小見出しを強制的に巨大化・太字化 */
     div[data-testid="stCheckbox"] label p {
-        font-size: 18px !important; /* さらに大きく18pxに設定 */
+        font-size: 20px !important;
         font-weight: 800 !important;
-        color: #ffffff !important; }
+        color: #ffffff !important;
+        margin-bottom: -5px !important;
+    }
+    /* 説明文（caption）の調整 */
+    div[data-testid="stCaptionContainer"] {
+        font-size: 14px !important;
+        color: #bbbbbb !important;
+        margin-top: -10px !important;
+        margin-bottom: 10px !important;
+    }
 
     /* リアルタイム指標カード */
     .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; margin-top: 15px; }
@@ -37,8 +45,13 @@ st.markdown("""
     .plus { color: #ff4b4b; }
     .minus { color: #00f0a8; }
 
-    /* リセットボタン用の特別なスタイル */
-    .reset-btn-container { margin-top: 20px; padding-top: 10px; border-top: 1px solid #3d414b; }
+    .align-header-container { display: flex; justify-content: space-between; align-items: center; width: 100%; height: 32px; margin-top: -38px !important; margin-bottom: 5px !important; }
+    .update-timestamp { color: #aaaaaa; font-size: 14px; font-family: monospace; margin-top: 5px; }
+    
+    div[data-testid="stButton"] button { height: 32px !important; padding-top: 0 !important; padding-bottom: 0 !important; line-height: 32px !important; }
+
+    /* リセットボタンコンテナ */
+    .reset-area { padding: 15px; background-color: #1e2129; border-radius: 8px; border: 1px solid #3d414b; margin-top: 10px; }
 
     /* バックテストサマリー */
     .summary-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 15px 0; }
@@ -108,6 +121,13 @@ TICKER_NAME_MAP = {
 MARKET_INDICES = {
     "日経平均": "^N225", "日経先物(CME)": "NIY=F", "ドル/円": "JPY=X", "NYダウ30種": "^DJI",
     "原油先物(WTI)": "CL=F", "Gold先物(COMEX)": "GC=F", "VIX指数": "^VIX", "SOX指数": "^SOX"
+}
+
+# 【修正箇所】スクリーニング初期値の定数を定義 (NameError 対策)
+SCREENING_DEFAULTS = {
+    0: {"price": (500, 5000), "val_min": 50.0, "atr_p": (2.0, 4.0), "ma_opt": 0, "ema_opt": 0, "adx": (25, 40), "rci": (20, 80), "rsi": (55, 70), "vol_min": 10, "vup_min": 1.3, "ma25_p": (0.0, 7.0), "bb_p": (1.0, 2.0)},
+    1: {"price": (500, 5000), "val_min": 300.0, "atr_p": (1.0, 2.5), "ma_opt": 2, "ema_opt": 1, "adx": (10, 20), "rci": (-20, 30), "rsi": (40, 55), "vol_min": 20, "vup_min": 1.1, "ma25_p": (-3.0, 2.0), "bb_p": (-1.0, 0.0)},
+    2: {"price": (500, 5000), "val_min": 200.0, "atr_p": (1.2, 2.5), "ma_opt": 3, "ema_opt": 2, "adx": (10, 20), "rci": (-30, 30), "rsi": (45, 55), "vol_min": 10, "vup_min": 1.2, "ma25_p": (-2.0, 3.0), "bb_p": (1.0, 2.0)}
 }
 
 if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "7203.T"
@@ -235,15 +255,12 @@ with tab_screen:
     
     for i, s_tab in enumerate(s_tabs):
         with s_tab:
-            exp_t = f"🔍 スクリーニング設定 ({['通常', 'ディフェンシブ', '横ばい'][i]})"
-            
-            # 【追加】初期値リセット用セッション管理
-            for key, val in SCREENING_DEFAULTS[i].items():
-                skey = f"scr_{i}_{key}"
-                if skey not in st.session_state:
-                    st.session_state[skey] = val
+            # セッション状態の初期化
+            for k, v in SCREENING_DEFAULTS[i].items():
+                skey = f"scr_{i}_{k}"
+                if skey not in st.session_state: st.session_state[skey] = v
 
-            with st.expander(exp_t, expanded=True):
+            with st.expander(f"🔍 スクリーニング設定 ({['通常', 'ディフェンシブ', '横ばい'][i]})", expanded=True):
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     st.checkbox("**株価の範囲**", True, key=f"c_p_{i}")
@@ -287,8 +304,8 @@ with tab_screen:
                     st.caption("α範囲による逆張り・順張り目安")
                     st.slider("σ範囲", -3.0, 3.0, step=0.1, key=f"scr_{i}_bb_p"); st.divider()
                 
-                # 【追加】初期設定値に戻すボタン
-                st.markdown('<div class="reset-btn-container">', unsafe_allow_html=True)
+                # 初期設定値に戻すボタン
+                st.markdown('<div class="reset-area">', unsafe_allow_html=True)
                 if st.button("初期設定値に戻す", key=f"reset_btn_{i}", use_container_width=True):
                     for key, val in SCREENING_DEFAULTS[i].items():
                         st.session_state[f"scr_{i}_{key}"] = val
