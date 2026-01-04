@@ -197,7 +197,7 @@ with tab_top:
     m_data = fetch_market_info()
     # 「🔄 指標更新」ボタンを開閉ボックスの中の上部左端へ移動
     with st.expander(f"🕒 指標ウォッチ ▶︎ ({now_jst})", expanded=True):
-        if st.button("🔄 リアルタイム指標更新"): st.cache_data.clear(); st.rerun()
+        if st.button("🔄 リアルタイム更新"): st.cache_data.clear(); st.rerun()
         cards_html = '<div class="metric-grid">'
         for n in MARKET_INDICES.keys():
             i = m_data.get(n, {})
