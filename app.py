@@ -20,6 +20,12 @@ st.markdown("""
     [data-testid="stDataFrame"] { font-size: 13px !important; }
     [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th { text-align: left !important; }
 
+    /* スクリーニング項目の小見出しフォントサイズを大きくする */
+    div[data-testid="stCheckbox"] label p {
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: #ffffff !important; }
+
     /* リアルタイム指標カード */
     .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; margin-top: 15px; }
     @media (max-width: 640px) { .metric-grid { grid-template-columns: repeat(2, 1fr) !important; } }
@@ -186,7 +192,7 @@ tp_val = st.sidebar.number_input("下がったら成行注文 (%)", 0.1, 5.0, 0.
 sl_val = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7, step=0.05) / 100
 
 # --- 6. メインレイアウト ---
-st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 1.81</h3></div>", unsafe_allow_html=True)
+st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 1.82</h3></div>", unsafe_allow_html=True)
 ticker_input = st.text_input("🎯 監視銘柄コード", st.session_state['target_tickers'])
 st.session_state['target_tickers'] = ticker_input
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
@@ -196,7 +202,7 @@ with tab_top:
     jst = timezone(timedelta(hours=9)); now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
     m_data = fetch_market_info()
     # 「🔄 指標更新」ボタンを開閉ボックスの中の上部左端へ移動
-    with st.expander(f"🕒 指標ウォッチ ▶︎ ({now_jst})", expanded=True):
+    with st.expander(f"🕒 指標チェック ▶︎ ({now_jst})", expanded=True):
         if st.button("🔄 リアルタイム更新"): st.cache_data.clear(); st.rerun()
         cards_html = '<div class="metric-grid">'
         for n in MARKET_INDICES.keys():
@@ -218,7 +224,7 @@ with tab_top:
             top5 = sorted(res_list, key=lambda x: x['ev'], reverse=True)[:5]
             st.session_state['target_tickers'] = ", ".join([d['code'] for d in top5]); st.rerun()
 
-# --- タブ2: スクリーニング (12軸リスト統合) ---
+# --- タブ2: スクリーニング (12軸リスト修正版) ---
 with tab_screen:
     st.markdown("<br>", unsafe_allow_html=True)
     s_tabs = st.tabs(["🔍通常フィルタ", "🔍ディフェンシブ", "🔍横ばい相場"])
@@ -248,7 +254,7 @@ with tab_screen:
                     st.selectbox("EMA基準", ema_opts, index=0 if i==0 else 1 if i==1 else 2, key=f"v_ema_{i}"); st.divider()
                     st.checkbox("**ADX (方向性指数)**", True, key=f"c_adx_{i}")
                     st.caption("トレンドの強弱")
-                    st.slider("強度スコア", 0, 100, 25 if i==0 else 10 if i==1 else 10, key=f"v_adx_{i}"); st.divider()
+                    st.slider("強度スコア", 0, 100, (25, 40) if i==0 else (10, 20), key=f"v_adx_{i}"); st.divider()
                     st.checkbox("**RCI (順位相関計数)**", True, key=f"c_rci_{i}")
                     st.caption("価格の過熱感：カスタム計算")
                     st.slider("RCI範囲", -100, 100, (20, 80) if i==0 else (-20, 30) if i==1 else (-30, 30), key=f"v_rci_{i}"); st.divider()
@@ -256,18 +262,18 @@ with tab_screen:
                     st.caption("相対的な買われすぎ・売られすぎ")
                     st.slider("RSIレンジ", 0, 100, (55, 70) if i==0 else (40, 55) if i==1 else (45, 55), key=f"v_rsi_{i}"); st.divider()
                 with c3:
-                    st.checkbox("**ボリンジャーバンド**", True, key=f"c_bb_{i}")
-                    st.caption("α範囲による逆張り・順張り目安")
-                    st.slider("σ範囲", -3.0, 3.0, (1.0, 2.0) if i==0 else (-1.0, 0.0) if i==1 else (1.0, 2.0), step=0.1, key=f"v_bb_{i}"); st.divider()
+                    st.checkbox("**出来高**", True, key=f"c_vol_{i}") # 位置変更
+                    st.caption("最低限の流動性確保")
+                    st.number_input("万株以上", 10 if i==0 else 20 if i==1 else 10, key=f"v_vol_{i}"); st.divider()
                     st.checkbox("**出来高増加率**", True, key=f"c_vup_{i}")
                     st.caption("前日比での注目度アップ")
                     st.slider("増加倍率", 1.0, 5.0, 1.3 if i==0 else 1.1 if i==1 else 1.2, key=f"v_vup_{i}"); st.divider()
                     st.checkbox("**25日移動平均乖離率**", True, key=f"c_ma25_{i}")
                     st.caption("中長期トレンドからの乖離")
                     st.slider("偏差%", -20.0, 20.0, (0.0, 7.0) if i==0 else (-3.0, 2.0) if i==1 else (-2.0, 3.0), key=f"v_ma25_{i}"); st.divider()
-                    st.checkbox("**出来高**", True, key=f"c_vol_{i}")
-                    st.caption("最低限の流動性確保")
-                    st.number_input("万株以上", 10 if i==0 else 20 if i==1 else 10, key=f"v_vol_{i}"); st.divider()
+                    st.checkbox("**ボリンジャーバンド**", True, key=f"c_bb_{i}") # 位置変更
+                    st.caption("α範囲による逆張り・順張り目安")
+                    st.slider("σ範囲", -3.0, 3.0, (1.0, 2.0) if i==0 else (-1.0, 0.0) if i==1 else (1.0, 2.0), step=0.1, key=f"v_bb_{i}"); st.divider()
             st.button("スクリーニング実行", key=f"run_s_{i}", type="primary", use_container_width=True)
 
 # --- タブ3: バックテスト (Ver 1.68 ロジックを完全維持) ---
