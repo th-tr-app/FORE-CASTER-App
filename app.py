@@ -10,14 +10,18 @@ from datetime import datetime, timedelta, time, timezone
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. カスタムCSS (デザイン完全継承) ---
+# --- 2. カスタムCSS (Ver 1.68 デザインを完全継承) ---
 st.markdown("""
     <style>
     .main-title { font-weight: 400 !important; font-size: 46px !important; margin: 0 !important; padding: 0 !important; line-height: 1.1; }
-    .sub-title { font-weight: 300 !important; font-size: 20px !important; margin: 0 0 10px 0 !important; padding: 0 !important; color: #aaaaaa !important; line-height: 1.1; }
+    .sub-title { font-weight: 300 !important; font-size: 20px !important; margin: 0 !important; padding: 0 !important; color: #aaaaaa !important; line-height: 1.1; }
+    
+    /* 表全体のフォントサイズと左揃え */
     [data-testid="stDataFrame"] { font-size: 13px !important; }
     [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th { text-align: left !important; }
-    .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; margin-top: 5px; }
+
+    /* リアルタイム指標カード */
+    .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; margin-top: 15px; }
     @media (max-width: 640px) { .metric-grid { grid-template-columns: repeat(2, 1fr) !important; } }
     .metric-card { background-color: transparent; border: 1px solid #3d414b; border-radius: 6px; padding: 8px 5px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0px; }
     .card-label { font-size: 12px; color: #aaaaaa; }
@@ -25,15 +29,15 @@ st.markdown("""
     .delta-badge { font-size: 16px; font-weight: 600; padding: 0; margin-top: 2px; }
     .plus { color: #ff4b4b; }
     .minus { color: #00f0a8; }
-    .align-header-container { display: flex; justify-content: space-between; align-items: center; width: 100%; height: 32px; margin-top: -38px !important; margin-bottom: 5px !important; }
-    .update-timestamp { color: #aaaaaa; font-size: 14px; font-family: monospace; margin-top: 5px; }
-    div[data-testid="stButton"] button { height: 32px !important; padding-top: 0 !important; padding-bottom: 0 !important; line-height: 32px !important; }
+
+    /* バックテストサマリー */
     .summary-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 15px 0; }
     @media (max-width: 768px) { .summary-container { grid-template-columns: repeat(2, 1fr); } }
     .summary-box { background-color: #1e2129; border-radius: 6px; padding: 10px 5px; text-align: center; border: 1px solid #2d3139; }
     .summary-label { font-size: 12px; color: #aaaaaa; margin-bottom: 2px; }
     .summary-value { font-size: 26px; font-weight: 600; color: #ffffff; }
-    .ai-box { background-color: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; margin: 10px 0; }
+
+    .ai-box { background-color: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; margin: 15px 0; }
     div[data-testid="stCheckbox"] label p { font-size: 14px !important; }
     .stSidebar [data-testid="stVerticalBlock"] button { width: 100%; text-align: left; }
     </style>
@@ -41,19 +45,23 @@ st.markdown("""
 
 # --- 3. マッピング & セッション管理 (230銘柄) ---
 TICKER_NAME_MAP = {
+    # 水産・食品
     "1332.T": "ニッスイ", "2002.T": "日清粉G", "2269.T": "明治HD", "2282.T": "日本ハム", "2501.T": "サッポロHD",
     "2502.T": "アサヒG", "2503.T": "キリンHD", "2801.T": "キッコーマン", "2802.T": "味の素", "2871.T": "ニチレイ", "2914.T": "JT",
+    # 繊維・化学
     "3101.T": "東洋紡", "3103.T": "ユニチカ", "3401.T": "帝人", "3402.T": "東レ", "3861.T": "王子HD", "3863.T": "日本製紙",
     "4004.T": "レゾナック", "4005.T": "住友化学", "4021.T": "日産化学", "4042.T": "東ソー", "4043.T": "トクヤマ",
     "4061.T": "デンカ", "4063.T": "信越化学", "4151.T": "協和キリン", "4183.T": "三井化学", "4188.T": "三菱ケミＧ",
     "4208.T": "ＵＢＥ", "4452.T": "花王", "4901.T": "富士フイルム", "4911.T": "資生堂",
     "4502.T": "武田薬品", "4503.T": "アステラス製薬", "4506.T": "住友ファーマ", "4507.T": "塩野義製薬", "4519.T": "中外製薬",
     "4523.T": "エーザイ", "4543.T": "テルモ", "4568.T": "第一三共", "4578.T": "大塚ＨＤ",
+    # 石油・ゴム・金属
     "5019.T": "出光興産", "5020.T": "ＥＮＥＯＳ", "5101.T": "横浜ゴム", "5108.T": "ブリヂストン",
     "5201.T": "ＡＧＣ", "5202.T": "日本板硝子", "5232.T": "住友大阪セメント", "5233.T": "太平洋セメント", "5301.T": "東海カーボン",
     "5332.T": "ＴＯＴＯ", "5333.T": "日本碍子", "5401.T": "日本製鉄", "5406.T": "神戸製鋼所", "5411.T": "ＪＦＥ",
     "5541.T": "大平洋金属", "5631.T": "日本製鋼所", "5706.T": "三井金属", "5711.T": "三菱マテリアル", "5713.T": "住友金属鉱山",
     "5714.T": "ＤＯＷＡ", "5801.T": "古河電気工業", "5802.T": "住友電気工業", "5803.T": "フジクラ",
+    # 機械・電機
     "6098.T": "リクルート", "6103.T": "オークマ", "6113.T": "アマダ", "6146.T": "ディスコ", "6273.T": "ＳＭＣ",
     "6301.T": "小松製作所", "6302.T": "住友重機械", "6305.T": "日立建機", "6326.T": "クボタ", "6361.T": "荏原製作所",
     "6367.T": "ダイキン工業", "6471.T": "日本精工", "6472.T": "ＮＴＮ", "6473.T": "ジェイテクト", "6479.T": "ミネベアミツミ",
@@ -62,10 +70,12 @@ TICKER_NAME_MAP = {
     "6752.T": "パナソニック", "6753.T": "シャープ", "6758.T": "ソニーグループ", "6762.T": "ＴＤＫ", "6770.T": "アルプスアルパイン",
     "6841.T": "横河電機", "6857.T": "アドバンテスト", "6902.T": "デンソー", "6920.T": "レーザーテック", "6952.T": "カシオ",
     "6954.T": "ファナック", "6971.T": "京セラ", "6976.T": "太陽誘電", "6981.T": "村田製作所", "6988.T": "日東電工", "7735.T": "SCREEN",
+    # 輸送・精密
     "7011.T": "三菱重工業", "7012.T": "川崎重工業", "7013.T": "ＩＨＩ", "7186.T": "横浜ＦＧ", "7201.T": "日産自動車",
     "7202.T": "いすゞ自動車", "7203.T": "トヨタ自動車", "7205.T": "日野自動車", "7211.T": "三菱自動車工業", "7261.T": "マツダ",
     "7267.T": "本田技研工業", "7269.T": "スズキ", "7270.T": "ＳＵＢＡＲＵ", "7272.T": "ヤマハ発動機",
     "7731.T": "ニコン", "7733.T": "オリンパス", "7741.T": "ＨＯＹＡ", "7751.T": "キヤノン", "7752.T": "リコー", "7762.T": "シチズン時計",
+    # 商社・金融・不動産・サービス・通信
     "1721.T": "コムシスHD", "1801.T": "大成建設", "1802.T": "大林組", "1803.T": "清水建設", "1808.T": "長谷工", "1812.T": "鹿島建設",
     "1925.T": "大和ハウス", "1928.T": "積水ハウス", "1963.T": "日揮HD", "8001.T": "伊藤忠", "8002.T": "丸紅", "8015.T": "豊田通商",
     "8031.T": "三井物産", "8035.T": "東京エレクトロン", "8053.T": "住友商事", "8058.T": "三菱商事", "8233.T": "高島屋", "8252.T": "丸井グループ",
@@ -81,16 +91,20 @@ TICKER_NAME_MAP = {
     "9502.T": "中部電力", "9503.T": "関西電力", "9531.T": "東京瓦斯", "9532.T": "大阪瓦斯", "9602.T": "東宝", "9735.T": "セコム",
     "9766.T": "コナミＧ", "9843.T": "ニトリＨＤ", "9983.T": "ファーストリテイリング", "9984.T": "ソフトバンクグループ", "4062.T": "イビデン",
     "3697.T": "ＳＨＩＦＴ", "6532.T": "ベイカレント", "9613.T": "ＮＴＴデータ", "6963.T": "ローム", "2768.T": "双日", "5831.T": "しずおかＦＧ",
+    # 指定5銘柄
     "4403.T": "日油", "6315.T": "TOWA", "6460.T": "セガサミーHLDGS", "7003.T": "三井E&S", "1570.T": "日経レバ"
 }
 
-MARKET_INDICES = {"日経平均": "^N225", "日経先物(CME)": "NIY=F", "ドル/円": "JPY=X", "NYダウ30種": "^DJI", "原油先物(WTI)": "CL=F", "Gold先物(COMEX)": "GC=F", "VIX指数": "^VIX", "SOX指数": "^SOX"}
+MARKET_INDICES = {
+    "日経平均": "^N225", "日経先物(CME)": "NIY=F", "ドル/円": "JPY=X", "NYダウ30種": "^DJI",
+    "原油先物(WTI)": "CL=F", "Gold先物(COMEX)": "GC=F", "VIX指数": "^VIX", "SOX指数": "^SOX"
+}
 
 if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "7203.T"
 if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 if 'bt_results' not in st.session_state: st.session_state['bt_results'] = None
 
-# --- 4. 関数定義 (計算エンジン維持) ---
+# --- 4. 関数定義 (Ver 1.68 の計算エンジンを完全維持) ---
 @st.cache_data(ttl=300)
 def fetch_market_info():
     data = {}
@@ -107,7 +121,7 @@ def fetch_market_info():
 def fetch_daily_stats_maps(ticker, start):
     try:
         d_start = start - timedelta(days=30)
-        df = yf.download(ticker, start=d_start, interval="1d", progress=False, auto_adjust=False)
+        df = yf.download(ticker, start=d_start, interval="1d", progress=False, multi_level_index=False, auto_adjust=False)
         if df.empty: return {}, {}
         df.index = df.index.tz_convert('Asia/Tokyo') if df.index.tzinfo else df.index.tz_localize('UTC').tz_convert('Asia/Tokyo')
         return {d.strftime('%Y-%m-%d'): c for d, c in zip(df.index, df['Close'].shift(1)) if pd.notna(c)}, {d.strftime('%Y-%m-%d'): o for d, o in zip(df.index, df['Open']) if pd.notna(o)}
@@ -115,7 +129,7 @@ def fetch_daily_stats_maps(ticker, start):
 
 def run_scan_engine(ticker, days_back, entry_start, entry_end, use_vwap):
     try:
-        df = yf.download(ticker, period="1mo", interval="5m", progress=False, auto_adjust=False)
+        df = yf.download(ticker, period="1mo", interval="5m", progress=False, multi_level_index=False, auto_adjust=False)
         if df.empty: return None
         df.index = df.index.tz_convert('Asia/Tokyo')
         pnls = []
@@ -126,10 +140,12 @@ def run_scan_engine(ticker, days_back, entry_start, entry_end, use_vwap):
             in_pos = False
             for ts, row in day.iterrows():
                 if not in_pos and entry_start <= ts.time() <= entry_end:
-                    if not use_vwap or (row['Close'] > row['VWAP']): entry_p = row['Close'] * 1.0003; in_pos = True
+                    if not use_vwap or (row['Close'] > row['VWAP']):
+                        entry_p = row['Close'] * 1.0003; in_pos = True
                 elif in_pos:
                     if row['Low'] <= entry_p * 0.992 or ts.time() >= time(14, 55):
-                        exit_p = row['Close'] * 0.9997; pnls.append((exit_p - entry_p) / entry_p); in_pos = False; break
+                        exit_p = row['Close'] * 0.9997
+                        pnls.append((exit_p - entry_p) / entry_p); in_pos = False; break
         return np.mean(pnls) if pnls else None
     except: return None
 
@@ -141,7 +157,7 @@ def get_trade_pattern(row, gap_pct):
     elif (gap_pct >= 0.003) and (row['Close'] > row['EMA5']): return "B：押目上昇"
     return "E：他タイプ"
 
-# --- 5. サイドバー (デザイン維持) ---
+# --- 5. サイドバー (Ver 1.68 構成) ---
 st.sidebar.markdown("### 🎲 戦略プリセット")
 for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェンシブ"), ("RANGE","横ばい相場対応")]:
     is_sel = (st.session_state['preset'] == p)
@@ -170,7 +186,7 @@ tp_val = st.sidebar.number_input("下がったら成行注文 (%)", 0.1, 5.0, 0.
 sl_val = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7, step=0.05) / 100
 
 # --- 6. メインレイアウト ---
-st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 1.80</h3></div>", unsafe_allow_html=True)
+st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 1.81</h3></div>", unsafe_allow_html=True)
 ticker_input = st.text_input("🎯 監視銘柄コード", st.session_state['target_tickers'])
 st.session_state['target_tickers'] = ticker_input
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
