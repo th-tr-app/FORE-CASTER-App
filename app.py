@@ -22,7 +22,7 @@ st.markdown("""
 
     /* スクリーニング項目の小見出しフォントサイズを大きくする */
     div[data-testid="stCheckbox"] label p {
-    font-size: 18px !important;
+    font-size: 28px !important;
     font-weight: 700 !important;
     color: #ffffff !important; }
 
