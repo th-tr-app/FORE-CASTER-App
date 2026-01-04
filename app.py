@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, time, timezone
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. カスタムCSS (Ver 1.68 デザインを完全継承) ---
+# --- 2. カスタムCSS ---
 st.markdown("""
     <style>
     .main-title { font-weight: 400 !important; font-size: 46px !important; margin: 0 !important; padding: 0 !important; line-height: 1.1; }
@@ -30,38 +30,6 @@ st.markdown("""
     .plus { color: #ff4b4b; }
     .minus { color: #00f0a8; }
 
-    /* 更新ボタンと日時の垂直位置合わせ */
-    .align-header-container {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-        height: 32px;
-        margin-top: -38px !important;
-        margin-bottom: 5px !important;
-    }
-    .update-timestamp {
-        color: #aaaaaa;
-        font-size: 14px;
-        font-family: monospace;
-        margin-top: 5px;
-    }
-
-    /* ボタン全体の高さ設定 */
-    div[data-testid="stButton"] button {
-        height: 32px !important;
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-        line-height: 32px !important;
-    }
-
-    /* 【追加】リセットボタンエリアの装飾 */
-    .reset-area {
-        padding-top: 15px;
-        margin-top: 10px;
-        border-top: 1px solid #3d414b;
-    }
-
     /* バックテストサマリー */
     .summary-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 15px 0; }
     @media (max-width: 768px) { .summary-container { grid-template-columns: repeat(2, 1fr); } }
@@ -72,10 +40,13 @@ st.markdown("""
     .ai-box { background-color: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; margin: 15px 0; }
     div[data-testid="stCheckbox"] label p { font-size: 14px !important; }
     .stSidebar [data-testid="stVerticalBlock"] button { width: 100%; text-align: left; }
+
+    /* リセットボタンエリアのスタイル */
+    .reset-btn-container { margin-top: 20px; padding-top: 10px; border-top: 1px solid #3d414b; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. マッピング & セッション管理 (230銘柄) ---
+# --- 3. マッピング & セッション管理 ---
 TICKER_NAME_MAP = {
     "1332.T": "ニッスイ", "2002.T": "日清粉G", "2269.T": "明治HD", "2282.T": "日本ハム", "2501.T": "サッポロHD",
     "2502.T": "アサヒG", "2503.T": "キリンHD", "2801.T": "キッコーマン", "2802.T": "味の素", "2871.T": "ニチレイ", "2914.T": "JT",
@@ -123,11 +94,11 @@ TICKER_NAME_MAP = {
 
 MARKET_INDICES = {"日経平均": "^N225", "日経先物(CME)": "NIY=F", "ドル/円": "JPY=X", "NYダウ30種": "^DJI", "原油先物(WTI)": "CL=F", "Gold先物(COMEX)": "GC=F", "VIX指数": "^VIX", "SOX指数": "^SOX"}
 
-# 【追加】スクリーニング項目のデフォルト設定値リスト
+# 【修正】定数の定義場所を関数の外側に移動 (NameError対策)
 SCREENING_DEFAULTS = {
-    0: {"price": (500, 5000), "val_min": 50.0, "atr_p": (2.0, 4.0), "ma_opt": "最強：上昇トレンド", "ema_opt": "強気：EMAの上で価格維持", "adx": (25, 40), "rci": (20, 80), "rsi": (55, 70), "vol_min": 10, "vup_min": 1.3, "ma25_p": (0.0, 7.0), "bb_p": (1.0, 2.0)},
-    1: {"price": (500, 5000), "val_min": 300.0, "atr_p": (1.0, 2.5), "ma_opt": "収束：嵐の前の静けさ", "ema_opt": "安定：EMA付近での推移", "adx": (10, 20), "rci": (-20, 30), "rsi": (40, 55), "vol_min": 20, "vup_min": 1.1, "ma25_p": (-3.0, 2.0), "bb_p": (-1.0, 0.0)},
-    2: {"price": (500, 5000), "val_min": 200.0, "atr_p": (1.2, 2.5), "ma_opt": "リバウンド：短期MA上抜け", "ema_opt": "レンジ：EMAを上下にまたぐ", "adx": (10, 20), "rci": (-30, 30), "rsi": (45, 55), "vol_min": 10, "vup_min": 1.2, "ma25_p": (-2.0, 3.0), "bb_p": (1.0, 2.0)}
+    0: {"price": (500, 5000), "val_min": 50.0, "atr_p": (2.0, 4.0), "ma_opt": 0, "ema_opt": 0, "adx": (25, 40), "rci": (20, 80), "rsi": (55, 70), "vol_min": 10, "vup_min": 1.3, "ma25_p": (0.0, 7.0), "bb_p": (1.0, 2.0)},
+    1: {"price": (500, 5000), "val_min": 300.0, "atr_p": (1.0, 2.5), "ma_opt": 2, "ema_opt": 1, "adx": (10, 20), "rci": (-20, 30), "rsi": (40, 55), "vol_min": 20, "vup_min": 1.1, "ma25_p": (-3.0, 2.0), "bb_p": (-1.0, 0.0)},
+    2: {"price": (500, 5000), "val_min": 200.0, "atr_p": (1.2, 2.5), "ma_opt": 3, "ema_opt": 2, "adx": (10, 20), "rci": (-30, 30), "rsi": (45, 55), "vol_min": 10, "vup_min": 1.2, "ma25_p": (-2.0, 3.0), "bb_p": (1.0, 2.0)}
 }
 
 if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "7203.T"
@@ -216,20 +187,17 @@ tp_val = st.sidebar.number_input("下がったら成行注文 (%)", 0.1, 5.0, 0.
 sl_val = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7, step=0.05) / 100
 
 # --- 6. メインレイアウト ---
-st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 1.82</h3></div>", unsafe_allow_html=True)
+st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 1.83</h3></div>", unsafe_allow_html=True)
 ticker_input = st.text_input("🎯 監視銘柄コード", st.session_state['target_tickers'])
 st.session_state['target_tickers'] = ticker_input
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
 
-# --- タブ1: ワンタッチ ---
+# --- タブ1: ワンタッチ (Ver 1.81 UIを完全固定) ---
 with tab_top:
     jst = timezone(timedelta(hours=9)); now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
     m_data = fetch_market_info()
-    with st.expander("リアルタイム指標", expanded=True):
-        st.markdown(f'<div class="align-header-container"><div id="btn-spacer"></div><div class="update-timestamp">{now_jst}</div></div>', unsafe_allow_html=True)
-        c_btn, c_spacer = st.columns([1, 4])
-        with c_btn:
-            if st.button("🔄 指標更新"): st.cache_data.clear(); st.rerun()
+    with st.expander(f"🕒 指標チェック ▶︎ ({now_jst})", expanded=True):
+        if st.button("🔄 リアルタイム更新"): st.cache_data.clear(); st.rerun()
         cards_html = '<div class="metric-grid">'
         for n in MARKET_INDICES.keys():
             i = m_data.get(n, {})
@@ -240,7 +208,7 @@ with tab_top:
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
         vix = m_data.get("VIX指数", {}).get("val", 0)
         st.markdown(f'<div class="ai-box"><div style="color:#60a5fa; font-weight:bold;">🤖 AI予測</div><div style="color:#d1d5db; font-size:13px;">VIX指数は {vix:.1f} です。地合いに合わせた戦略を選択してください。</div></div>', unsafe_allow_html=True)
-    if st.button("ワンタッチで銘柄スキャン実行", type="primary", use_container_width=True):
+    if st.button("ワンタッチで銘柄スキャン", type="primary", use_container_width=True):
         res_list = []; prg = st.progress(0); tks = list(TICKER_NAME_MAP.keys())
         for idx, t in enumerate(tks):
             prg.progress((idx + 1) / len(tks))
@@ -250,7 +218,7 @@ with tab_top:
             top5 = sorted(res_list, key=lambda x: x['ev'], reverse=True)[:5]
             st.session_state['target_tickers'] = ", ".join([d['code'] for d in top5]); st.rerun()
 
-# --- タブ2: スクリーニング (初期値リセット機能搭載) ---
+# --- タブ2: スクリーニング (リセットボタン搭載) ---
 with tab_screen:
     st.markdown("<br>", unsafe_allow_html=True)
     s_tabs = st.tabs(["🔍通常フィルタ", "🔍ディフェンシブ", "🔍横ばい相場"])
@@ -261,11 +229,10 @@ with tab_screen:
         with s_tab:
             exp_t = f"🔍 スクリーニング設定 ({['通常', 'ディフェンシブ', '横ばい'][i]})"
             
-            # 各ウィジェットのセッション状態初期化 [追加箇所]
-            for key, val in SCREENING_DEFAULTS[i].items():
-                s_key = f"scr_{i}_{key}"
-                if s_key not in st.session_state:
-                    st.session_state[s_key] = val
+            # 各項目の初期化 (リセット用)
+            for k, v in SCREENING_DEFAULTS[i].items():
+                s_key = f"scr_{i}_{k}"
+                if s_key not in st.session_state: st.session_state[s_key] = v
 
             with st.expander(exp_t, expanded=True):
                 c1, c2, c3 = st.columns(3)
@@ -273,70 +240,57 @@ with tab_screen:
                     st.checkbox("**株価の範囲**", True, key=f"c_p_{i}")
                     st.caption("予算に合わせたフィルタリング")
                     st.slider("価格(円)", 100, 10000, key=f"scr_{i}_price"); st.divider()
-                    
                     st.checkbox("**売買代金**", True, key=f"c_v_{i}")
                     st.caption("株価 × 出来高")
                     st.number_input("億円以上", key=f"scr_{i}_val_min"); st.divider()
-                    
                     st.checkbox("**平均値幅 (ATR%)**", True, key=f"c_atrp_{i}")
                     st.caption("ボラティリティの強さ")
                     st.slider("期待範囲%", 0.5, 5.0, key=f"scr_{i}_atr_p"); st.divider()
-                    
                     st.checkbox("**移動平均上抜け/並び**", True, key=f"c_ma_{i}")
                     st.caption("5MA/10MA/25MAの相関")
-                    st.selectbox("条件選択", ma_opts, key=f"scr_{i}_ma_opt"); st.divider()
-                
+                    st.selectbox("条件選択", ma_opts, index=st.session_state[f"scr_{i}_ma_opt"], key=f"val_ma_{i}"); st.divider()
                 with c2:
                     st.checkbox("**EMA (9日・21日)**", True, key=f"c_ema_{i}")
                     st.caption("直近の価格トレンド")
-                    st.selectbox("EMA基準", ema_opts, key=f"scr_{i}_ema_opt"); st.divider()
-                    
+                    st.selectbox("EMA基準", ema_opts, index=st.session_state[f"scr_{i}_ema_opt"], key=f"val_ema_{i}"); st.divider()
                     st.checkbox("**ADX (方向性指数)**", True, key=f"c_adx_{i}")
                     st.caption("トレンドの強弱")
                     st.slider("強度スコア", 0, 100, key=f"scr_{i}_adx"); st.divider()
-                    
                     st.checkbox("**RCI (順位相関計数)**", True, key=f"c_rci_{i}")
                     st.caption("価格の過熱感：カスタム計算")
                     st.slider("RCI範囲", -100, 100, key=f"scr_{i}_rci"); st.divider()
-                    
                     st.checkbox("**RSI (14日)**", True, key=f"c_rsi_{i}")
                     st.caption("相対的な買われすぎ・売られすぎ")
                     st.slider("RSIレンジ", 0, 100, key=f"scr_{i}_rsi"); st.divider()
-                
                 with c3:
                     st.checkbox("**出来高**", True, key=f"c_vol_{i}")
                     st.caption("最低限の流動性確保")
                     st.number_input("万株以上", key=f"scr_{i}_vol_min"); st.divider()
-                    
                     st.checkbox("**出来高増加率**", True, key=f"c_vup_{i}")
                     st.caption("前日比での注目度アップ")
                     st.slider("増加倍率", 1.0, 5.0, key=f"scr_{i}_vup_min"); st.divider()
-                    
                     st.checkbox("**25日移動平均乖離率**", True, key=f"c_ma25_{i}")
                     st.caption("中長期トレンドからの乖離")
                     st.slider("偏差%", -20.0, 20.0, key=f"scr_{i}_ma25_p"); st.divider()
-                    
                     st.checkbox("**ボリンジャーバンド**", True, key=f"c_bb_{i}")
                     st.caption("α範囲による逆張り・順張り目安")
                     st.slider("σ範囲", -3.0, 3.0, step=0.1, key=f"scr_{i}_bb_p"); st.divider()
 
-                # 【追加】リセットボタンの実装
-                st.markdown('<div class="reset-area">', unsafe_allow_html=True)
+                # 【新規設置】初期設定値に戻すボタン
+                st.markdown('<div class="reset-btn-container">', unsafe_allow_html=True)
                 if st.button("初期設定値に戻す", key=f"reset_btn_{i}", use_container_width=True):
-                    # デフォルト値で上書き
-                    for key, val in SCREENING_DEFAULTS[i].items():
-                        st.session_state[f"scr_{i}_{key}"] = val
+                    for k, v in SCREENING_DEFAULTS[i].items():
+                        st.session_state[f"scr_{i}_{k}"] = v
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
             st.button("スクリーニング実行", key=f"run_s_{i}", type="primary", use_container_width=True)
 
-# --- タブ3: バックテスト (Ver 1.68 ロジック完全維持) ---
+# --- タブ3: バックテスト (Ver 1.68 ロジックを完全維持・全出力) ---
 with tab_bt:
     t_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
     if st.button("バックテスト実行", type="primary", use_container_width=True):
-        all_trades = []; progress_bar = st.progress(0)
-        end_dt = datetime.now(); start_dt = end_dt - timedelta(days=days_back_param)
+        all_trades = []; progress_bar = st.progress(0); end_dt = datetime.now(); start_dt = end_dt - timedelta(days=days_back_param)
         for idx, ticker in enumerate(t_list):
             progress_bar.progress((idx + 1) / len(t_list))
             try:
@@ -353,8 +307,7 @@ with tab_bt:
                     day['VWAP'] = (day['Close'] * day['Volume']).cumsum() / day['Volume'].cumsum()
                     pc, do = pc_map.get(d.strftime('%Y-%m-%d')), co_map.get(d.strftime('%Y-%m-%d'))
                     if pc is None or do is None: continue
-                    gap_v = (do - pc) / pc
-                    in_pos = False; t_high = 0; t_active = False
+                    gap_v = (do - pc) / pc; in_pos = False; t_high = 0; t_active = False
                     for ts, row in day.iterrows():
                         if not in_pos:
                             if start_entry_t <= ts.time() <= end_entry_t and g_min <= gap_v <= g_max:
@@ -371,27 +324,33 @@ with tab_bt:
                                 all_trades.append({'Ticker': ticker, 'Entry': entry_t, 'PnL': (ex_p - entry_p)/entry_p, 'In': entry_p, 'Out': ex_p, 'Pattern': pat, 'Gap(%)': gap_v*100, 'EntryVWAP': entry_vwap, 'Reason': rsn, 'PrevClose': pc, 'DayOpen': do})
                                 in_pos = False; break
             except: continue
-        progress_bar.empty()
         st.session_state['bt_results'] = pd.DataFrame(all_trades) if not len(all_trades)==0 else None
         st.session_state['bt_period'] = f"{start_dt.strftime('%Y-%m-%d')} - {end_dt.strftime('%Y-%m-%d')}"
-
-    st.markdown("<br>", unsafe_allow_html=True)
+    
     res_df = st.session_state['bt_results']
     if res_df is not None:
         tabs = st.tabs(["📊 サマリー", "🤖 勝ちパターン", "📉 ギャップ分析", "🧐 VWAP分析", "🕒 時間帯分析", "📝 詳細ログ"])
         with tabs[0]:
             w_f = res_df[res_df['PnL']>0]['PnL']; l_f = res_df[res_df['PnL']<=0]['PnL']
             pf_f = w_f.sum()/abs(l_f.sum()) if not l_f.empty and l_f.sum()!=0 else 0
-            st.markdown(f"<div class='summary-container'><div class='summary-box'><div class='summary-label'>総トレード数</div><div class='summary-value'>{len(res_df)}回</div></div><div class='summary-box'><div class='summary-label'>勝率</div><div class='summary-value'>{(res_df['PnL']>0).mean():.1%}</div></div><div class='summary-box'><div class='summary-label'>PF（総利益 ÷ 総損失）</div><div class='summary-value'>{pf_f:.2f}</div></div><div class='summary-box'><div class='summary-label'>期待値</div><div class='summary-value'>{res_df['PnL'].mean():.2%}</div></div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='summary-container'><div class='summary-box'><div class='summary-label'>総トレード数</div><div class='summary-value'>{len(res_df)}回</div></div><div class='summary-box'><div class='summary-label'>勝率</div><div class='summary-value'>{(res_df['PnL']>0).mean():.1%}</div></div><div class='summary-box'><div class='summary-label'>PF</div><div class='summary-value'>{pf_f:.2f}</div></div><div class='summary-box'><div class='summary-label'>期待値</div><div class='summary-value'>{res_df['PnL'].mean():.2%}</div></div></div>", unsafe_allow_html=True)
+        with tabs[3]:
+            for tk in t_list:
+                tdf = res_df[res_df['Ticker'] == tk].copy()
+                if tdf.empty: continue
+                st.markdown(f"#### [{tk}] {TICKER_NAME_MAP.get(tk, tk)}\n##### エントリー時のVWAPと勝率")
+                tdf['VWAP乖離(%)'] = ((tdf['In'] - tdf['EntryVWAP']) / tdf['EntryVWAP']) * 100
+                v_bins = tdf.groupby(pd.cut(tdf['VWAP乖離(%)'], bins=np.arange(-1.0, 1.2, 0.2)), observed=True).agg(トレード数=('PnL', 'count'), 勝率=('PnL', lambda x: (x>0).mean()), 平均損益=('PnL', 'mean')).reset_index()
+                v_bins.columns = ['乖離率レンジ', 'トレード数', '勝率', '平均損益']
+                v_bins['乖離率レンジ'] = v_bins['乖離率レンジ'].apply(lambda i: f"{i.left:.1f}% ～ {i.right:.1f}%")
+                v_bins['トレード数'] = v_bins['トレード数'].astype(str)
+                v_bins['勝率'] = v_bins['勝率'].apply(lambda x: f"{x:.1%}"); v_bins['平均損益'] = v_bins['平均損益'].apply(lambda x: f"{x:+.2%}")
+                st.dataframe(v_bins, hide_index=True, use_container_width=True)
         with tabs[5]:
             log_report = []
             for tk in t_list:
                 tdf = res_df[res_df['Ticker'] == tk].copy().sort_values('Entry', ascending=False)
                 if tdf.empty: continue
-                tdf['VWAP乖離(%)'] = ((tdf['In'] - tdf['EntryVWAP']) / tdf['EntryVWAP']) * 100
                 log_report.append(f"[{tk}] {TICKER_NAME_MAP.get(tk, tk)} 取引履歴\n" + "-"*80)
-                for _, row in tdf.iterrows():
-                    vwap_str = f"{int(row['EntryVWAP'])} (乖離 {row['VWAP乖離(%)']:+.2f}%)"
-                    log_report.append(f"{row['Entry'].strftime('%Y-%m-%d %H:%M')} | 前終値：{int(row['PrevClose'])} | 始値：{int(row['DayOpen'])} | {row['Pattern']} | PnL: {row['PnL']:+.2%} | Gap: {row['Gap(%)']:+.2f}% | 買：{int(row['In'])} | 売：{int(row['Out'])} | VWAP: {vwap_str} | {row['Reason']}")
-                log_report.append("\n")
+                for _, row in tdf.iterrows(): log_report.append(f"{row['Entry'].strftime('%Y-%m-%d %H:%M')} | {row['Pattern']} | PnL: {row['PnL']:+.2%} | {row['Reason']}")
             st.code("\n".join(log_report), language="text")
