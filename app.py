@@ -225,12 +225,8 @@ with tab_screen:
     
     for i, s_tab in enumerate(s_tabs):
         with s_tab:
-            # セッション状態の初期化
-            for k, v in SCREENING_DEFAULTS[i].items():
-                skey = f"scr_{i}_{k}"
-                if skey not in st.session_state: st.session_state[skey] = v
-
-            with st.expander(f"🔍 スクリーニング設定 ({['通常', 'ディフェンシブ', '横ばい'][i]})", expanded=True):
+  
+        with st.expander(f"🔍 スクリーニング設定 ({['通常', 'ディフェンシブ', '横ばい'][i]})", expanded=True):
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     st.checkbox("**株価の範囲**", True, key=f"c_p_{i}")
