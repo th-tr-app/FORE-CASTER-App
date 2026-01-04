@@ -36,7 +36,22 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. マッピング & セッション管理 (230銘柄) ---
+# --- 3. マッピング & セッション管理 ---
+
+# 【対策：NameError】辞書を初期化ループより前に定義
+SCREENING_DEFAULTS = {
+    0: {"price": (500, 5000), "val_min": 50.0, "atr_p": (2.0, 4.0), "ma_opt": "最強：上昇トレンド", "ema_opt": "強気：EMAの上で価格維持", "adx": (25, 40), "rci": (20, 80), "rsi": (55, 70), "vol_min": 10, "vup_min": 1.3, "ma25_p": (0.0, 7.0), "bb_p": (1.0, 2.0)},
+    1: {"price": (500, 5000), "val_min": 300.0, "atr_p": (1.0, 2.5), "ma_opt": "収束：嵐の前の静けさ", "ema_opt": "安定：EMA付近での推移", "adx": (10, 20), "rci": (-20, 30), "rsi": (40, 55), "vol_min": 20, "vup_min": 1.1, "ma25_p": (-3.0, 2.0), "bb_p": (-1.0, 0.0)},
+    2: {"price": (500, 5000), "val_min": 200.0, "atr_p": (1.2, 2.5), "ma_opt": "リバウンド：短期MA上抜け", "ema_opt": "レンジ：EMAを上下にまたぐ", "adx": (10, 20), "rci": (-30, 30), "rsi": (45, 55), "vol_min": 10, "vup_min": 1.2, "ma25_p": (-2.0, 3.0), "bb_p": (1.0, 2.0)}
+}
+
+# 初期化ループ
+for i in range(3):
+    for k, v in SCREENING_DEFAULTS[i].items():
+        skey = f"scr_{i}_{k}"
+        if skey not in st.session_state:
+            st.session_state[skey] = v
+
 TICKER_NAME_MAP = {
     # 水産・食品
     "1332.T": "ニッスイ", "2002.T": "日清粉G", "2269.T": "明治HD", "2282.T": "日本ハム", "2501.T": "サッポロHD",
@@ -86,19 +101,6 @@ TICKER_NAME_MAP = {
     "3697.T": "ＳＨＩＦＴ", "6532.T": "ベイカレント", "9613.T": "ＮＴＴデータ", "6963.T": "ローム", "2768.T": "双日", "5831.T": "しずおかＦＧ",
     # 指定5銘柄
     "4403.T": "日油", "6315.T": "TOWA", "6460.T": "セガサミーHLDGS", "7003.T": "三井E&S", "1570.T": "日経レバ"
-}
-
-# 初期化ループ
-for i in range(3):
-    for k, v in SCREENING_DEFAULTS[i].items():
-        skey = f"scr_{i}_{k}"
-        if skey not in st.session_state:
-            st.session_state[skey] = v
-
-TICKER_NAME_MAP = {
-    # 水産・食品 (不足分はGitHubにて入力してください)
-    "1332.T": "ニッスイ", "2002.T": "日清粉G", "2269.T": "明治HD", "2282.T": "日本ハム", "2501.T": "サッポロHD",
-    "2502.T": "アサヒG", "2503.T": "キリンHD", "2801.T": "キッコーマン", "2802.T": "味の素", "2871.T": "ニチレイ", 
 }
 
 MARKET_INDICES = {"日経平均": "^N225", "日経先物(CME)": "NIY=F", "ドル/円": "JPY=X", "NYダウ30種": "^DJI", "原油先物(WTI)": "CL=F", "Gold先物(COMEX)": "GC=F", "VIX指数": "^VIX", "SOX指数": "^SOX"}
