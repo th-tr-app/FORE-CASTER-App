@@ -92,6 +92,92 @@ if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 if 'bt_results' not in st.session_state: st.session_state['bt_results'] = None
 
 # --- 4. 関数定義 (戻り値強化版) ---
+# ... (fetch_market_info, fetch_daily_stats_maps, calculate_rci は維持)
+@st.cache_data(ttl=300)
+def fetch_market_info():
+    data = {}
+    for name, ticker in MARKET_INDICES.items():
+        try:
+            df = yf.download(ticker, period="5d", progress=False)
+            if not df.empty:
+                latest = float(df['Close'].iloc[-1]); prev = float(df['Close'].iloc[-2])
+                data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
+        except: data[name] = {"val": None, "pct": None}
+    return data
+
+@st.cache_data(ttl=3600)
+def fetch_daily_stats_maps(ticker, start):
+    try:
+        d_start = start - timedelta(days=30)
+        df = yf.download(ticker, start=d_start, interval="1d", progress=False, multi_level_index=False, auto_adjust=False)
+        if df.empty: return {}, {}
+        df.index = df.index.tz_convert('Asia/Tokyo') if df.index.tzinfo else df.index.tz_localize('UTC').tz_convert('Asia/Tokyo')
+        return {d.strftime('%Y-%m-%d'): c for d, c in zip(df.index, df['Close'].shift(1)) if pd.notna(c)}, {d.strftime('%Y-%m-%d'): o for d, o in zip(df.index, df['Open']) if pd.notna(o)}
+    except: return {}, {}
+
+def run_scan_engine(ticker, days_back, entry_start, entry_end, use_vwap):
+    try:
+        df = yf.download(ticker, period="1mo", interval="5m", progress=False, multi_level_index=False, auto_adjust=False)
+        if df.empty: return None
+        df.index = df.index.tz_convert('Asia/Tokyo')
+        pnls = []
+        for d in np.unique(df.index.date)[-days_back:]:
+            day = df[df.index.date == d].copy().between_time('09:00', '15:00')
+            if day.empty: continue
+            day['VWAP'] = (day['Close'] * day['Volume']).cumsum() / day['Volume'].cumsum()
+            in_pos = False
+            for ts, row in day.iterrows():
+                if not in_pos and entry_start <= ts.time() <= entry_end:
+                    if not use_vwap or (row['Close'] > row['VWAP']):
+                        entry_p = row['Close'] * 1.0003; in_pos = True
+                elif in_pos:
+                    if row['Low'] <= entry_p * 0.992 or ts.time() >= time(14, 55):
+                        exit_p = row['Close'] * 0.9997
+                        pnls.append((exit_p - entry_p) / entry_p); in_pos = False; break
+        return np.mean(pnls) if pnls else None
+    except: return None
+
+def get_trade_pattern(row, gap_pct):
+    check_vwap = row['VWAP'] if pd.notna(row['VWAP']) else row['Close']
+    if (gap_pct <= -0.004) and (row['Close'] > check_vwap): return "A：反転狙い"
+    elif (-0.003 <= gap_pct < 0.003) and (row['Close'] > row['EMA5']): return "D：上昇継続"
+    elif (gap_pct >= 0.005) and (row.get('RSI14', 50) >= 65): return "C：ブレイク"
+    elif (gap_pct >= 0.003) and (row['Close'] > row['EMA5']): return "B：押目上昇"
+    return "E：他タイプ"
+
+def calculate_rci(series, period=9):
+    def get_rci(sub):
+        n = len(sub); d = ((np.arange(n) + 1) - sub.rank(ascending=False)).pow(2).sum()
+        return (1 - (6 * d) / (n * (n**2 - 1))) * 100
+    return series.rolling(window=period).apply(get_rci)
+
+def run_full_scan_engine(params):
+    results = []; all_tickers = list(TICKER_NAME_MAP.keys()); prg = st.progress(0); status_text = st.empty()
+    for idx, t in enumerate(all_tickers):
+        name = TICKER_NAME_MAP.get(t, t); status_text.text(f"🔍 スキャン中 ({idx+1}/{len(all_tickers)}): [{t}] {name}"); prg.progress((idx + 1) / len(all_tickers))
+        try:
+            df = yf.download(t, period="3mo", interval="1d", progress=False)
+            if df.empty or len(df) < 25: continue
+            if df.columns.nlevels > 1: df.columns = df.columns.get_level_values(0)
+            p, v = df['Close'].iloc[-1], df['Volume'].iloc[-1]; prev_p = df['Close'].iloc[-2]; ma25 = df['Close'].rolling(25).mean().iloc[-1]
+            atrp = (AverageTrueRange(df['High'], df['Low'], df['Close'], 14).average_true_range().iloc[-1] / p) * 100
+            adx = ADXIndicator(df['High'], df['Low'], df['Close']).adx().iloc[-1]; rsi = RSIIndicator(df['Close'], 14).rsi().iloc[-1]
+            rci = calculate_rci(df['Close'], 9).iloc[-1]; ma25_dev = ((p - ma25) / ma25) * 100; val_total = (p * v) / 100000000 
+            v_avg_5 = df['Volume'].rolling(5).mean().iloc[-2]; vup_rate = v / v_avg_5 if v_avg_5 > 0 else 1.0; price_change_pct = ((p - prev_p) / prev_p) * 100
+            match = True
+            if params['c_p'] and not (params['p_range'][0] <= p <= params['p_range'][1]): match = False
+            if params['c_v'] and val_total < params['v_min']: match = False
+            if params['c_atrp'] and not (params['atrp_range'][0] <= atrp <= params['atrp_range'][1]): match = False
+            if params['c_adx'] and not (params['adx_range'][0] <= adx <= params['adx_range'][1]): match = False
+            if params['c_rsi'] and not (params['rsi_range'][0] <= rsi <= params['rsi_range'][1]): match = False
+            if params['c_rci'] and not (params['rci_range'][0] <= rci <= params['rci_range'][1]): match = False
+            if params['c_vol'] and (v / 10000) < params['vol_min']: match = False
+            if params['c_vup'] and vup_rate < params['vup_min']: match = False
+            if params['c_ma25'] and not (params['ma25_range'][0] <= ma25_dev <= params['ma25_range'][1]): match = False
+            if match: results.append({"コード": t, "銘柄名": name, "株価": f"{int(p)}", "出来高": f"{int(v):,}", "前日比": f"{price_change_pct:+.2f}%"})
+        except: continue
+    prg.empty(); status_text.empty()
+    return pd.DataFrame(results)
 
 # 【修正】勝率・PFも算出するようにエンジンを拡張
 def run_scan_engine(ticker, days_back, entry_start, entry_end, use_vwap):
@@ -121,6 +207,33 @@ def run_scan_engine(ticker, days_back, entry_start, entry_end, use_vwap):
     except: return None
 
 # ... (fetch_market_info, fetch_daily_stats_maps, calculate_rci, run_full_scan_engine は維持)
+
+# --- 5. サイドバー (Ver 1.68 構成) ---
+st.sidebar.markdown("### 🎲 戦略プリセット")
+for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェンシブ"), ("RANGE","横ばい相場対応")]:
+    is_sel = (st.session_state['preset'] == p)
+    if st.sidebar.button(l + (" [ 選択中 ]" if is_sel else ""), key=f"ps_{p}", type="primary" if is_sel else "secondary"):
+        st.session_state['preset'] = p; st.rerun()
+
+st.sidebar.divider()
+st.sidebar.header("⚙️ バックテスト設定")
+days_back_param = st.sidebar.slider("過去何日分を取得", 10, 59, 59)
+st.sidebar.subheader("⏰ 時間設定")
+start_entry_t = st.sidebar.time_input("開始時間", time(9, 0), step=300)
+end_entry_t = st.sidebar.time_input("終了時間", time(9, 15), step=300)
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
+st.sidebar.subheader("📉 エントリー条件")
+u_vwap = st.sidebar.checkbox("**VWAP** より上でエントリー", value=True)
+u_ema = st.sidebar.checkbox("**EMA5** より上でエントリー", value=True)
+u_rsi = st.sidebar.checkbox("**RSI** が45以上or上向き", value=True)
+u_macd = st.sidebar.checkbox("**MACD** が上向き", value=True)
+st.sidebar.divider()
+g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, -3.0, 0.05) / 100
+g_max = st.sidebar.slider("寄付アップ上限 (%)", -5.0, 5.0, 1.0, 0.05) / 100
+st.sidebar.subheader("💰 決済ルール")
+ts_val = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5, step=0.05) / 100
+tp_val = st.sidebar.number_input("下がったら成行注文 (%)", 0.1, 5.0, 0.2, step=0.05) / 100
+sl_val = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7, step=0.05) / 100
 
 # --- 6. メインレイアウト ---
 st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 1.98</h3></div>", unsafe_allow_html=True)
