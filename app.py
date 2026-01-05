@@ -357,7 +357,6 @@ with tab_bt:
                     if not g_stats.empty and not v_stats.empty:
                         bg = g_stats['<lambda_0>'].idxmax(); bv = v_stats['<lambda_0>'].idxmax()
 
-                gap_txt = "ギャップアップ" if best_g['GapRange'].left >= 0 else "ギャップダウン"
                 st.info(f"**🏆 最高勝率パターン**\n\n"
                         f"最も勝率が高かったのは、**{gap_txt} ({best_g['GapRange'].left:.1f}% ～ {best_g['GapRange'].right:.1f}%)** スタートで、"
                         f"VWAPから **{best_v['VwapRange'].left:.1f}% ～ {best_v['VwapRange'].right:.1f}%** の位置にある時、"
