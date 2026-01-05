@@ -151,13 +151,14 @@ def run_scan_engine(ticker, days_back, entry_start, entry_end, use_vwap):
         
         if not pnls: return None
         
-        # 勝率とPFの計算を追加
+        # 勝率とPFの計算
         wins = [p for p in pnls if p > 0]
         losses = [p for p in pnls if p <= 0]
         win_rate = len(wins) / len(pnls)
         pf = sum(wins) / abs(sum(losses)) if losses and sum(losses) != 0 else (9.99 if wins else 0.0)
         
-        return {"ev": np.mean(pnls), "win_rate": win_rate, "pf": pf} # 辞書形式で返すように変更
+        # 期待値・勝率・PFをセットで返す
+        return {"ev": np.mean(pnls), "win_rate": win_rate, "pf": pf}
     except: return None
 
 def get_trade_pattern(row, gap_pct):
@@ -230,14 +231,13 @@ tp_val = st.sidebar.number_input("下がったら成行注文 (%)", 0.1, 5.0, 0.
 sl_val = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7, step=0.05) / 100
 
 # --- 6. メインレイアウト ---
-st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 1.98</h3></div>", unsafe_allow_html=True)
+st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 1.98test</h3></div>", unsafe_allow_html=True)
 ticker_input = st.text_input("🎯 監視銘柄コード", st.session_state['target_tickers'])
 st.session_state['target_tickers'] = ticker_input
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
 
-# --- タブ1: ワンタッチ (期待値・勝率・PFランキング版) ---
+# --- タブ1: ワンタッチ (期待値・勝率・PF表示 ＆ テスト抽出版) ---
 with tab_top:
-    # 呼び出し場所を定義より後にすることで NameError を回避
     jst = timezone(timedelta(hours=9)); now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
     m_data = fetch_market_info()
     
@@ -263,7 +263,9 @@ with tab_top:
             prg.progress((idx + 1) / len(tks))
             
             stats = run_scan_engine(t, 20, time(9,0), time(9,30), True)
-            if stats and stats['ev'] > 0:
+            
+            # 【テスト用】期待値がマイナスでも、とりあえず上位5件を出すように条件を緩和
+            if stats: 
                 res_list.append({
                     "コード": t,
                     "銘柄名": TICKER_NAME_MAP.get(t, t),
@@ -275,9 +277,9 @@ with tab_top:
         status_text.empty(); prg.empty()
         
         if res_list:
+            # 期待値順にソートして上位5銘柄を抽出
             top5_data = sorted(res_list, key=lambda x: x['期待値'], reverse=True)[:5]
             
-            # テーブル用データの整形
             final_res = []
             for item in top5_data:
                 final_res.append({
@@ -292,16 +294,16 @@ with tab_top:
             st.session_state['target_tickers'] = ", ".join([d['コード'] for d in top5_data])
             st.rerun() 
         else:
-            st.warning("現在、推奨条件に合致する銘柄は見つかりませんでした。")
+            st.warning("データが取得できませんでした。時間をおいて試すか銘柄を確認してください。")
 
     # ボタンの下に結果を表示
     if 'scan_display_df' in st.session_state:
-        st.success(f"🎯 本日のポテンシャル上位銘柄を選出しました。")
+        st.success(f"🎯 抽出可能な銘柄から上位を選出しました。")
         st.dataframe(st.session_state['scan_display_df'], hide_index=True, use_container_width=True)
-        st.info("上位銘柄を「監視銘柄コード」に自動セットしました。詳細分析は「バックテスト」タブで実行してください。")
+        st.info("上位銘柄を「監視銘柄コード」にセットしました。詳細分析は「バックテスト」タブへ。")
         if st.button("スキャン結果をクリア"):
             del st.session_state['scan_display_df']; st.rerun()
-
+            
 # --- タブ2: スクリーニング (通常フィルタ初期チェック反映版) ---
 with tab_screen:
     st.markdown("<br>", unsafe_allow_html=True)
