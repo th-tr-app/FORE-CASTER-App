@@ -226,7 +226,7 @@ ticker_input = st.text_input("🎯 監視銘柄コード", st.session_state['tar
 st.session_state['target_tickers'] = ticker_input
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
 
-# --- タブ1: ワンタッチ (期待値・勝率・PFランキング版) ---
+# --- タブ1: ワンタッチ (結果表示 ＆ 入力欄更新 統合版) ---
 with tab_top:
     jst = timezone(timedelta(hours=9)); now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
     m_data = fetch_market_info()
@@ -245,29 +245,29 @@ with tab_top:
         vix = m_data.get("VIX指数", {}).get("val", 0)
         st.markdown(f'<div class="ai-box"><div style="color:#60a5fa; font-weight:bold;">🤖 AI予測</div><div style="color:#d1d5db; font-size:13px;">VIX指数は {vix:.1f} です。地合いに合わせた戦略を選択してください。</div></div>', unsafe_allow_html=True)
 
-    # ワンタッチスキャン実行
+    # ワンタッチスキャン実行ボタン
     if st.button("ワンタッチで銘柄スキャン", type="primary", use_container_width=True):
         res_list = []; prg = st.progress(0); status_text = st.empty()
         tks = list(TICKER_NAME_MAP.keys())
         
+        # 全銘柄をループ
         for idx, t in enumerate(tks):
             status_text.text(f"🔍 解析中 ({idx+1}/{len(tks)}): {t}")
             prg.progress((idx + 1) / len(tks))
             
-            # run_scan_engine を使用し、詳細な統計を得るために内部計算を再現
             try:
-                # 簡易的に期待値を取得
+                # 既存の計算エンジンをそのまま使用
                 ev = run_scan_engine(t, 20, time(9,0), time(9,30), True)
                 
-                # スキャン結果が有効（期待値プラス）なものだけを抽出
+                # 期待値プラスの銘柄のみリストへ追加
                 if ev and ev > 0:
-                    # ここでは期待値順の並び替え用にデータを保持
-                    # ※実際の勝率やPFを正確に出すには、内部でTradeリストを生成する必要がありますが、
-                    # 今回は既存エンジンの戻り値(ev)をベースに「期待銘柄」をリスト化します。
                     res_list.append({
                         "コード": t,
-                        "銘柄名": TICKER_NAME_MAP[t],
-                        "期待値": ev
+                        "銘柄名": TICKER_NAME_MAP.get(t, t),
+                        "期待値": ev,
+                        # 勝率・PFはバックテスト用ロジックを模して簡易計算（今回は表示用のプレースホルダー）
+                        "勝率": "算出中",
+                        "PF": "算出中"
                     })
             except: continue
             
@@ -275,32 +275,38 @@ with tab_top:
         
         if res_list:
             # 期待値順にソートして上位5銘柄を抽出
-            top5_data = sorted(res_list, key=lambda x: x['期待値'], reverse=True)[:5]
+            top5 = sorted(res_list, key=lambda x: x['期待値'], reverse=True)[:5]
             
-            # 監視銘柄コードの更新（セッション状態へ保存）
-            st.session_state['target_tickers'] = ", ".join([d['コード'] for d in top5_data])
-            
-            st.success(f"🎯 本日のポテンシャル上位 {len(top5_data)} 銘柄を選出しました。")
-            
-            # テーブル用データの整形
-            # 勝率とPFは、上位5銘柄に対してのみ精密なバックテストを実行して算出
-            final_res = []
-            for item in top5_data:
-                # この部分で上位銘柄の詳細数値を確定させる（バックテストロジックの簡易呼び出し）
-                # ※ここでは表示形式を整える処理
-                final_res.append({
+            # 【重要】表示用データを整形
+            display_data = []
+            for item in top5:
+                display_data.append({
                     "コード": item["コード"],
                     "銘柄名": item["銘柄名"],
-                    "期待値": f"{item['期待値']:+.2%}",
-                    "勝率": "解析済", # 詳細はバックテストタブにて
-                    "PF": "算出済"
+                    "勝率": "----",   # 精密計算はバックテストタブにて
+                    "PF": "----",     # 精密計算はバックテストタブにて
+                    "期待値": f"{item['期待値']:+.2%}"
                 })
             
-            st.dataframe(pd.DataFrame(final_res), hide_index=True, use_container_width=True)
-            st.info("上位銘柄が「監視銘柄コード」にセットされました。詳細な分析は「バックテスト」タブで実行してください。")
-            st.rerun() # 監視銘柄コードの表示を即時更新
+            # 結果をセッションに保存（再描画後に表示するため）
+            st.session_state['scan_display_df'] = pd.DataFrame(display_data)
+            st.session_state['target_tickers'] = ", ".join([d['コード'] for d in top5])
+            
+            # 入力欄を即時更新するためにリロード
+            st.rerun()
         else:
-            st.warning("現在、推奨条件に合致する銘柄は見つかりませんでした。")
+            st.warning("推奨条件に合致する銘柄は見つかりませんでした。")
+
+    # 【重要】ボタンの下に結果を表示（セッションにデータがある場合のみ）
+    if 'scan_display_df' in st.session_state:
+        st.success(f"🎯 本日のポテンシャル上位銘柄を選出しました。")
+        st.dataframe(st.session_state['scan_display_df'], hide_index=True, use_container_width=True)
+        st.info("上位銘柄を「監視銘柄コード」に自動セットしました。詳細なバックテストは「バックテスト」タブで実行してください。")
+        
+        # ボタンを押して結果を確認したら、古い結果を消せるようにクリアボタンを配置（任意）
+        if st.button("スキャン結果をクリア"):
+            del st.session_state['scan_display_df']
+            st.rerun()
 
 # --- タブ2: スクリーニング (通常フィルタ初期チェック反映版) ---
 with tab_screen:
