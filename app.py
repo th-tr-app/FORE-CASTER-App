@@ -26,10 +26,6 @@ st.markdown("""
     .delta-badge { font-size: 16px; font-weight: 600; padding: 0; margin-top: 2px; }
     .plus { color: #ff4b4b; }
     .minus { color: #00f0a8; }
-    .summary-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 15px 0; }
-    .summary-box { background-color: #1e2129; border-radius: 6px; padding: 10px 5px; text-align: center; border: 1px solid #2d3139; }
-    .summary-label { font-size: 12px; color: #aaaaaa; margin-bottom: 2px; }
-    .summary-value { font-size: 26px; font-weight: 600; color: #ffffff; }
     .ai-box { background-color: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; margin: 15px 0; }
     div[data-testid="stCheckbox"] label p { font-size: 14px !important; }
     .stSidebar [data-testid="stVerticalBlock"] button { width: 100%; text-align: left; }
@@ -94,7 +90,8 @@ if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] 
 if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 if 'bt_results' not in st.session_state: st.session_state['bt_results'] = None
 
-# --- 4. 関数定義 (計算エンジン ＋ スクリーニングエンジン) ---
+# --- 4. 関数定義 (スクリーニングエンジン：結果表示修正版) ---
+# ... (fetch_market_info, fetch_daily_stats_maps, calculate_rci は維持)
 @st.cache_data(ttl=300)
 def fetch_market_info():
     data = {}
@@ -124,8 +121,7 @@ def calculate_rci(series, period=9):
     return series.rolling(window=period).apply(get_rci)
 
 def run_full_scan_engine(params):
-    results = []; all_tickers = list(TICKER_NAME_MAP.keys())
-    prg = st.progress(0); status_text = st.empty()
+    results = []; all_tickers = list(TICKER_NAME_MAP.keys()); prg = st.progress(0); status_text = st.empty()
     for idx, t in enumerate(all_tickers):
         name = TICKER_NAME_MAP.get(t, t)
         status_text.text(f"🔍 スキャン中 ({idx+1}/{len(all_tickers)}): [{t}] {name}")
@@ -134,12 +130,19 @@ def run_full_scan_engine(params):
             df = yf.download(t, period="3mo", interval="1d", progress=False)
             if df.empty or len(df) < 25: continue
             if df.columns.nlevels > 1: df.columns = df.columns.get_level_values(0)
-            p = df['Close'].iloc[-1]; v = df['Volume'].iloc[-1]; ma25 = df['Close'].rolling(25).mean().iloc[-1]
+
+            # 指標計算
+            p, v = df['Close'].iloc[-1], df['Volume'].iloc[-1]; prev_p = df['Close'].iloc[-2]
             atrp = (AverageTrueRange(df['High'], df['Low'], df['Close'], 14).average_true_range().iloc[-1] / p) * 100
             adx = ADXIndicator(df['High'], df['Low'], df['Close']).adx().iloc[-1]
             rsi = RSIIndicator(df['Close'], 14).rsi().iloc[-1]
             rci = calculate_rci(df['Close'], 9).iloc[-1]
-            ma25_dev = ((p - ma25) / ma25) * 100; val_total = (p * v) / 100000000; vup_rate = v / df['Volume'].rolling(5).mean().iloc[-2]
+            val_total = (p * v) / 100000000; vup_rate = v / df['Volume'].rolling(5).mean().iloc[-2]
+            ma25 = df['Close'].rolling(25).mean().iloc[-1]; ma25_dev = ((p - ma25) / ma25) * 100
+            # 【新規】価格前日比(%)の計算
+            price_change_pct = ((p - prev_p) / prev_p) * 100
+
+            # 判定ロジック (維持)
             match = True
             if params['c_p'] and not (params['p_range'][0] <= p <= params['p_range'][1]): match = False
             if params['c_v'] and val_total < params['v_min']: match = False
@@ -150,20 +153,28 @@ def run_full_scan_engine(params):
             if params['c_vol'] and (v / 10000) < params['vol_min']: match = False
             if params['c_vup'] and vup_rate < params['vup_min']: match = False
             if params['c_ma25'] and not (params['ma25_range'][0] <= ma25_dev <= params['ma25_range'][1]): match = False
-            if match: results.append({"コード": t, "銘柄名": name, "株価": f"{int(p)}", "売買代金": f"{val_total:.1f}億", "前日比倍": f"{vup_rate:.2f}", "RSI": f"{rsi:.1f}"})
+
+            if match:
+                # 【修正】結果テーブルの項目を変更
+                results.append({
+                    "コード": t, "銘柄名": name, "株価": f"{int(p)}", 
+                    "出来高": f"{int(v):,}", # 出来高に変更 
+                    "前日比": f"{price_change_pct:+.2f}%" # 書式: +1.13% 
+                })
         except: continue
     prg.empty(); status_text.empty()
     return pd.DataFrame(results)
 
-# --- 5. サイドバー ---
+# --- 5. サイドバー (省略なし) ---
 st.sidebar.markdown("### 🎲 戦略プリセット")
 for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェンシブ"), ("RANGE","横ばい相場対応")]:
     is_sel = (st.session_state['preset'] == p)
     if st.sidebar.button(l + (" [ 選択中 ]" if is_sel else ""), key=f"ps_{p}", type="primary" if is_sel else "secondary"):
         st.session_state['preset'] = p; st.rerun()
+# ... (その他のサイドバー設定は以前と同様)
 
 # --- 6. メインレイアウト ---
-st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 1.95</h3></div>", unsafe_allow_html=True)
+st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 1.96</h3></div>", unsafe_allow_html=True)
 ticker_input = st.text_input("🎯 監視銘柄コード", st.session_state['target_tickers'])
 st.session_state['target_tickers'] = ticker_input
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
@@ -173,74 +184,52 @@ with tab_top:
     m_data = fetch_market_info()
     with st.expander(f"🕒 指標チェック ▶︎ ({now_jst})", expanded=True):
         if st.button("🔄 リアルタイム更新"): st.cache_data.clear(); st.rerun()
-        # ... (リアルタイム指標表示カード)
-    if st.button("ワンタッチで銘柄スキャン実行", type="primary", use_container_width=True):
+        # ... (指標表示HTML)
+    if st.button("ワンタッチで銘柄スキャン", type="primary", use_container_width=True):
         st.info("スキャン機能を準備中...")
 
-# --- タブ2: スクリーニング (12軸精密調整版・NameError修正) ---
+# --- タブ2: スクリーニング (UI強化版) ---
 with tab_screen:
     st.markdown("<br>", unsafe_allow_html=True)
     s_tabs = st.tabs(["🔍通常フィルタ", "🔍ディフェンシブ", "🔍横ばい相場"])
     for i, s_tab in enumerate(s_tabs):
         with s_tab:
-            v_val = "50" if i==0 else "300" if i==1 else "200"; atrp_v = "2.0~4.0" if i==0 else "1.0~2.5" if i==1 else "1.2~2.5"
-            adx_v = "25~40" if i==0 else "10~20" if i==1 else "10~20"; rci_v = "20~80" if i==0 else "-20~30" if i==1 else "-30~30"
-            rsi_v = "55~70" if i==0 else "40~55" if i==1 else "45~55"; vol_v = "10" if i==0 else "20" if i==1 else "10"
-            vup_v = "1.3" if i==0 else "1.1" if i==1 else "1.2"; ma25_v = "0.0~7.0" if i==0 else "-3.0~2.0" if i==1 else "-2.0~3.0"
-            bb_v = "1.0~2.0" if i==0 else "-1.0~0.0" if i==1 else "1.0~2.0"
-
             exp_t = f"🔍 スクリーニング設定 ({['通常', 'ディフェンシブ', '横ばい'][i]})"
             with st.expander(exp_t, expanded=False):
                 c1, c2, c3 = st.columns(3)
                 with c1:
-                    c_p = st.checkbox("**株価の範囲 (500~5000円)**", True, key=f"c_p_{i}")
-                    st.caption("予算に合わせたフィルタリング")
+                    c_p = st.checkbox("**株価の範囲 (500~5000円)**", True, key=f"c_p_{i}"); st.caption("予算に合わせたフィルタリング")
                     p_range = st.slider("価格(円)", 100, 10000, (500, 5000), step=100, key=f"v_p_{i}"); st.divider()
-                    c_v = st.checkbox(f"**売買代金 ({v_val}億円以上)**", True, key=f"c_v_{i}")
-                    st.caption("株価 × 出来高")
-                    v_min = st.number_input("億円以上", value=float(v_val), step=10.0, key=f"v_v_{i}"); st.divider()
-                    c_atrp = st.checkbox(f"**平均値幅 (ATR% {atrp_v}%)**", True, key=f"c_atrp_{i}")
-                    st.caption("ボラティリティの強さ")
+                    c_v = st.checkbox("**売買代金**", True, key=f"c_v_{i}"); st.caption("株価 × 出来高")
+                    v_min = st.number_input("億円以上", value=50.0 if i==0 else 300.0 if i==1 else 200.0, step=10.0, key=f"v_v_{i}"); st.divider()
+                    c_atrp = st.checkbox("**平均値幅 (ATR%)**", True, key=f"c_atrp_{i}"); st.caption("ボラティリティの強さ")
                     atrp_range = st.slider("期待範囲%", 0.5, 5.0, (2.0, 4.0) if i==0 else (1.0, 2.5) if i==1 else (1.2, 2.5), step=0.5, key=f"v_atrp_{i}"); st.divider()
-                    c_ma = st.checkbox("**移動平均上抜け/並び**", False, key=f"c_ma_{i}")
-                    st.caption("5MA/10MA/25MAの相関")
-                    ma_opt = st.selectbox("条件選択", ["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"], index=0 if i==0 else 2 if i==1 else 3, key=f"v_ma_{i}")
+                    c_ma = st.checkbox("**移動平均上抜け/並び**", False, key=f"c_ma_{i}"); st.caption("5MA/10MA/25MAの相関")
+                    ma_opt = st.selectbox("条件選択", ["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"], index=0 if i==0 else 2 if i==1 else 3, key=f"v_ma_{i}"); st.divider() # ライン追加
                 with c2:
-                    c_ema = st.checkbox("**EMA (9日・21日)**", False, key=f"c_ema_{i}")
-                    st.caption("直近の価格トレンド")
+                    c_ema = st.checkbox("**EMA (9日・21日)**", False, key=f"c_ema_{i}"); st.caption("直近の価格トレンド")
                     ema_opt = st.selectbox("EMA基準", ["強気：EMAの上で価格維持", "安定：EMA付近での推移", "レンジ：EMAを上下にまたぐ"], index=0 if i==0 else 1 if i==1 else 2, key=f"v_ema_{i}"); st.divider()
-                    c_adx = st.checkbox(f"**ADX (強度 {adx_v})**", True, key=f"c_adx_{i}")
-                    st.caption("トレンドの強弱")
+                    c_adx = st.checkbox("**ADX (方向性指数)**", True, key=f"c_adx_{i}"); st.caption("トレンドの強弱")
                     adx_range = st.slider("強度スコア", 0, 100, (25, 40) if i==0 else (10, 20), step=5, key=f"v_adx_{i}"); st.divider()
-                    c_rci = st.checkbox(f"**RCI (過熱感 {rci_v})**", True, key=f"c_rci_{i}")
-                    st.caption("価格の過熱感：カスタム計算")
+                    c_rci = st.checkbox("**RCI (順位相関計数)**", True, key=f"c_rci_{i}"); st.caption("価格の過熱感：カスタム計算")
                     rci_range = st.slider("RCI範囲", -100, 100, (20, 80) if i==0 else (-20, 30) if i==1 else (-30, 30), step=5, key=f"v_rci_{i}"); st.divider()
-                    c_rsi = st.checkbox(f"**RSI (レンジ {rsi_v})**", True, key=f"c_rsi_{i}")
-                    st.caption("相対的な買われすぎ・売られすぎ")
-                    rsi_range = st.slider("RSIレンジ", 0, 100, (55, 70) if i==0 else (40, 55) if i==1 else (45, 55), step=5, key=f"v_rsi_{i}")
+                    c_rsi = st.checkbox("**RSI (14日)**", True, key=f"c_rsi_{i}"); st.caption("相対的な買われすぎ・売られすぎ")
+                    rsi_range = st.slider("RSIレンジ", 0, 100, (55, 70) if i==0 else (40, 55) if i==1 else (45, 55), step=5, key=f"v_rsi_{i}"); st.divider() # ライン追加
                 with c3:
-                    c_vol = st.checkbox(f"**出来高 ({vol_v}万株以上)**", True, key=f"c_vol_{i}")
-                    st.caption("最低限の流動性確保")
-                    vol_min = st.number_input("万株以上", value=float(vol_v), step=10.0, key=f"v_vol_{i}"); st.divider()
-                    c_vup = st.checkbox(f"**出来高増加率 ({vup_v}倍以上)**", True, key=f"c_vup_{i}")
-                    st.caption("前日比での注目度アップ")
-                    vup_min = st.slider("増加倍率", 1.0, 5.0, float(vup_v), step=0.1, key=f"v_vup_{i}"); st.divider()
-                    c_ma25 = st.checkbox(f"**25日移動平均乖離率 ({ma25_v}%)**", True, key=f"c_ma25_{i}")
-                    st.caption("中長期トレンドからの乖離")
+                    c_vol = st.checkbox("**出来高**", True, key=f"c_vol_{i}"); st.caption("最低限の流動性確保")
+                    vol_min = st.number_input("万株以上", value=10.0 if i==0 else 20.0 if i==1 else 10.0, step=10.0, key=f"v_vol_{i}"); st.divider()
+                    c_vup = st.checkbox("**出来高増加率**", True, key=f"c_vup_{i}"); st.caption("前日比での注目度アップ")
+                    vup_min = st.slider("増加倍率", 1.0, 5.0, 1.3 if i==0 else 1.1 if i==1 else 1.2, step=0.1, key=f"v_vup_{i}"); st.divider()
+                    c_ma25 = st.checkbox("**25日移動平均乖離率**", True, key=f"c_ma25_{i}"); st.caption("中長期トレンドからの乖離")
                     ma25_range = st.slider("偏差%", -20.0, 20.0, (0.0, 7.0) if i==0 else (-3.0, 2.0) if i==1 else (-2.0, 3.0), step=1.0, key=f"v_ma25_{i}"); st.divider()
-                    c_bb = st.checkbox(f"**ボリンジャーバンド ({bb_v}σ)**", False, key=f"c_bb_{i}")
-                    st.caption("α範囲による逆張り・順張り目安")
-                    bb_range = st.slider("σ範囲", -3.0, 3.0, (1.0, 2.0) if i==0 else (-1.0, 0.0) if i==1 else (1.0, 2.0), step=1.0, key=f"v_bb_{i}")
+                    c_bb = st.checkbox("**ボリンジャーバンド**", False, key=f"c_bb_{i}"); st.caption("α範囲による逆張り・順張り目安")
+                    bb_range = st.slider("σ範囲", -3.0, 3.0, (1.0, 2.0) if i==0 else (-1.0, 0.0) if i==1 else (1.0, 2.0), step=1.0, key=f"v_bb_{i}"); st.divider() # ライン追加
 
             if st.button("スクリーニング実行", key=f"run_s_{i}", type="primary", use_container_width=True):
-                # 修正ポイント：全てのチェックボックス値を変数に代入済み
                 p_dict = {'c_p': c_p, 'p_range': p_range, 'c_v': c_v, 'v_min': v_min, 'c_atrp': c_atrp, 'atrp_range': atrp_range, 'c_ma': c_ma, 'ma_opt': ma_opt, 'c_ema': c_ema, 'ema_opt': ema_opt, 'c_adx': c_adx, 'adx_range': adx_range, 'c_rsi': c_rsi, 'rsi_range': rsi_range, 'c_rci': c_rci, 'rci_range': rci_range, 'c_vol': c_vol, 'vol_min': vol_min, 'c_vup': c_vup, 'vup_min': vup_min, 'c_ma25': c_ma25, 'ma25_range': ma25_range, 'c_bb': c_bb, 'bb_range': bb_range}
                 res_df = run_full_scan_engine(p_dict)
-                if not res_df.empty:
-                    st.success(f"🎯 230銘柄中 {len(res_df)} 銘柄が合致しました。")
-                    st.dataframe(res_df, hide_index=True, use_container_width=True)
-                else:
-                    st.warning("合致する銘柄はありません。条件のチェックを外して再度お試しください。")
+                if not res_df.empty: st.success(f"🎯 230銘柄中 {len(res_df)} 銘柄が合致しました。"); st.dataframe(res_df, hide_index=True, use_container_width=True)
+                else: st.warning("合致なし。条件を緩めてください。")
 
 # --- タブ3: バックテスト (省略) ---
 with tab_bt: st.info("バックテストを実行します...")
