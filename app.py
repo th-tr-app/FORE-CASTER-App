@@ -157,8 +157,7 @@ def run_scan_engine(ticker, days_back, entry_start, entry_end, use_vwap):
         win_rate = len(wins) / len(pnls)
         pf = sum(wins) / abs(sum(losses)) if losses and sum(losses) != 0 else (9.99 if wins else 0.0)
         
-        # 期待値・勝率・PFをセットで返す
-        return {"ev": np.mean(pnls), "win_rate": win_rate, "pf": pf}
+        return {"ev": np.mean(pnls), "win_rate": win_rate, "pf": pf} # 辞書形式で返す
     except: return None
 
 def get_trade_pattern(row, gap_pct):
@@ -236,12 +235,12 @@ ticker_input = st.text_input("🎯 監視銘柄コード", st.session_state['tar
 st.session_state['target_tickers'] = ticker_input
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
 
-# --- タブ1: ワンタッチ (期待値・勝率・PF表示 ＆ テスト抽出版) ---
+# --- タブ1: ワンタッチ (Ver 1.98test：全表示ランキング版) ---
 with tab_top:
     jst = timezone(timedelta(hours=9)); now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
     m_data = fetch_market_info()
     
-    with st.expander(f"🕒 指標チェック ▶︎ ({now_jst})", expanded=True):
+    with st.expander(f"🕒 指標ウォッチ ▶︎ ({now_jst})", expanded=True):
         if st.button("🔄 リアルタイム更新"): st.cache_data.clear(); st.rerun()
         cards_html = '<div class="metric-grid">'
         for n in MARKET_INDICES.keys():
@@ -254,7 +253,7 @@ with tab_top:
         vix = m_data.get("VIX指数", {}).get("val", 0)
         st.markdown(f'<div class="ai-box"><div style="color:#60a5fa; font-weight:bold;">🤖 AI予測</div><div style="color:#d1d5db; font-size:13px;">VIX指数は {vix:.1f} です。地合いに合わせた戦略を選択してください。</div></div>', unsafe_allow_html=True)
 
-    if st.button("ワンタッチで銘柄スキャン", type="primary", use_container_width=True):
+    if st.button("ワンタッチで銘柄スキャン (テスト表示)", type="primary", use_container_width=True):
         res_list = []; prg = st.progress(0); status_text = st.empty()
         tks = list(TICKER_NAME_MAP.keys())
         
@@ -264,7 +263,7 @@ with tab_top:
             
             stats = run_scan_engine(t, 20, time(9,0), time(9,30), True)
             
-            # 【テスト用】期待値がマイナスでも、とりあえず上位5件を出すように条件を緩和
+            # 【Ver 1.98test】データさえあればマイナスでも追加
             if stats: 
                 res_list.append({
                     "コード": t,
@@ -277,7 +276,7 @@ with tab_top:
         status_text.empty(); prg.empty()
         
         if res_list:
-            # 期待値順にソートして上位5銘柄を抽出
+            # 期待値順に並べて上位5件
             top5_data = sorted(res_list, key=lambda x: x['期待値'], reverse=True)[:5]
             
             final_res = []
@@ -294,13 +293,13 @@ with tab_top:
             st.session_state['target_tickers'] = ", ".join([d['コード'] for d in top5_data])
             st.rerun() 
         else:
-            st.warning("データが取得できませんでした。時間をおいて試すか銘柄を確認してください。")
+            st.warning("データが取得できませんでした。")
 
     # ボタンの下に結果を表示
     if 'scan_display_df' in st.session_state:
-        st.success(f"🎯 抽出可能な銘柄から上位を選出しました。")
+        st.success(f"📊 データ取得可能な銘柄のランキング（上位5件）を表示しています。")
         st.dataframe(st.session_state['scan_display_df'], hide_index=True, use_container_width=True)
-        st.info("上位銘柄を「監視銘柄コード」にセットしました。詳細分析は「バックテスト」タブへ。")
+        st.info("上位銘柄を「監視銘柄コード」に自動セットしました。")
         if st.button("スキャン結果をクリア"):
             del st.session_state['scan_display_df']; st.rerun()
             
