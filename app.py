@@ -129,7 +129,7 @@ def fetch_daily_stats_maps(ticker, start):
 
 def run_scan_engine(ticker, days_back, entry_start, entry_end, use_vwap):
     try:
-        df = yf.download(ticker, period="1mo", interval="5m", progress=False, multi_level_index=False, auto_adjust=False)
+        df = yf.download(ticker, period="1mo", interval="5m", progress=False, auto_adjust=False)
         if df.empty: return None
         df.index = df.index.tz_convert('Asia/Tokyo')
         pnls = []
@@ -186,16 +186,15 @@ tp_val = st.sidebar.number_input("下がったら成行注文 (%)", 0.1, 5.0, 0.
 sl_val = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.7, step=0.05) / 100
 
 # --- 6. メインレイアウト ---
-st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 1.81</h3></div>", unsafe_allow_html=True)
-ticker_input = st.text_input("🎯 監視銘柄コード", st.session_state['target_tickers'])
+st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 1.82</h3></div>", unsafe_allow_html=True)
+ticker_input = st.text_input("監視銘柄コード", st.session_state['target_tickers'])
 st.session_state['target_tickers'] = ticker_input
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
 
-# --- タブ1: ワンタッチ (Ver 1.68 復旧 ＆ ボタン移動) ---
+# --- タブ1: ワンタッチ (Ver 1.81 固定UI) ---
 with tab_top:
     jst = timezone(timedelta(hours=9)); now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
     m_data = fetch_market_info()
-    # 「🔄 指標更新」ボタンを開閉ボックスの中の上部左端へ移動
     with st.expander(f"🕒 指標チェック ▶︎ ({now_jst})", expanded=True):
         if st.button("🔄 リアルタイム更新"): st.cache_data.clear(); st.rerun()
         cards_html = '<div class="metric-grid">'
@@ -213,12 +212,12 @@ with tab_top:
         for idx, t in enumerate(tks):
             prg.progress((idx + 1) / len(tks))
             ev = run_scan_engine(t, 20, time(9,0), time(9,30), True)
-            if ev and ev > 0: res_list.append({"code": t, "name": TICKER_NAME_MAP[t], "ev": ev})
+            if ev and ev > 0: res_list.append({"code": t, "name": TICKER_NAME_MAP.get(t, t), "ev": ev})
         if res_list:
             top5 = sorted(res_list, key=lambda x: x['ev'], reverse=True)[:5]
             st.session_state['target_tickers'] = ", ".join([d['code'] for d in top5]); st.rerun()
 
-# --- タブ2: スクリーニング (12軸リスト修正版) ---
+# --- タブ2: スクリーニング (12軸リスト版) ---
 with tab_screen:
     st.markdown("<br>", unsafe_allow_html=True)
     s_tabs = st.tabs(["🔍通常フィルタ", "🔍ディフェンシブ", "🔍横ばい相場"])
@@ -256,7 +255,7 @@ with tab_screen:
                     st.caption("相対的な買われすぎ・売られすぎ")
                     st.slider("RSIレンジ", 0, 100, (55, 70) if i==0 else (40, 55) if i==1 else (45, 55), key=f"v_rsi_{i}"); st.divider()
                 with c3:
-                    st.checkbox("**出来高**", True, key=f"c_vol_{i}") # 位置変更
+                    st.checkbox("**出来高**", True, key=f"c_vol_{i}")
                     st.caption("最低限の流動性確保")
                     st.number_input("万株以上", 10 if i==0 else 20 if i==1 else 10, key=f"v_vol_{i}"); st.divider()
                     st.checkbox("**出来高増加率**", True, key=f"c_vup_{i}")
@@ -265,7 +264,7 @@ with tab_screen:
                     st.checkbox("**25日移動平均乖離率**", True, key=f"c_ma25_{i}")
                     st.caption("中長期トレンドからの乖離")
                     st.slider("偏差%", -20.0, 20.0, (0.0, 7.0) if i==0 else (-3.0, 2.0) if i==1 else (-2.0, 3.0), key=f"v_ma25_{i}"); st.divider()
-                    st.checkbox("**ボリンジャーバンド**", True, key=f"c_bb_{i}") # 位置変更
+                    st.checkbox("**ボリンジャーバンド**", True, key=f"c_bb_{i}")
                     st.caption("α範囲による逆張り・順張り目安")
                     st.slider("σ範囲", -3.0, 3.0, (1.0, 2.0) if i==0 else (-1.0, 0.0) if i==1 else (1.0, 2.0), step=0.1, key=f"v_bb_{i}"); st.divider()
             st.button("スクリーニング実行", key=f"run_s_{i}", type="primary", use_container_width=True)
@@ -357,7 +356,13 @@ with tab_bt:
                     v_stats = tdf.groupby(pd.cut(tdf['VWAP乖離(%)'], bins=np.arange(-1.0, 1.2, 0.2)), observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()])
                     if not g_stats.empty and not v_stats.empty:
                         bg = g_stats['<lambda_0>'].idxmax(); bv = v_stats['<lambda_0>'].idxmax()
-                        st.info(f"🏆 **最高勝率パターン**: {'GU' if bg.left>=0 else 'GD'} ({bg.left:.1f}%～) 時にVWAP乖離 ({bv.left:.1f}%～) でエントリーする形が優勢です。")
+
+                gap_txt = "ギャップアップ" if best_g['GapRange'].left >= 0 else "ギャップダウン"
+                st.info(f"**🏆 最高勝率パターン**\n\n"
+                        f"最も勝率が高かったのは、**{gap_txt} ({best_g['GapRange'].left:.1f}% ～ {best_g['GapRange'].right:.1f}%)** スタートで、"
+                        f"VWAPから **{best_v['VwapRange'].left:.1f}% ～ {best_v['VwapRange'].right:.1f}%** の位置にある時、"
+                        f"**{best_t['TimeRange']}** にエントリーするパターンです。\n\n"
+                        f"(ギャップ勝率: {best_g['<lambda_0>']:.1%} / VWAP勝率: {best_v['<lambda_0>']:.1%} / 時間勝率: {best_t['<lambda_0>']:.1%})")
                 except: pass
                 st.divider()
 
