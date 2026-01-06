@@ -252,14 +252,13 @@ ticker_input = st.text_input("🎯 監視銘柄コード", st.session_state['tar
 st.session_state['target_tickers'] = ticker_input
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
 
-# --- タブ1: ワンタッチ (Ver 2.00：安定性スコアリング ＆ 45%足切り版) ---
+# --- タブ1: ワンタッチ (Ver 2.01：サイドバー設定完全連動版) ---
 with tab_top:
     jst = timezone(timedelta(hours=9)); now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
     m_data = fetch_market_info()
     
     with st.expander(f"🕒 指標ウォッチ ▶︎ ({now_jst})", expanded=True):
         if st.button("🔄 リアルタイム更新"): st.cache_data.clear(); st.rerun()
-        # ... (指標表示HTML)
         cards_html = '<div class="metric-grid">'
         for n in MARKET_INDICES.keys():
             i = m_data.get(n, {})
@@ -268,30 +267,14 @@ with tab_top:
                 cls = "plus" if i['pct'] >= 0 else "minus"
                 cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
+        vix = m_data.get("VIX指数", {}).get("val", 0)
+        st.markdown(f'<div class="ai-box"><div style="color:#60a5fa; font-weight:bold;">🤖 AI予測</div><div style="color:#d1d5db; font-size:13px;">VIX指数は {vix:.1f} です。地合いに合わせた戦略を選択してください。</div></div>', unsafe_allow_html=True)
 
-# ... (指標ウォッチ部分は維持)
-   if st.button("ワンタッチで銘柄スキャン", type="primary", use_container_width=True):
-        # ... (スクリーニング部分は維持)
-        
-        if screened_df is not None and not screened_df.empty:
-            candidates = screened_df["コード"].tolist()
-            res_list = []
-            for idx, t in enumerate(candidates):
-                prg.progress((idx + 1) / len(candidates))
-                # 【重要】サイドバーの全ての値をエンジンへ渡す
-                stats = run_scan_engine(
-                    t, days_back_param, start_entry_t, end_entry_t, u_vwap,
-                    g_min, g_max, sl_val, ts_val, tp_val
-                )
-                if stats and stats['win_rate'] >= 0.45 and stats['pf'] >= 1.1:
-                    stability_score = stats['ev'] * stats['win_rate'] * stats['pf']
-                    res_list.append({
-                        "コード": t, "銘柄名": TICKER_NAME_MAP.get(t, t),
-                        "win_rate": stats['win_rate'], "pf": stats['pf'], "ev": stats['ev'], "score": stability_score
-                    })
-            # ... (以下、ソートと表示ロジックは維持)
-        
+    if st.button("ワンタッチで銘柄スキャン", type="primary", use_container_width=True):
+        # 1. 選択中のプリセットからインデックスを決定
         p_idx = 0 if st.session_state['preset'] == "NORMAL" else 1 if st.session_state['preset'] == "DEFENSIVE" else 2
+        
+        # 2. 現在のスクリーニング設定を取得
         p_dict = {
             'c_p': st.session_state.get(f"c_p_{p_idx}"), 'p_range': st.session_state.get(f"v_p_{p_idx}"),
             'c_v': st.session_state.get(f"c_v_{p_idx}"), 'v_min': st.session_state.get(f"v_v_{p_idx}"),
@@ -311,16 +294,20 @@ with tab_top:
         
         if screened_df is not None and not screened_df.empty:
             candidates = screened_df["コード"].tolist()
-            status_text.text(f"📈 ステップ2: 合致した {len(candidates)} 銘柄を安定性重視で評価中...")
+            status_text.text(f"📈 ステップ2: 合致した {len(candidates)} 銘柄をサイドバー設定で分析中...")
             
             res_list = []
             for idx, t in enumerate(candidates):
                 prg.progress((idx + 1) / len(candidates))
-                stats = run_scan_engine(t, days_back_param, start_entry_t, end_entry_t, u_vwap)
                 
-                # 【新ロジック：足切り】勝率45%以上かつPF1.2以上の銘柄のみを候補とする
+                # 【重要】サイドバーの決済設定（損切り、トレイリングなど）をすべて渡す
+                stats = run_scan_engine(
+                    t, days_back_param, start_entry_t, end_entry_t, u_vwap,
+                    g_min, g_max, sl_val, ts_val, tp_val
+                )
+                
+                # 勝率45%以上かつPF1.1以上の安定銘柄のみ採用
                 if stats and stats['win_rate'] >= 0.45 and stats['pf'] >= 1.1:
-                    # 安定性スコアの算出 (期待値 * 勝率 * PF)
                     stability_score = stats['ev'] * stats['win_rate'] * stats['pf']
                     res_list.append({
                         "コード": t, "銘柄名": TICKER_NAME_MAP.get(t, t),
@@ -329,7 +316,6 @@ with tab_top:
                     })
             
             if res_list:
-                # スコア順にソートして上位5件を確定
                 top5 = sorted(res_list, key=lambda x: x['score'], reverse=True)[:5]
                 final_res = []
                 for d in top5:
@@ -343,15 +329,15 @@ with tab_top:
                 status_text.empty(); prg.empty()
                 st.rerun() 
             else:
-                st.warning("スクリーニングには合致しましたが、安定条件（勝率45%以上）を満たす銘柄はありませんでした。")
+                st.warning("スクリーニングには合致しましたが、実績（勝率45%以上）を満たす銘柄はありませんでした。")
         else:
             st.warning("スクリーニング条件に合う銘柄がありません。")
         status_text.empty(); prg.empty()
 
     if 'scan_display_df' in st.session_state:
-        st.success(f"🎯 高い勝率と期待値を兼ね備えた「真のトップ5」を選出しました。")
+        st.success(f"🎯 バックテストと完全に一致した数値で「真のトップ5」を表示しています。")
         st.dataframe(st.session_state['scan_display_df'], hide_index=True, use_container_width=True)
-        st.info("上位銘柄を「監視銘柄コード」に自動セットしました。詳細分析は「バックテスト」タブへ。")
+        st.info("上位銘柄を「監視銘柄コード」に自動セットしました。")
         if st.button("スキャン結果をクリア"):
             del st.session_state['scan_display_df']; st.rerun()
 
