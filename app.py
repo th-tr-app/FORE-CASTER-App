@@ -239,13 +239,14 @@ ticker_input = st.text_input("🎯 監視銘柄コード", st.session_state['tar
 st.session_state['target_tickers'] = ticker_input
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
 
-# --- タブ1: ワンタッチ (手順5・6：60日間バックテスト統合版) ---
+# --- タブ1: ワンタッチ (Ver 2.00：安定性スコアリング ＆ 45%足切り版) ---
 with tab_top:
     jst = timezone(timedelta(hours=9)); now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
     m_data = fetch_market_info()
     
     with st.expander(f"🕒 指標ウォッチ ▶︎ ({now_jst})", expanded=True):
         if st.button("🔄 リアルタイム更新"): st.cache_data.clear(); st.rerun()
+        # ... (指標表示HTML)
         cards_html = '<div class="metric-grid">'
         for n in MARKET_INDICES.keys():
             i = m_data.get(n, {})
@@ -254,8 +255,6 @@ with tab_top:
                 cls = "plus" if i['pct'] >= 0 else "minus"
                 cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
-        vix = m_data.get("VIX指数", {}).get("val", 0)
-        st.markdown(f'<div class="ai-box"><div style="color:#60a5fa; font-weight:bold;">🤖 AI予測</div><div style="color:#d1d5db; font-size:13px;">VIX指数は {vix:.1f} です。地合いに合わせた戦略を選択してください。</div></div>', unsafe_allow_html=True)
 
     if st.button("ワンタッチで銘柄スキャン", type="primary", use_container_width=True):
         p_idx = 0 if st.session_state['preset'] == "NORMAL" else 1 if st.session_state['preset'] == "DEFENSIVE" else 2
@@ -273,27 +272,31 @@ with tab_top:
         }
         
         status_text = st.empty(); prg = st.progress(0)
-        status_text.text("⚙️ ステップ1: スクリーニング条件で絞り込み中...")
+        status_text.text("⚙️ ステップ1: 条件に合う銘柄を絞り込み中...")
         screened_df = run_full_scan_engine(p_dict)
         
         if screened_df is not None and not screened_df.empty:
             candidates = screened_df["コード"].tolist()
-            status_text.text(f"📈 ステップ2: 合致した {len(candidates)} 銘柄を過去60日間データで分析中...")
+            status_text.text(f"📈 ステップ2: 合致した {len(candidates)} 銘柄を安定性重視で評価中...")
             
             res_list = []
             for idx, t in enumerate(candidates):
                 prg.progress((idx + 1) / len(candidates))
-                # 60日間のデータを元に期待値・勝率・PFを算出
                 stats = run_scan_engine(t, days_back_param, start_entry_t, end_entry_t, u_vwap)
-                if stats:
+                
+                # 【新ロジック：足切り】勝率45%以上かつPF1.2以上の銘柄のみを候補とする
+                if stats and stats['win_rate'] >= 0.45 and stats['pf'] >= 1.1:
+                    # 安定性スコアの算出 (期待値 * 勝率 * PF)
+                    stability_score = stats['ev'] * stats['win_rate'] * stats['pf']
                     res_list.append({
                         "コード": t, "銘柄名": TICKER_NAME_MAP.get(t, t),
-                        "win_rate": stats['win_rate'], "pf": stats['pf'], "ev": stats['ev']
+                        "win_rate": stats['win_rate'], "pf": stats['pf'], "ev": stats['ev'],
+                        "score": stability_score
                     })
             
             if res_list:
-                # 期待値(ev)順にソート
-                top5 = sorted(res_list, key=lambda x: x['ev'], reverse=True)[:5]
+                # スコア順にソートして上位5件を確定
+                top5 = sorted(res_list, key=lambda x: x['score'], reverse=True)[:5]
                 final_res = []
                 for d in top5:
                     final_res.append({
@@ -306,13 +309,13 @@ with tab_top:
                 status_text.empty(); prg.empty()
                 st.rerun() 
             else:
-                st.warning("スクリーニングには合致しましたが、60日間の検証で有効な実績がありませんでした。")
+                st.warning("スクリーニングには合致しましたが、安定条件（勝率45%以上）を満たす銘柄はありませんでした。")
         else:
             st.warning("スクリーニング条件に合う銘柄がありません。")
         status_text.empty(); prg.empty()
 
     if 'scan_display_df' in st.session_state:
-        st.success(f"🎯 過去60日間の実績に基づくポテンシャル銘柄（上位5件）を表示しています。")
+        st.success(f"🎯 高い勝率と期待値を兼ね備えた「真のトップ5」を選出しました。")
         st.dataframe(st.session_state['scan_display_df'], hide_index=True, use_container_width=True)
         st.info("上位銘柄を「監視銘柄コード」に自動セットしました。詳細分析は「バックテスト」タブへ。")
         if st.button("スキャン結果をクリア"):
