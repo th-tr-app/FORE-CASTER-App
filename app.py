@@ -131,13 +131,14 @@ def fetch_daily_stats_maps(ticker, start):
 
 def run_scan_engine(ticker, days_back, entry_start, entry_end, use_vwap):
     try:
-        # 取得期間を7日に絞り安定性を向上
-        df = yf.download(ticker, period="7d", interval="5m", progress=False, auto_adjust=False)
+        # yfinanceの5分足取得上限である 60d に設定
+        df = yf.download(ticker, period="60d", interval="5m", progress=False, auto_adjust=False)
         if df.empty: return None
         if df.columns.nlevels > 1: df.columns = df.columns.get_level_values(0)
         df.index = df.index.tz_convert('Asia/Tokyo')
         
         pnls = []
+        # サイドバーで指定された days_back_param と、実際に取得できた日数の少ない方を採用
         calc_days = min(len(np.unique(df.index.date)), days_back)
         for d in np.unique(df.index.date)[-calc_days:]:
             day = df[df.index.date == d].copy().between_time('09:00', '15:00')
@@ -154,13 +155,11 @@ def run_scan_engine(ticker, days_back, entry_start, entry_end, use_vwap):
                         pnls.append((exit_p - entry_p) / entry_p); in_pos = False; break
         
         if not pnls: return None
-        # 詳細統計の算出
         wins = [p for p in pnls if p > 0]
         losses = [p for p in pnls if p <= 0]
         win_rate = len(wins) / len(pnls)
         pf = sum(wins) / abs(sum(losses)) if losses and sum(losses) != 0 else (9.99 if wins else 0.0)
         
-        # 内部キーを小文字で統一
         return {"ev": np.mean(pnls), "win_rate": win_rate, "pf": pf}
     except:
         return None
@@ -240,7 +239,7 @@ ticker_input = st.text_input("🎯 監視銘柄コード", st.session_state['tar
 st.session_state['target_tickers'] = ticker_input
 tab_top, tab_screen, tab_bt = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト"])
 
-# --- タブ1: ワンタッチ (手順5・6：二段選別 ＆ 表示エラー修正版) ---
+# --- タブ1: ワンタッチ (手順5・6：60日間バックテスト統合版) ---
 with tab_top:
     jst = timezone(timedelta(hours=9)); now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
     m_data = fetch_market_info()
@@ -279,11 +278,12 @@ with tab_top:
         
         if screened_df is not None and not screened_df.empty:
             candidates = screened_df["コード"].tolist()
-            status_text.text(f"📈 ステップ2: 合致した {len(candidates)} 銘柄をバックテストで分析中...")
+            status_text.text(f"📈 ステップ2: 合致した {len(candidates)} 銘柄を過去60日間データで分析中...")
             
             res_list = []
             for idx, t in enumerate(candidates):
                 prg.progress((idx + 1) / len(candidates))
+                # 60日間のデータを元に期待値・勝率・PFを算出
                 stats = run_scan_engine(t, days_back_param, start_entry_t, end_entry_t, u_vwap)
                 if stats:
                     res_list.append({
@@ -292,7 +292,7 @@ with tab_top:
                     })
             
             if res_list:
-                # キーを統一してソート実行
+                # 期待値(ev)順にソート
                 top5 = sorted(res_list, key=lambda x: x['ev'], reverse=True)[:5]
                 final_res = []
                 for d in top5:
@@ -306,13 +306,13 @@ with tab_top:
                 status_text.empty(); prg.empty()
                 st.rerun() 
             else:
-                st.warning("スクリーニングには合致しましたが、期待値が算出できる銘柄はありませんでした。")
+                st.warning("スクリーニングには合致しましたが、60日間の検証で有効な実績がありませんでした。")
         else:
             st.warning("スクリーニング条件に合う銘柄がありません。")
         status_text.empty(); prg.empty()
 
     if 'scan_display_df' in st.session_state:
-        st.success(f"🎯 本日のポテンシャル銘柄の上位5件を表示しています。")
+        st.success(f"🎯 過去60日間の実績に基づくポテンシャル銘柄（上位5件）を表示しています。")
         st.dataframe(st.session_state['scan_display_df'], hide_index=True, use_container_width=True)
         st.info("上位銘柄を「監視銘柄コード」に自動セットしました。詳細分析は「バックテスト」タブへ。")
         if st.button("スキャン結果をクリア"):
