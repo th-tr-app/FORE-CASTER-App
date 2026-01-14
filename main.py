@@ -82,8 +82,9 @@ params = {
 
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
 st.markdown(f"<div><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>ver 3.0 | AI Screening & Backtest</h3></div>", unsafe_allow_html=True)
-# セッションから初期値を取得し、入力内容をセッションに反映
-st.session_state['target_tickers'] = st.text_input("🎯 監視銘柄コード (カンマ区切り)", st.session_state['target_tickers'], key="global_ticker_input")
+
+# keyを "target_tickers" にすることで、セッション状態とウィジェットを完全に同期させます
+st.text_input("🎯 監視銘柄コード (カンマ区切り)", key="target_tickers")
 
 # --- 5. メインタブ構成 ---
 tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト", "🏆 ランキング"])
@@ -170,28 +171,33 @@ with tab_screen:
                 # 計算結果をセッションに保存 (これで操作しても消えなくなる)
                 st.session_state[f"sc_res_df_{i}"] = pd.DataFrame(results) if results else None
 
-            # --- 結果表示と自動入力エリア (ボタンの外側に配置) ---
-            rdf = st.session_state.get(f"sc_res_df_{i}")
-            if rdf is not None and not rdf.empty:
-                st.info("💡 銘柄を選択すると、最上部の監視リストに自動で追加されます。")
+            # --- 結果表示と自動入力エリア (修正版) ---
+            res_df = st.session_state.get(f"sc_res_df_{i}")
+            if res_df is not None and not res_df.empty:
+                st.info("💡 銘柄をチェックすると、最上部の監視リストに自動で追加されます。")
                 
-                # 選択イベントの取得
                 sel_event = st.dataframe(
-                    rdf[['コード', '銘柄名', '株価', '前日比', '売買代金']],
-                    use_container_width=True, hide_index=True, on_select="rerun", selection_mode="multi-row", key=f"df_res_view_{i}"
+                    res_df[['コード', '銘柄名', '株価', '前日比', '売買代金']],
+                    use_container_width=True, hide_index=True, 
+                    on_select="rerun", selection_mode="multi-row", 
+                    key=f"df_sc_view_final_{i}" # 固有のキー
                 )
                 
-                # 共通入力欄への自動入力ロジック
-                if sel_event.selection.rows:
-                    selected_tickers = rdf.iloc[sel_event.selection.rows]['コード'].tolist()
-                    current_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
+                # 選択された行のインデックスを取得
+                selected_rows = sel_event.selection.rows
+                if selected_rows:
+                    selected_codes = res_df.iloc[selected_rows]['コード'].tolist()
                     
-                    # 既存リストと合流し、重複を除外してソート
-                    new_combined = sorted(list(set(current_list + selected_tickers)))
-                    st.session_state['target_tickers'] = ", ".join(new_combined)
+                    # 現在の入力欄の内容を取得
+                    current_tickers = [t.strip() for t in st.session_state.get('target_tickers', '').split(",") if t.strip()]
                     
-                    st.toast(f"{len(selected_tickers)} 銘柄を監視リストに加えました")
-                    st.rerun() # 最上部の入力欄を即時更新するためにリラン
+                    # まだリストに入っていない銘柄がある場合のみ更新 (無限ループ防止)
+                    new_tickers = [c for c in selected_codes if c not in current_tickers]
+                    if new_tickers:
+                        updated_list = sorted(list(set(current_tickers + selected_codes)))
+                        st.session_state['target_tickers'] = ", ".join(updated_list)
+                        st.toast(f"{len(new_tickers)} 銘柄を監視リストに加えました")
+                        st.rerun() # 画面全体を再描画して最上部の入力欄を更新
 
 # --- タブ3: バックテスト (6.3の全分析機能を復元) ---
 with tab_bt:
@@ -317,23 +323,29 @@ with tab_rank:
             st.session_state['last_rank_df'] = pd.DataFrame(rank_list).sort_values('期待値', ascending=False).head(20)
             st.rerun()
 
+    # --- 結果の表示と転送機能 (修正版) ---
     if 'last_rank_df' in st.session_state:
         rdf = st.session_state['last_rank_df']
-        st.caption("👇 表の左端をチェックして「監視リストに追加」を押してください。")
+        st.caption("👇 銘柄をチェックすると監視リストに反映されます。")
         
         event = st.dataframe(
             rdf.style.format({'勝率': '{:.1%}', '期待値': '{:+.2%}', 'PF': '{:.2f}'}),
-            use_container_width=True, hide_index=True, on_select="rerun", selection_mode="multi-row", key="rank_df_view"
+            use_container_width=True, hide_index=True, 
+            on_select="rerun", selection_mode="multi-row", 
+            key="rank_df_view_final" # 固有のキー
         )
         
-        if event.selection.rows:
-            sel_tickers = rdf.iloc[event.selection.rows]['コード'].tolist()
-            if st.button(f"➕ 選択した {len(sel_tickers)} 銘柄を監視リストに追加", use_container_width=True, key="rank_add_btn"):
-                current = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
-                new_list = sorted(list(set(current + sel_tickers)))
-                st.session_state['target_tickers'] = ", ".join(new_list)
-                st.toast(f"{len(sel_tickers)} 銘柄を追加しました！")
-                st.rerun()
+        selected_rows = event.selection.rows
+        if selected_rows:
+            selected_codes = rdf.iloc[selected_rows]['コード'].tolist()
+            current_tickers = [t.strip() for t in st.session_state.get('target_tickers', '').split(",") if t.strip()]
+            
+            new_tickers = [c for c in selected_codes if c not in current_tickers]
+            if new_tickers:
+                updated_list = sorted(list(set(current_tickers + selected_codes)))
+                st.session_state['target_tickers'] = ", ".join(updated_list)
+                st.toast(f"期待値トップ銘柄を監視リストに追加しました！")
+                st.rerun() # 更新を反映
 
         if st.button("♻️ ランキングをクリア", key="rank_clear_btn", use_container_width=True):
             del st.session_state['last_rank_df']; st.rerun()
