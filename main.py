@@ -83,9 +83,17 @@ params = {
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
 st.markdown(f"<div><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>ver 3.0 | AI Screening & Backtest</h3></div>", unsafe_allow_html=True)
 
-# keyを "target_tickers" にすることで、セッション状態とウィジェットを完全に同期させます
-st.text_input("🎯 監視銘柄コード (カンマ区切り)", key="target_tickers")
+# 【修正ポイント】key="target_tickers" を削除し、value= を使用します
+ticker_input_val = st.text_input(
+    "🎯 監視銘柄コード (カンマ区切り)", 
+    value=st.session_state['target_tickers']
+)
 
+# ユーザーが直接手入力した場合、セッション状態を更新してリラン
+if ticker_input_val != st.session_state['target_tickers']:
+    st.session_state['target_tickers'] = ticker_input_val
+    st.rerun()
+    
 # --- 5. メインタブ構成 ---
 tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト", "🏆 ランキング"])
 
@@ -183,21 +191,23 @@ with tab_screen:
                     key=f"df_sc_view_final_{i}" # 固有のキー
                 )
                 
-                # 選択された行のインデックスを取得
-                selected_rows = sel_event.selection.rows
-                if selected_rows:
-                    selected_codes = res_df.iloc[selected_rows]['コード'].tolist()
-                    
-                    # 現在の入力欄の内容を取得
-                    current_tickers = [t.strip() for t in st.session_state.get('target_tickers', '').split(",") if t.strip()]
-                    
-                    # まだリストに入っていない銘柄がある場合のみ更新 (無限ループ防止)
-                    new_tickers = [c for c in selected_codes if c not in current_tickers]
-                    if new_tickers:
-                        updated_list = sorted(list(set(current_tickers + selected_codes)))
-                        st.session_state['target_tickers'] = ", ".join(updated_list)
-                        st.toast(f"{len(new_tickers)} 銘柄を監視リストに加えました")
-                        st.rerun() # 画面全体を再描画して最上部の入力欄を更新
+            # --- スクリーニングまたはランキングの追加ロジック内 ---
+
+            # 選択された行のコードを取得
+            selected_codes = rdf.iloc[selected_rows]['コード'].tolist() # または res_df
+
+            # 現在のリストを取得
+            current_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
+
+            # 新しい銘柄を合流（重複排除）
+            new_combined = sorted(list(set(current_list + selected_codes)))
+            new_tickers_str = ", ".join(new_combined)
+
+            # 【修正ポイント】値が変わっている場合のみ更新し、即座に st.rerun()
+            if new_tickers_str != st.session_state['target_tickers']:
+                st.session_state['target_tickers'] = new_tickers_str
+                st.toast(f"銘柄リストを更新しました！")
+                st.rerun() # これで画面上部の入力欄が書き換わります
 
 # --- タブ3: バックテスト (6.3の全分析機能を復元) ---
 with tab_bt:
