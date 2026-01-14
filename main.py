@@ -1,9 +1,10 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta, timezone, time
 
-# 外部モジュールの読み込み
+# 外部モジュールのインポート
 from const import TICKER_NAME_MAP, MARKET_INDICES
 import logic_core as core
 
@@ -11,26 +12,21 @@ import logic_core as core
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
-# --- 2. デザインCSS (v2.01完全継承 + タブ調整) ---
+# --- 2. デザインCSS (デザイン調整版) ---
 st.markdown("""
     <style>
-    .main-title { font-weight: 400 !important; font-size: 46px !important; margin: 0 !important; padding: 0 !important; line-height: 1.1; }
-    .sub-title { font-weight: 300 !important; font-size: 20px !important; margin: 0 !important; padding: 0 !important; color: #aaaaaa !important; line-height: 1.1; }
+    .main-title { font-weight: 400 !important; font-size: 40px !important; margin: 0 !important; padding: 0 !important; }
+    .sub-title { font-weight: 300 !important; font-size: 18px !important; margin: 0 !important; color: #aaaaaa !important; }
     
-    /* 指標カード */
-    .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; margin-top: 15px; }
+    /* 指標カードの余白調整 */
+    .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; margin-top: 10px; }
     @media (max-width: 640px) { .metric-grid { grid-template-columns: repeat(2, 1fr) !important; } }
-    .metric-card { background-color: transparent; border: 1px solid #3d414b; border-radius: 6px; padding: 8px 5px; display: flex; flex-direction: column; align-items: center; text-align: center; }
-    .card-label { font-size: 12px; color: #aaaaaa; }
-    .card-value { font-size: 26px; font-weight: 600; color: #ffffff; }
-    .delta-badge { font-size: 16px; font-weight: 600; margin-top: 2px; }
-    .plus { color: #ff4b4b; }
-    .minus { color: #00f0a8; }
+    .metric-card { background-color: transparent; border: 1px solid #3d414b; border-radius: 6px; padding: 8px 5px; text-align: center; }
+    .card-label { font-size: 11px; color: #aaaaaa; }
+    .card-value { font-size: 22px; font-weight: 600; color: #ffffff; }
     
-    .ai-box { background-color: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; margin: 15px 0; }
-    
-    /* バックテスト・サマリー用ボックス */
-    .summary-box { background-color: #262730; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #3d414b; }
+    /* サブタブのフォントサイズ調整 */
+    button[data-baseweb="tab"] p { font-size: 14px !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -42,13 +38,12 @@ def fetch_market_info():
         try:
             df = yf.download(ticker, period="5d", progress=False)
             if not df.empty:
-                latest = float(df['Close'].iloc[-1])
-                prev = float(df['Close'].iloc[-2])
+                latest = float(df['Close'].iloc[-1]); prev = float(df['Close'].iloc[-2])
                 data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
         except: data[name] = {"val": None, "pct": None}
     return data
 
-# --- 4. サイドバー設定 (共通パラメーター) ---
+# --- 4. サイドバー設定 (共通) ---
 st.sidebar.header("⚙️ パラメーター設定")
 days_back = st.sidebar.slider("過去何日分を取得", 10, 59, 59)
 s_t = st.sidebar.time_input("開始時間", time(9, 0), step=300)
@@ -74,44 +69,70 @@ params = {
     'g_min': g_min, 'g_max': g_max, 'ts_start': ts_s, 'ts_width': ts_w, 'sl_fix': sl_f, 'u_atr': u_atr, 'atr_mul': a_mul, 'atr_min': a_min
 }
 
-# --- 5. メインヘッダー表示 ---
-st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 3.0</h3></div>", unsafe_allow_html=True)
+# --- 5. メインヘッダー ---
+st.markdown(f"<div><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>ver 3.0 | Screening & Backtest</h3></div>", unsafe_allow_html=True)
 
-# 指標ウォッチ
-jst = timezone(timedelta(hours=9))
-now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
-m_data = fetch_market_info()
-
-with st.expander(f"🕒 指標ウォッチ ▶︎ ({now_jst})", expanded=True):
-    cards_html = '<div class="metric-grid">'
-    for n in MARKET_INDICES.keys():
-        i = m_data.get(n, {})
-        if i.get("val"):
-            v = f"{i['val']:,.1f}" if i['val'] > 200 else f"{i['val']:,.2f}"
-            cls = "plus" if i['pct'] >= 0 else "minus"
-            cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
-    st.markdown(cards_html + '</div>', unsafe_allow_html=True)
-
-# --- 6. メインタブ構成 (ランキングを独立) ---
+# --- 6. メインタブ構成 ---
 tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト", "🏆 ランキング"])
 
+# --- タブ1: ワンタッチ (指標ウォッチを内包) ---
 with tab_top:
-    st.info("💡 ワンタッチ機能をここに移植します。")
-
-with tab_screen:
-    st.info("💡 スクリーニング機能をここに移植します。")
-
-with tab_bt:
-    st.markdown("### 📈 個別銘柄バックテスト")
-    # 6.3の個別バックテスト表示ロジックをここに統合します
-    st.info("サイドバーのパラメーターを反映した詳細分析を表示します。")
-
-with tab_rank:
-    st.markdown("### 🏆 登録銘柄期待値ランキング")
-    st.markdown("""<p style='font-size:0.85rem; color:#808495;'>サイドバーの設定に基づき、全登録銘柄から期待値の高い銘柄を抽出します。<br><span style='color:yellow;'>『バックテスト結果をクリア』してからご利用ください。</span></p>""", unsafe_allow_html=True)
+    jst = timezone(timedelta(hours=9)); now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
+    m_data = fetch_market_info()
     
-    if st.button("🚀 ランキング生成実行", type="primary", use_container_width=True):
-        st.session_state['trigger_rank_scan'] = True
+    # ここに指標ウォッチを配置（スマホでボタンのすぐ上に表示される）
+    with st.expander(f"🕒 市場指標ウォッチ ▶︎ {now_jst}", expanded=True):
+        cards_html = '<div class="metric-grid">'
+        for n in MARKET_INDICES.keys():
+            i = m_data.get(n, {})
+            if i.get("val"):
+                v = f"{i['val']:,.1f}" if i['val'] > 200 else f"{i['val']:,.2f}"
+                cls = "plus" if i['pct'] >= 0 else "minus"
+                cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
+        st.markdown(cards_html + '</div>', unsafe_allow_html=True)
+        
+    if st.button("🚀 ワンタッチで銘柄スキャン実行", type="primary", use_container_width=True):
+        st.info("ここにワンタッチロジックを実装します。")
+
+# --- タブ3: バックテスト (BACK TESTER 6.3 の 6 つのタブを移植) ---
+with tab_bt:
+    ticker_in = st.text_input("🎯 監視銘柄コード (カンマ区切り)", "8267.T", key="bt_ticker_input")
+    tickers = [t.strip() for t in ticker_in.split(",") if t.strip()]
+    
+    if st.button("📊 バックテスト実行", type="primary", use_container_width=True):
+        end_date = datetime.now(); start_date = end_date - timedelta(days=days_back)
+        all_trades = []; t_names = {}
+        pb = st.progress(0); st_text = st.empty()
+        for i, t in enumerate(tickers):
+            st_text.text(f"Testing {t}..."); pb.progress((i+1)/len(tickers))
+            df = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
+            p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
+            all_trades.extend(core.run_ticker_simulation(t, df, p_map, o_map, a_map, params))
+            t_names[t] = TICKER_NAME_MAP.get(t, t)
+        st.session_state['res_df'] = pd.DataFrame(all_trades)
+        st.session_state['t_names'] = t_names
         st.rerun()
 
-    # logic_core.py を利用したランキング表示ロジックをここに移植します
+    # --- 分析結果のサブタブ (6.3統合) ---
+    if 'res_df' in st.session_state and not st.session_state['res_df'].empty:
+        res_df = st.session_state['res_df']; t_names = st.session_state['t_names']
+        sub_tabs = st.tabs(["📊 サマリー", "🏅 勝ちパターン", "📉 ギャップ分析", "🧐 VWAP分析", "🕒 時間分析", "📝 詳細ログ"])
+        
+        with sub_tabs[0]: # 📊 サマリー
+            wins = res_df[res_df['PnL'] > 0]; losses = res_df[res_df['PnL'] <= 0]
+            pf = wins['PnL'].sum() / abs(losses['PnL'].sum()) if not losses.empty else 0
+            st.markdown(f"""
+            <div style='display:grid; grid-template-columns:repeat(4,1fr); gap:10px;'>
+                <div class='summary-box'><div class='card-label'>回数</div><div class='card-value'>{len(res_df)}</div></div>
+                <div class='summary-box'><div class='card-label'>勝率</div><div class='card-value'>{(len(wins)/len(res_df)):.1%}</div></div>
+                <div class='summary-box'><div class='card-label'>PF</div><div class='card-value'>{pf:.2f}</div></div>
+                <div class='summary-box'><div class='card-label'>期待値</div><div class='card-value'>{res_df['PnL'].mean():.2%}</div></div>
+            </div>""", unsafe_allow_html=True)
+            # レポートテキスト等の詳細は後ほど関数化してスッキリさせます
+        
+        # ※ tab2〜tab6 の具体的な表示ロジックは、以前作成したコードをこのブロック内に順次組み込んでいきます
+        with sub_tabs[5]: # 📝 詳細ログ
+             st.info("詳細ログをここに表示します。")
+
+        if st.button("♻️ バックテスト結果をリセット", key="reset_bt_main"):
+            st.session_state['res_df'] = pd.DataFrame(); st.rerun()
