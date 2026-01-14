@@ -8,13 +8,27 @@ from datetime import datetime, timedelta, timezone, time
 from const import TICKER_NAME_MAP, MARKET_INDICES
 import logic_core as core
 
-# --- 1. ページ設定 & セッション管理 ---
+# --- 1. ページ設定 & セッション管理 (永続化の定義) ---
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_13.png", icon_image="image_12.png")
 
+# 基本情報の初期化
 if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "7203.T"
+if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 if 'res_df' not in st.session_state: st.session_state['res_df'] = pd.DataFrame()
 if 't_names' not in st.session_state: st.session_state['t_names'] = {}
+
+# スクリーニング用パラメータの保持 (通常=0, ディフェンシブ=1, 横ばい=2)
+if 'sc_params' not in st.session_state:
+    st.session_state['sc_params'] = [
+        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 50.0, 'c_atrp': False, 'atrp_rng': (2.0, 4.0), 'c_rsi': True, 'rsi_rng': (55, 70), 'c_adx': False, 'adx_rng': (25, 40), 'c_rci': False, 'rci_rng': (20, 80), 'c_vol': True, 'vol_min': 10.0, 'c_vup': False, 'vup_min': 1.3, 'c_ma25': True, 'ma25_rng': (0.0, 7.0)},
+        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 300.0, 'c_atrp': True, 'atrp_rng': (1.0, 2.5), 'c_rsi': True, 'rsi_rng': (40, 55), 'c_adx': True, 'adx_rng': (10, 20), 'c_rci': True, 'rci_rng': (-30, 30), 'c_vol': True, 'vol_min': 20.0, 'c_vup': True, 'vup_min': 1.1, 'c_ma25': True, 'ma25_rng': (-3.0, 2.0)},
+        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 200.0, 'c_atrp': True, 'atrp_rng': (1.2, 2.5), 'c_rsi': True, 'rsi_rng': (45, 55), 'c_adx': False, 'adx_rng': (10, 20), 'c_rci': True, 'rci_rng': (-30, 30), 'c_vol': True, 'vol_min': 10.0, 'c_vup': True, 'vup_min': 1.2, 'c_ma25': True, 'ma25_rng': (-2.0, 3.0)},
+    ]
+
+# 各タブのスキャン結果保持用
+for i in range(3):
+    if f"sc_res_df_{i}" not in st.session_state: st.session_state[f"sc_res_df_{i}"] = None
 
 # --- 2. デザインCSS (全画面共通) ---
 st.markdown("""
@@ -33,11 +47,14 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. サイドバー設定 (戦略プリセット + パラメーター) ---
+# --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
 st.sidebar.markdown("### 🎲 戦略プリセット")
 for p, l in [("NORMAL","通常フィルタ"), ("DEFENSIVE","ディフェンシブ"), ("RANGE","横ばい相場")]:
-    if st.sidebar.button(l + (" [ 選択中 ]" if st.session_state.get('preset') == p else ""), key=f"ps_{p}"):
-        st.session_state['preset'] = p; st.rerun()
+    is_sel = (st.session_state['preset'] == p)
+    # 重複エラーを防ぐためキーを一意にする
+    if st.sidebar.button(l + (" [ 選択中 ]" if is_sel else ""), key=f"side_ps_btn_{p}", type="primary" if is_sel else "secondary"):
+        st.session_state['preset'] = p
+        st.rerun()
 
 st.sidebar.divider()
 st.sidebar.header("⚙️ バックテスト設定")
@@ -52,7 +69,7 @@ with st.sidebar.expander("📉 詳細パラメーター"):
     g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, -3.0, 0.05) / 100
     g_max = st.sidebar.slider("寄付アップ上限 (%)", -5.0, 5.0, 1.0, 0.05) / 100
     ts_s = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5, 0.05) / 100
-    ts_w = st.sidebar.number_input("下がったら成行注文 (%)", 0.1, 5.0, 0.2, 0.05) / 100
+    ts_w = st.sidebar.number_input("トレイリング幅 (%)", 0.1, 5.0, 0.2, 0.05) / 100
     sl_f = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.5, 0.05) / 100
     u_atr = st.sidebar.checkbox("ATR損切りを使用", value=True)
     a_mul = st.sidebar.number_input("ATR倍率", 0.5, 5.0, 1.5, 0.1)
@@ -65,15 +82,17 @@ params = {
 
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
 st.markdown(f"<div><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>ver 3.0 | AI Screening & Backtest</h3></div>", unsafe_allow_html=True)
-st.session_state['target_tickers'] = st.text_input("🎯 監視銘柄コード (カンマ区切り)", st.session_state['target_tickers'])
+# セッションから初期値を取得し、入力内容をセッションに反映
+st.session_state['target_tickers'] = st.text_input("🎯 監視銘柄コード (カンマ区切り)", st.session_state['target_tickers'], key="global_ticker_input")
 
 # --- 5. メインタブ構成 ---
 tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト", "🏆 ランキング"])
 
 # --- タブ1: ワンタッチ (指標ウォッチ内包) ---
 with tab_top:
-    m_data = core.fetch_market_info(MARKET_INDICES) # ★修正：引数を渡して呼び出し
-    with st.expander(f"🕒 市場指標ウォッチ", expanded=True):
+    m_data = core.fetch_market_info(MARKET_INDICES) # logic_core経由で取得
+    
+    with st.expander(f"🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
         cards_html = '<div class="metric-grid">'
         for n, t in MARKET_INDICES.items():
             i = m_data.get(n, {})
@@ -83,70 +102,59 @@ with tab_top:
                 cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
     
+    # AI予測 (VIX指数を活用)
     vix = m_data.get("VIX指数", {}).get("val", 0)
-    st.info(f"🤖 **AI予測:** VIX指数は {vix:.1f} です。地合いに合わせた戦略を提案します。")
-    if st.button("🚀 ワンタッチ判定：銘柄スキャン実行", type="primary", use_container_width=True):
-        st.write("ワンタッチ統合ロジックをここに実装...")
+    st.info(f"🤖 **AI予測:** VIX指数は {vix:.1f} です。サイドバーの戦略プリセットから「{st.session_state['preset']}」を選択し、ワンタッチ判定を開始してください。")
+    
+    if st.button("🚀 ワンタッチ判定：銘柄スキャン実行", type="primary", use_container_width=True, key="ot_run_btn"):
+        st.info("💡 スクリーニングタブで追い込んだ設定に基づき、全自動スキャンを準備中です。")
 
-# --- 1. セッション状態の初期化 (パラメータの永続化) ---
-# 各戦略（通常=0, ディフェンシブ=1, 横ばい=2）の初期値を定義
-if 'sc_params' not in st.session_state:
-    st.session_state['sc_params'] = [
-        # 通常：地合いが強い日
-        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 50.0, 'c_atrp': False, 'atrp_rng': (2.0, 4.0), 'c_rsi': True, 'rsi_rng': (55, 70), 'c_adx': False, 'adx_rng': (25, 40), 'c_rci': False, 'rci_rng': (20, 80), 'c_vol': True, 'vol_min': 10.0, 'c_vup': False, 'vup_min': 1.3, 'c_ma25': True, 'ma25_rng': (0.0, 7.0)},
-        # ディフェンシブ：地合いが弱い日
-        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 300.0, 'c_atrp': True, 'atrp_rng': (1.0, 2.5), 'c_rsi': True, 'rsi_rng': (40, 55), 'c_adx': True, 'adx_rng': (10, 20), 'c_rci': True, 'rci_rng': (-30, 30), 'c_vol': True, 'vol_min': 20.0, 'c_vup': True, 'vup_min': 1.1, 'c_ma25': True, 'ma25_rng': (-3.0, 2.0)},
-        # 横ばい相場：方向性がない日
-        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 200.0, 'c_atrp': True, 'atrp_rng': (1.2, 2.5), 'c_rsi': True, 'rsi_rng': (45, 55), 'c_adx': False, 'adx_rng': (10, 20), 'c_rci': True, 'rci_rng': (-30, 30), 'c_vol': True, 'vol_min': 10.0, 'c_vup': True, 'vup_min': 1.2, 'c_ma25': True, 'ma25_rng': (-2.0, 3.0)},
-    ]
-
-# --- 2. タブ2: スクリーニングの実装 ---
+# --- タブ2: スクリーニングの実装 (結果保持・自動入力修正版) ---
 with tab_screen:
     st.markdown("### 🔍 戦略別スクリーニング設定")
     s_tabs = st.tabs(["🔍 通常フィルタ", "🔍 ディフェンシブ", "🔍 横ばい相場対応"])
     
     for i, s_tab in enumerate(s_tabs):
         with s_tab:
-            p = st.session_state['sc_params'][i] # このタブ用のパラメータを参照
+            p = st.session_state['sc_params'][i] # 永続化されたパラメータを参照
             
-            # --- パラメータ入力エリア (変更されると自動で session_state も更新) ---
+            # --- パラメータ入力エリア ---
             c1, c2, c3 = st.columns(3)
             with c1:
-                p['c_p'] = st.checkbox("株価範囲", p['c_p'], key=f"c_p_{i}")
-                p['p_rng'] = st.slider("価格(円)", 100, 10000, p['p_rng'], 100, key=f"p_rng_{i}")
-                p['c_v'] = st.checkbox("売買代金(億円)", p['c_v'], key=f"c_v_{i}")
-                p['v_min'] = st.number_input("億円以上", value=p['v_min'], key=f"v_min_{i}")
-                p['c_atrp'] = st.checkbox("平均値幅(ATR%)", p['c_atrp'], key=f"c_atrp_{i}")
-                p['atrp_rng'] = st.slider("ATR%", 0.5, 5.0, p['atrp_rng'], 0.1, key=f"atrp_rng_{i}")
+                p['c_p'] = st.checkbox("株価範囲", p['c_p'], key=f"c_p_chk_{i}")
+                p['p_rng'] = st.slider("価格(円)", 100, 10000, p['p_rng'], 100, key=f"p_rng_sld_{i}")
+                p['c_v'] = st.checkbox("売買代金(億円)", p['c_v'], key=f"c_v_chk_{i}")
+                p['v_min'] = st.number_input("億円以上", value=p['v_min'], key=f"v_min_in_{i}")
+                p['c_atrp'] = st.checkbox("平均値幅(ATR%)", p['c_atrp'], key=f"c_atrp_chk_{i}")
+                p['atrp_rng'] = st.slider("ATR%", 0.5, 5.0, p['atrp_rng'], 0.1, key=f"atrp_rng_sld_{i}")
             with c2:
-                p['c_rsi'] = st.checkbox("RSI(14日)", p['c_rsi'], key=f"c_rsi_{i}")
-                p['rsi_rng'] = st.slider("RSI範囲", 0, 100, p['rsi_rng'], 5, key=f"rsi_rng_{i}")
-                p['c_adx'] = st.checkbox("ADX(トレンド)", p['c_adx'], key=f"c_adx_{i}")
-                p['adx_rng'] = st.slider("ADX範囲", 0, 100, p['adx_rng'], 5, key=f"adx_rng_{i}")
-                p['c_rci'] = st.checkbox("RCI(9日)", p['c_rci'], key=f"c_rci_{i}")
-                p['rci_rng'] = st.slider("RCI範囲", -100, 100, p['rci_rng'], 5, key=f"rci_rng_{i}")
+                p['c_rsi'] = st.checkbox("RSI(14日)", p['c_rsi'], key=f"c_rsi_chk_{i}")
+                p['rsi_rng'] = st.slider("RSI範囲", 0, 100, p['rsi_rng'], 5, key=f"rsi_rng_sld_{i}")
+                p['c_adx'] = st.checkbox("ADX(トレンド)", p['c_adx'], key=f"c_adx_chk_{i}")
+                p['adx_rng'] = st.slider("ADX範囲", 0, 100, p['adx_rng'], 5, key=f"adx_rng_sld_{i}")
+                p['c_rci'] = st.checkbox("RCI(9日)", p['c_rci'], key=f"c_rci_chk_{i}")
+                p['rci_rng'] = st.slider("RCI範囲", -100, 100, p['rci_rng'], 5, key=f"rci_rng_sld_{i}")
             with c3:
-                p['c_vol'] = st.checkbox("出来高(万株)", p['c_vol'], key=f"c_vol_{i}")
-                p['vol_min'] = st.number_input("万株以上", value=p['vol_min'], key=f"vol_min_{i}")
-                p['c_vup'] = st.checkbox("出来高増加率", p['c_vup'], key=f"c_vup_{i}")
-                p['vup_min'] = st.slider("倍率", 1.0, 5.0, p['vup_min'], 0.1, key=f"vup_min_{i}")
-                p['c_ma25'] = st.checkbox("25MA乖離率", p['c_ma25'], key=f"c_ma25_{i}")
-                p['ma25_rng'] = st.slider("偏差%", -20.0, 20.0, p['ma25_rng'], 1.0, key=f"ma25_rng_{i}")
+                p['c_vol'] = st.checkbox("出来高(万株)", p['c_vol'], key=f"c_vol_chk_{i}")
+                p['vol_min'] = st.number_input("万株以上", value=p['vol_min'], key=f"vol_min_in_{i}")
+                p['c_vup'] = st.checkbox("出来高増加率", p['c_vup'], key=f"c_vup_chk_{i}")
+                p['vup_min'] = st.slider("倍率", 1.0, 5.0, p['vup_min'], 0.1, key=f"vup_min_sld_{i}")
+                p['c_ma25'] = st.checkbox("25MA乖離率", p['c_ma25'], key=f"c_ma25_chk_{i}")
+                p['ma25_rng'] = st.slider("偏差%", -20.0, 20.0, p['ma25_rng'], 1.0, key=f"ma25_rng_sld_{i}")
 
-            # --- スクリーニング実行 ---
-            if st.button(f"🚀 {['通常', 'ディフェンシブ', '横ばい'][i]} スキャン開始", type="primary", use_container_width=True, key=f"btn_sc_{i}"):
-                all_tickers = list(TICKER_NAME_MAP.keys())
+            # --- スクリーニング実行ロジック ---
+            if st.button(f"🚀 {['通常', 'ディフェンシブ', '横ばい'][i]} スキャン開始", type="primary", use_container_width=True, key=f"btn_sc_exec_{i}"):
                 results = []
+                all_tickers = list(TICKER_NAME_MAP.keys())
                 with st.status("🔍 銘柄チェック中...", expanded=True) as status:
                     pb = st.progress(0)
                     for idx, t in enumerate(all_tickers):
                         pb.progress((idx+1)/len(all_tickers))
-                        # logic_core を利用した判定
                         df_d = yf.download(t, period="3mo", interval="1d", progress=False)
-                        # MultiIndex対策
-                        if not df_d.empty and isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
+                        if not df_d.empty and isinstance(df_d.columns, pd.MultiIndex): 
+                            df_d.columns = df_d.columns.get_level_values(0)
                         
-                        # 判定実行 (session_stateに保存されている最新のpを使用)
+                        # logic_core を利用した判定
                         res = core.evaluate_screening_conditions(df_d, {
                             'c_p': p['c_p'], 'p_range': p['p_rng'], 'c_v': p['c_v'], 'v_min': p['v_min'], 
                             'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
@@ -158,182 +166,175 @@ with tab_screen:
                             res['コード'] = t; res['銘柄名'] = TICKER_NAME_MAP.get(t, t)
                             results.append(res)
                     status.update(label=f"✅ {len(results)} 銘柄発見", state="complete")
+                
+                # 計算結果をセッションに保存 (これで操作しても消えなくなる)
+                st.session_state[f"sc_res_df_{i}"] = pd.DataFrame(results) if results else None
 
-                if results:
-                    res_df = pd.DataFrame(results)
-                    st.info("💡 銘柄を選択すると最上部の「監視銘柄コード」に自動追加されます。")
-                    # 選択イベントの取得
-                    sel_event = st.dataframe(
-                        res_df[['コード', '銘柄名', '株価', '前日比', '売買代金']],
-                        use_container_width=True, hide_index=True, on_select="rerun", selection_mode="multi-row", key=f"df_res_{i}"
-                    )
+            # --- 結果表示と自動入力エリア (ボタンの外側に配置) ---
+            rdf = st.session_state.get(f"sc_res_df_{i}")
+            if rdf is not None and not rdf.empty:
+                st.info("💡 銘柄を選択すると、最上部の監視リストに自動で追加されます。")
+                
+                # 選択イベントの取得
+                sel_event = st.dataframe(
+                    rdf[['コード', '銘柄名', '株価', '前日比', '売買代金']],
+                    use_container_width=True, hide_index=True, on_select="rerun", selection_mode="multi-row", key=f"df_res_view_{i}"
+                )
+                
+                # 共通入力欄への自動入力ロジック
+                if sel_event.selection.rows:
+                    selected_tickers = rdf.iloc[sel_event.selection.rows]['コード'].tolist()
+                    current_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
                     
-                    # 3. スキャン結果を保持するためのセッションキーを用意
-                    res_key = f"sc_result_data_{i}"
-                    if res_key not in st.session_state:
-                        st.session_state[res_key] = None
+                    # 既存リストと合流し、重複を除外してソート
+                    new_combined = sorted(list(set(current_list + selected_tickers)))
+                    st.session_state['target_tickers'] = ", ".join(new_combined)
+                    
+                    st.toast(f"{len(selected_tickers)} 銘柄を監視リストに加えました")
+                    st.rerun() # 最上部の入力欄を即時更新するためにリラン
 
-                    if st.button(f"🚀 {['通常', 'ディフェンシブ', '横ばい'][i]} スキャン開始", type="primary", use_container_width=True, key=f"btn_sc_{i}"):
-                        # (スキャン実行ロジックは以前と同じ)
-                        results = []
-                        # ...スキャン処理...
-                        if results:
-                            st.session_state[res_key] = pd.DataFrame(results) # 結果をセッションに保存
-                        else:
-                            st.session_state[res_key] = None
-                            st.warning("合致する銘柄が見つかりませんでした。")
-
-                    # 4. セッションに結果がある場合は常に表示する (これで操作しても消えなくなります)
-                    res_df = st.session_state[res_key]
-                    if res_df is not None:
-                        st.info("💡 銘柄を選択すると最上部の「監視銘柄コード」に自動追加されます。")
-        
-                        # 選択イベントの取得
-                        sel_event = st.dataframe(
-                            res_df[['コード', '銘柄名', '株価', '前日比', '売買代金']],
-                            use_container_width=True, hide_index=True, on_select="rerun", selection_mode="multi-row", key=f"df_res_view_{i}"
-                        )
-        
-                    # 共通入力欄への自動入力ロジック
-                    if sel_event.selection.rows:
-                        selected_tickers = res_df.iloc[sel_event.selection.rows]['コード'].tolist()
-                        current_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
-            
-                        # 既存のリストに新しい銘柄を合流させる (重複は排除)
-                        new_combined = sorted(list(set(current_list + selected_tickers)))
-                        st.session_state['target_tickers'] = ", ".join(new_combined)
-            
-                        # 入力欄を更新するために一度リランする
-                        st.rerun()
-
-# --- タブ3: バックテスト (6.3の全タブ移植) ---
+# --- タブ3: バックテスト (6.3の全分析機能を復元) ---
 with tab_bt:
-    if st.button("📊 個別バックテスト実行", type="primary", use_container_width=True):
+    if st.button("📊 個別バックテスト実行", type="primary", use_container_width=True, key="bt_run_main"):
         t_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
-        end_date = datetime.now(); start_date = end_date - timedelta(days=days_back)
-        all_trades = []; t_names = {}; pb = st.progress(0); st_text = st.empty()
-        for i, t in enumerate(t_list):
-            st_text.text(f"Testing {t}..."); pb.progress((i+1)/len(t_list))
-            df = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
-            p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
-            all_trades.extend(core.run_ticker_simulation(t, df, p_map, o_map, a_map, params))
-            t_names[t] = TICKER_NAME_MAP.get(t, t)
-        st.session_state['res_df'] = pd.DataFrame(all_trades); st.session_state['t_names'] = t_names
-        st.session_state['bt_period'] = f"{start_date.strftime('%Y-%m-%d')} - {end_date.strftime('%Y-%m-%d')}"
-        st.rerun()
+        if not t_list:
+            st.error("銘柄コードを入力してください。")
+        else:
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days_back)
+            all_trades = []; t_names = {}
+            pb = st.progress(0); st_text = st.empty()
+            
+            for i, t in enumerate(t_list):
+                st_text.text(f"Testing {t}..."); pb.progress((i+1)/len(t_list))
+                # データのダウンロードとMultiIndex対策
+                df = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
+                if df.empty: continue
+                if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+                
+                # シミュレーション実行
+                p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
+                trades = core.run_ticker_simulation(t, df, p_map, o_map, a_map, params)
+                all_trades.extend(trades)
+                t_names[t] = TICKER_NAME_MAP.get(t, t)
+                
+            st.session_state['res_df'] = pd.DataFrame(all_trades)
+            st.session_state['t_names'] = t_names
+            st_text.empty(); pb.empty()
+            st.rerun()
 
     # 分析結果サブタブの展開
-    res_df = st.session_state['res_df']; t_names = st.session_state['t_names']
+    res_df = st.session_state['res_df']
+    ticker_names = st.session_state['t_names']
+    
     if not res_df.empty:
         bt_tabs = st.tabs(["📊 サマリー", "🏅 勝ちパターン", "📉 ギャップ分析", "🧐 VWAP分析", "🕒 時間分析", "📝 詳細ログ"])
         
         with bt_tabs[0]: # 📊 サマリー
             wins = res_df[res_df['PnL'] > 0]; losses = res_df[res_df['PnL'] <= 0]
-            st.markdown(f"<div class='metric-grid'>"
-                f"<div class='summary-box'><div class='card-label'>回数</div><div class='card-value'>{len(res_df)}</div></div>"
-                f"<div class='summary-box'><div class='card-label'>勝率</div><div class='card-value'>{(len(wins)/len(res_df)):.1%}</div></div>"
-                f"<div class='summary-box'><div class='card-label'>PF</div><div class='card-value'>{(wins['PnL'].sum()/abs(losses['PnL'].sum()) if not losses.empty else 0):.2f}</div></div>"
-                f"<div class='summary-box'><div class='card-label'>期待値</div><div class='card-value'>{res_df['PnL'].mean():.2%}</div></div>"
-                f"</div>", unsafe_allow_html=True)
-            # レポートテキスト
+            pf = wins['PnL'].sum() / abs(losses['PnL'].sum()) if not losses.empty and losses['PnL'].sum() != 0 else 0
+            st.markdown(f"""
+                <div class='metric-grid'>
+                    <div class='summary-box'><div class='card-label'>トレード数</div><div class='card-value'>{len(res_df)}回</div></div>
+                    <div class='summary-box'><div class='card-label'>勝率</div><div class='card-value'>{(len(wins)/len(res_df)):.1%}</div></div>
+                    <div class='summary-box'><div class='card-label'>PF</div><div class='card-value'>{pf:.2f}</div></div>
+                    <div class='summary-box'><div class='card-label'>期待値</div><div class='card-value'>{res_df['PnL'].mean():.2%}</div></div>
+                </div>""", unsafe_allow_html=True)
+            
             rpt = ["=================\n BACKTEST REPORT \n================="]
             for t in res_df['Ticker'].unique():
                 tdf = res_df[res_df['Ticker'] == t]; tw = tdf[tdf['PnL']>0]['PnL']; tl = tdf[tdf['PnL']<=0]['PnL']
-                rpt.append(f">>> TICKER: {t} | {t_names.get(t,t)}\nトレード数: {len(tdf)} | 勝率: {(len(tw)/len(tdf)):.1%} | PF: {(tw.sum()/abs(tl.sum()) if not tl.empty else 9.9):.2f} | 期待値: {tdf['PnL'].mean():+.2%}\n")
+                rpt.append(f">>> {t} | {ticker_names.get(t,t)}\n勝率: {(len(tw)/len(tdf)):.1%} | PF: {(tw.sum()/abs(tl.sum()) if not tl.empty else 9.9):.2f} | 期待値: {tdf['PnL'].mean():+.2%}")
             st.code("\n".join(rpt), language="text")
+
+        with bt_tabs[1]: # 🏅 勝ちパターン
+            for t in res_df['Ticker'].unique():
+                tdf = res_df[res_df['Ticker'] == t]
+                st.write(f"**{t} ({ticker_names.get(t,t)})**")
+                p_stats = tdf.groupby('Pattern')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
+                p_stats.columns = ['パターン', '数', '勝率', '平均損益']
+                st.dataframe(p_stats.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'}), use_container_width=True, hide_index=True)
+
+        with bt_tabs[2]: # 📉 ギャップ分析
+            for t in res_df['Ticker'].unique():
+                tdf = res_df[res_df['Ticker'] == t].copy()
+                tdf['方向'] = tdf['Gap(%)'].apply(lambda x: 'GU' if x > 0 else 'GD')
+                g_stats = tdf.groupby('方向')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
+                st.write(f"**{t} の方向別成績**")
+                st.dataframe(g_stats.style.format({'<lambda_0>': '{:.1%}', 'mean': '{:+.2%}'}), use_container_width=True, hide_index=True)
 
         with bt_tabs[5]: # 📝 詳細ログ
             log_report = []
             for t in res_df['Ticker'].unique():
                 tdf = res_df[res_df['Ticker'] == t].copy().sort_values('Entry', ascending=False)
-                log_report.append(f"[{t}] {t_names.get(t, t)} 取引履歴\n" + "-"*80)
+                log_report.append(f"[{t}] {ticker_names.get(t, t)} 取引履歴\n" + "-"*80)
                 for _, row in tdf.iterrows():
                     vwap_dev = ((row['In'] - row['EntryVWAP']) / row['EntryVWAP']) * 100
                     log_report.append(f"{row['Entry'].strftime('%Y-%m-%d %H:%M')} | {row['Pattern']} | PnL: {row['PnL']:+.2%} | 買：{int(row['In'])} | 売：{int(row['Out'])} | VWAP乖離: {vwap_dev:+.2f}% | {row['Reason']}")
                 log_report.append("\n")
             st.code("\n".join(log_report), language="text")
 
-        if st.button("♻️ 個別テスト結果をリセット", key="reset_bt_tab", use_container_width=True):
+        if st.button("♻️ 個別テスト結果をリセット", key="reset_bt_final", use_container_width=True):
             st.session_state['res_df'] = pd.DataFrame(); st.rerun()
 
-# --- タブ4: ランキング (エラー修正 & 機能復旧版) ---
+# --- タブ4: ランキング (スキャン & 自動転送) ---
 with tab_rank:
     st.markdown("### 🏆 登録銘柄期待値ランキング")
+    p_range = st.slider("価格帯フィルター (円)", 0, 20000, (500, 5000), 500, key="rank_sld_p")
     
-    # 1. 価格帯フィルターの設定
-    p_range = st.slider("価格帯フィルター (円)", 0, 20000, (500, 5000), 500, key="rank_p_range")
-    
-    # 2. ランキング生成ボタン
-    if st.button("🚀 ランキング生成開始", type="primary", use_container_width=True):
+    if st.button("🚀 ランキング生成開始", type="primary", use_container_width=True, key="rank_run_btn"):
         rank_list = []
         all_tickers = list(TICKER_NAME_MAP.keys())
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days_back)
+        end_date = datetime.now(); start_date = end_date - timedelta(days=days_back)
         
-        with st.status("🔍 全231銘柄を分析中...", expanded=True) as status:
+        with st.status("🔍 全銘柄を分析中...", expanded=True) as status:
             pb_r = st.progress(0)
             for i, t in enumerate(all_tickers):
                 status.update(label=f"Scanning {i+1}/{len(all_tickers)}: {t}")
                 pb_r.progress((i+1)/len(all_tickers))
                 
-                # データのダウンロードとMultiIndex対策
                 df_r = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
                 if df_r.empty: continue
-                if isinstance(df_r.columns, pd.MultiIndex):
-                    df_r.columns = df_r.columns.get_level_values(0)
+                if isinstance(df_r.columns, pd.MultiIndex): df_r.columns = df_r.columns.get_level_values(0)
                 
                 try:
-                    # 確実に数値(scalar)として取得して比較
                     current_p = float(df_r['Close'].iloc[-1])
-                    if not (p_range[0] <= current_p <= p_range[1]): 
-                        continue
-                    
-                    # シミュレーション実行とスコア算出
-                    p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
-                    t_trades = core.run_ticker_simulation(t, df_r, p_map, o_map, a_map, params)
-                    
-                    if t_trades:
-                        score_data = core.get_one_touch_score(t_trades)
-                        rank_list.append({
-                            'コード': t, '銘柄名': TICKER_NAME_MAP.get(t, t),
-                            '勝率': score_data['win_rate'], 'PF': score_data['pf'], '期待値': score_data['ev']
-                        })
-                except:
-                    continue
-            
+                    if p_range[0] <= current_p <= p_range[1]:
+                        p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
+                        t_trades = core.run_ticker_simulation(t, df_r, p_map, o_map, a_map, params)
+                        
+                        if t_trades:
+                            # スコア計算: Score = EV * WinRate * PF
+                            score_data = core.get_one_touch_score(t_trades)
+                            rank_list.append({
+                                'コード': t, '銘柄名': TICKER_NAME_MAP.get(t, t),
+                                '勝率': score_data['win_rate'], 'PF': score_data['pf'], '期待値': score_data['ev']
+                            })
+                except: continue
             status.update(label="✅ スキャン完了！", state="complete")
         
         if rank_list:
-            # 期待値順に並べて上位20件を保持
             st.session_state['last_rank_df'] = pd.DataFrame(rank_list).sort_values('期待値', ascending=False).head(20)
             st.rerun()
 
-    # 3. 結果の表示と監視リストへの転送機能
     if 'last_rank_df' in st.session_state:
         rdf = st.session_state['last_rank_df']
-        st.caption("👇 表の左端をクリックして選択し、「監視リストに追加」を押してください。")
+        st.caption("👇 表の左端をチェックして「監視リストに追加」を押してください。")
         
-        # 選択機能付きのデータフレーム
         event = st.dataframe(
             rdf.style.format({'勝率': '{:.1%}', '期待値': '{:+.2%}', 'PF': '{:.2f}'}),
-            use_container_width=True,
-            hide_index=True,
-            on_select="rerun",
-            selection_mode="multi-row"
+            use_container_width=True, hide_index=True, on_select="rerun", selection_mode="multi-row", key="rank_df_view"
         )
         
-        # 選択された行がある場合の追加処理
-        selected_rows = event.selection.rows
-        if selected_rows:
-            selected_tickers = rdf.iloc[selected_rows]['コード'].tolist()
-            if st.button(f"➕ 選択した {len(selected_tickers)} 銘柄を監視リストに追加", use_container_width=True):
-                # 現在の入力リストと統合（重複排除）
+        if event.selection.rows:
+            sel_tickers = rdf.iloc[event.selection.rows]['コード'].tolist()
+            if st.button(f"➕ 選択した {len(sel_tickers)} 銘柄を監視リストに追加", use_container_width=True, key="rank_add_btn"):
                 current = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
-                updated_list = sorted(list(set(current + selected_tickers)))
-                st.session_state['target_tickers'] = ", ".join(updated_list)
-                st.toast(f"{len(selected_tickers)} 銘柄を最上部の監視リストに追加しました！")
+                new_list = sorted(list(set(current + sel_tickers)))
+                st.session_state['target_tickers'] = ", ".join(new_list)
+                st.toast(f"{len(sel_tickers)} 銘柄を追加しました！")
                 st.rerun()
 
-        if st.button("♻️ ランキング結果をクリア", key="clear_rank", use_container_width=True):
-            del st.session_state['last_rank_df']
-            st.rerun()
+        if st.button("♻️ ランキングをクリア", key="rank_clear_btn", use_container_width=True):
+            del st.session_state['last_rank_df']; st.rerun()
+            
