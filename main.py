@@ -199,4 +199,3 @@ with tab_rank:
 
 # --- 結果表示と銘柄追加ロジック (以降は変更なし) ---
 if 'last_rank_df' in st.session_state:
-# (以前のコードと同じため省略)
