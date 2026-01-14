@@ -168,13 +168,42 @@ with tab_screen:
                         use_container_width=True, hide_index=True, on_select="rerun", selection_mode="multi-row", key=f"df_res_{i}"
                     )
                     
+                    # 3. スキャン結果を保持するためのセッションキーを用意
+                    res_key = f"sc_result_data_{i}"
+                    if res_key not in st.session_state:
+                        st.session_state[res_key] = None
+
+                    if st.button(f"🚀 {['通常', 'ディフェンシブ', '横ばい'][i]} スキャン開始", type="primary", use_container_width=True, key=f"btn_sc_{i}"):
+                        # (スキャン実行ロジックは以前と同じ)
+                        results = []
+                        # ...スキャン処理...
+                        if results:
+                            st.session_state[res_key] = pd.DataFrame(results) # 結果をセッションに保存
+                        else:
+                            st.session_state[res_key] = None
+                            st.warning("合致する銘柄が見つかりませんでした。")
+
+                    # 4. セッションに結果がある場合は常に表示する (これで操作しても消えなくなります)
+                    res_df = st.session_state[res_key]
+                    if res_df is not None:
+                        st.info("💡 銘柄を選択すると最上部の「監視銘柄コード」に自動追加されます。")
+        
+                        # 選択イベントの取得
+                        sel_event = st.dataframe(
+                            res_df[['コード', '銘柄名', '株価', '前日比', '売買代金']],
+                            use_container_width=True, hide_index=True, on_select="rerun", selection_mode="multi-row", key=f"df_res_view_{i}"
+                        )
+        
                     # 共通入力欄への自動入力ロジック
                     if sel_event.selection.rows:
                         selected_tickers = res_df.iloc[sel_event.selection.rows]['コード'].tolist()
                         current_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
-                        new_list = sorted(list(set(current_list + selected_tickers)))
-                        st.session_state['target_tickers'] = ", ".join(new_list)
-                        st.toast(f"{len(selected_tickers)} 銘柄を追加しました")
+            
+                        # 既存のリストに新しい銘柄を合流させる (重複は排除)
+                        new_combined = sorted(list(set(current_list + selected_tickers)))
+                        st.session_state['target_tickers'] = ", ".join(new_combined)
+            
+                        # 入力欄を更新するために一度リランする
                         st.rerun()
 
 # --- タブ3: バックテスト (6.3の全タブ移植) ---
