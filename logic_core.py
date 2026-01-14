@@ -1,4 +1,5 @@
 # logic_core.py
+import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
@@ -193,3 +194,20 @@ def get_one_touch_score(trades):
         "ev": ev,
         "score": score
     }
+    
+# logic_core.py の末尾に追記
+@st.cache_data(ttl=300)
+def fetch_market_info(market_indices):
+    """市場指標のデータを取得する"""
+    data = {}
+    for name, ticker in market_indices.items():
+        try:
+            df = yf.download(ticker, period="5d", progress=False)
+            if not df.empty:
+                # 最新と前日の終値を取得
+                latest = float(df['Close'].iloc[-1])
+                prev = float(df['Close'].iloc[-2])
+                data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
+        except:
+            data[name] = {"val": None, "pct": None}
+    return data
