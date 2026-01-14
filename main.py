@@ -144,11 +144,14 @@ with tab_bt:
         if st.button("♻️ 個別テスト結果をリセット", key="reset_bt_tab", use_container_width=True):
             st.session_state['res_df'] = pd.DataFrame(); st.rerun()
 
-# --- タブ4: ランキング (エラー修正版) ---
+# --- タブ4: ランキング (エラー修正 & 機能復旧版) ---
 with tab_rank:
     st.markdown("### 🏆 登録銘柄期待値ランキング")
+    
+    # 1. 価格帯フィルターの設定
     p_range = st.slider("価格帯フィルター (円)", 0, 20000, (500, 5000), 500, key="rank_p_range")
     
+    # 2. ランキング生成ボタン
     if st.button("🚀 ランキング生成開始", type="primary", use_container_width=True):
         rank_list = []
         all_tickers = list(TICKER_NAME_MAP.keys())
@@ -161,42 +164,64 @@ with tab_rank:
                 status.update(label=f"Scanning {i+1}/{len(all_tickers)}: {t}")
                 pb_r.progress((i+1)/len(all_tickers))
                 
-                # 1. データのダウンロード
+                # データのダウンロードとMultiIndex対策
                 df_r = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
-                
-                # 2. 【重要】MultiIndexの解消（エラー対策）
                 if df_r.empty: continue
                 if isinstance(df_r.columns, pd.MultiIndex):
                     df_r.columns = df_r.columns.get_level_values(0)
                 
-                # 3. 終値を「単一の数値(scalar)」として確実に取得
-                # float()で囲むことでSeriesの混入を防ぎます
                 try:
+                    # 確実に数値(scalar)として取得して比較
                     current_p = float(df_r['Close'].iloc[-1])
+                    if not (p_range[0] <= current_p <= p_range[1]): 
+                        continue
+                    
+                    # シミュレーション実行とスコア算出
+                    p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
+                    t_trades = core.run_ticker_simulation(t, df_r, p_map, o_map, a_map, params)
+                    
+                    if t_trades:
+                        score_data = core.get_one_touch_score(t_trades)
+                        rank_list.append({
+                            'コード': t, '銘柄名': TICKER_NAME_MAP.get(t, t),
+                            '勝率': score_data['win_rate'], 'PF': score_data['pf'], '期待値': score_data['ev']
+                        })
                 except:
                     continue
-
-                # 4. 株価フィルター判定
-                if not (p_range[0] <= current_p <= p_range[1]): 
-                    continue
-                
-                # 5. シミュレーション実行 (logic_coreを呼び出し)
-                p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
-                t_trades = core.run_ticker_simulation(t, df_r, p_map, o_map, a_map, params)
-                
-                if t_trades:
-                    score_data = core.get_one_touch_score(t_trades)
-                    rank_list.append({
-                        'コード': t, '銘柄名': TICKER_NAME_MAP.get(t, t),
-                        '勝率': score_data['win_rate'], 'PF': score_data['pf'], '期待値': score_data['ev']
-                    })
             
             status.update(label="✅ スキャン完了！", state="complete")
         
         if rank_list:
+            # 期待値順に並べて上位20件を保持
             st.session_state['last_rank_df'] = pd.DataFrame(rank_list).sort_values('期待値', ascending=False).head(20)
             st.rerun()
 
-            # --- 結果表示と銘柄追加ロジック (以降は変更なし) ---
-            if 'last_rank_df' in st.session_state:
-                # (以前のコードと同じため省略)
+    # 3. 結果の表示と監視リストへの転送機能
+    if 'last_rank_df' in st.session_state:
+        rdf = st.session_state['last_rank_df']
+        st.caption("👇 表の左端をクリックして選択し、「監視リストに追加」を押してください。")
+        
+        # 選択機能付きのデータフレーム
+        event = st.dataframe(
+            rdf.style.format({'勝率': '{:.1%}', '期待値': '{:+.2%}', 'PF': '{:.2f}'}),
+            use_container_width=True,
+            hide_index=True,
+            on_select="rerun",
+            selection_mode="multi-row"
+        )
+        
+        # 選択された行がある場合の追加処理
+        selected_rows = event.selection.rows
+        if selected_rows:
+            selected_tickers = rdf.iloc[selected_rows]['コード'].tolist()
+            if st.button(f"➕ 選択した {len(selected_tickers)} 銘柄を監視リストに追加", use_container_width=True):
+                # 現在の入力リストと統合（重複排除）
+                current = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
+                updated_list = sorted(list(set(current + selected_tickers)))
+                st.session_state['target_tickers'] = ", ".join(updated_list)
+                st.toast(f"{len(selected_tickers)} 銘柄を最上部の監視リストに追加しました！")
+                st.rerun()
+
+        if st.button("♻️ ランキング結果をクリア", key="clear_rank", use_container_width=True):
+            del st.session_state['last_rank_df']
+            st.rerun()
