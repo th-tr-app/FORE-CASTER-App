@@ -197,6 +197,6 @@ with tab_rank:
             st.session_state['last_rank_df'] = pd.DataFrame(rank_list).sort_values('期待値', ascending=False).head(20)
             st.rerun()
 
-    # --- 結果表示と銘柄追加ロジック (以降は変更なし) ---
-    if 'last_rank_df' in st.session_state:
-        # (以前のコードと同じため省略)
+        # --- 結果表示と銘柄追加ロジック (以降は変更なし) ---
+        if 'last_rank_df' in st.session_state:
+            # (以前のコードと同じため省略)
