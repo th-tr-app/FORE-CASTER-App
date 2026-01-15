@@ -320,21 +320,43 @@ with tab_bt:
     if not res_df.empty:
         bt_tabs = st.tabs(["📊 サマリー", "🏅 勝ちパターン", "📉 ギャップ分析", "🧐 VWAP分析", "🕒 時間分析", "📝 詳細ログ"])
         
-        with bt_tabs[0]: # 📊 サマリー
-            wins = res_df[res_df['PnL'] > 0]; losses = res_df[res_df['PnL'] <= 0]
+        with bt_tabs[0]: # 📊 サマリー (BACK TESTER 6.3 完全移植版)
+            wins = res_df[res_df['PnL'] > 0]
+            losses = res_df[res_df['PnL'] <= 0]
+            
+            # --- 1. 統計カード表示 ---
             pf = wins['PnL'].sum() / abs(losses['PnL'].sum()) if not losses.empty and losses['PnL'].sum() != 0 else 0
             st.markdown(f"""
                 <div class='metric-grid'>
                     <div class='summary-box'><div class='card-label'>トレード数</div><div class='card-value'>{len(res_df)}回</div></div>
                     <div class='summary-box'><div class='card-label'>勝率</div><div class='card-value'>{(len(wins)/len(res_df)):.1%}</div></div>
-                    <div class='summary-box'><div class='card-label'>PF</div><div class='card-value'>{pf:.2f}</div></div>
+                    <div class='summary-box'><div class='card-label'>PF（総利益 ÷ 総損失）</div><div class='card-value'>{pf:.2f}</div></div>
                     <div class='summary-box'><div class='card-label'>期待値</div><div class='card-value'>{res_df['PnL'].mean():.2%}</div></div>
                 </div>""", unsafe_allow_html=True)
             
-            rpt = ["=================\n BACKTEST REPORT \n================="]
+            # --- 2. 詳細テキストレポート (6.3の項目をすべて復元) ---
+            rpt = [("=================\n BACKTEST REPORT \n================="),
+                f"計測期間: {st.session_state.get('bt_period', '不明')}",
+                f"全体成績: {len(res_df)}トレード | 勝率: {(len(wins)/len(res_df)):.1%} | 期待値: {res_df['PnL'].mean():+.2%}",
+                "-" * 59
+            ]
+            
             for t in res_df['Ticker'].unique():
-                tdf = res_df[res_df['Ticker'] == t]; tw = tdf[tdf['PnL']>0]['PnL']; tl = tdf[tdf['PnL']<=0]['PnL']
-                rpt.append(f">>> {t} | {ticker_names.get(t,t)}\n勝率: {(len(tw)/len(tdf)):.1%} | PF: {(tw.sum()/abs(tl.sum()) if not tl.empty else 9.9):.2f} | 期待値: {tdf['PnL'].mean():+.2%}")
+                tdf = res_df[res_df['Ticker'] == t]
+                tw = tdf[tdf['PnL'] > 0]['PnL']
+                tl = tdf[tdf['PnL'] <= 0]['PnL']
+                
+                # 6.3準拠の1銘柄サマリー行
+                line = (
+                    f">>> {t} | {ticker_names.get(t, t)}\n"
+                    f"数: {len(tdf):2} | 勝率: {(len(tw)/len(tdf)):.1%} | "
+                    f"利益平均: {tw.mean():+.2%} | 損失平均: {tl.mean():+.2%} | "
+                    f"PF: {(tw.sum()/abs(tl.sum()) if not tl.empty else 9.9):.2f} | "
+                    f"期待値: {tdf['PnL'].mean():+.2%}\n"
+                )
+                rpt.append(line)
+            
+            st.caption("右上のコピーボタンで全文コピーできます↓") 
             st.code("\n".join(rpt), language="text")
 
         with bt_tabs[1]: # 🏅 勝ちパターン
