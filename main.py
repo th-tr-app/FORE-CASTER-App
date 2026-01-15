@@ -328,17 +328,16 @@ with tab_bt:
             pf = wins['PnL'].sum() / abs(losses['PnL'].sum()) if not losses.empty and losses['PnL'].sum() != 0 else 0
             st.markdown(f"""
                 <div class='metric-grid'>
-                    <div class='summary-box'><div class='card-label'>トレード数</div><div class='card-value'>{len(res_df)}回</div></div>
+                    <div class='summary-box'><div class='card-label'>総トレード数</div><div class='card-value'>{len(res_df)}回</div></div>
                     <div class='summary-box'><div class='card-label'>勝率</div><div class='card-value'>{(len(wins)/len(res_df)):.1%}</div></div>
                     <div class='summary-box'><div class='card-label'>PF（総利益 ÷ 総損失）</div><div class='card-value'>{pf:.2f}</div></div>
                     <div class='summary-box'><div class='card-label'>期待値</div><div class='card-value'>{res_df['PnL'].mean():.2%}</div></div>
                 </div>""", unsafe_allow_html=True)
+                st.divider()
             
             # --- 2. 詳細テキストレポート (6.3の項目をすべて復元) ---
             rpt = [("=================\n BACKTEST REPORT \n================="),
                 f"計測期間: {st.session_state.get('bt_period', '不明')}",
-                f"全体成績: {len(res_df)}トレード | 勝率: {(len(wins)/len(res_df)):.1%} | 期待値: {res_df['PnL'].mean():+.2%}",
-                "-" * 59
             ]
             
             for t in res_df['Ticker'].unique():
@@ -349,7 +348,7 @@ with tab_bt:
                 # 6.3準拠の1銘柄サマリー行
                 line = (
                     f">>> {t} | {ticker_names.get(t, t)}\n"
-                    f"数: {len(tdf):2} | 勝率: {(len(tw)/len(tdf)):.1%} | "
+                    f"トレード数: {len(tdf):2} | 勝率: {(len(tw)/len(tdf)):.1%} | "
                     f"利益平均: {tw.mean():+.2%} | 損失平均: {tl.mean():+.2%} | "
                     f"PF: {(tw.sum()/abs(tl.sum()) if not tl.empty else 9.9):.2f} | "
                     f"期待値: {tdf['PnL'].mean():+.2%}\n"
