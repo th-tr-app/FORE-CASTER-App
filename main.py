@@ -395,13 +395,41 @@ with tab_bt:
                         st.warning(f"⚠️ 試行回数が {min_trades} 回以上のパターンがまだありません。個別の履歴を確認してください。")
                     st.divider()
 
-        with bt_tabs[2]: # 📉 ギャップ分析
-            for t in res_df['Ticker'].unique():
-                tdf = res_df[res_df['Ticker'] == t].copy()
-                tdf['方向'] = tdf['Gap(%)'].apply(lambda x: 'GU' if x > 0 else 'GD')
-                g_stats = tdf.groupby('方向')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
-                st.write(f"**{t} の方向別成績**")
-                st.dataframe(g_stats.style.format({'<lambda_0>': '{:.1%}', 'mean': '{:+.2%}'}), use_container_width=True, hide_index=True)
+        with bt_tabs[2]: # 📉 ギャップ分析 (BACK TESTER 6.3 完全移植版)
+            if not res_df.empty:
+                for t in res_df['Ticker'].unique():
+                    tdf = res_df[res_df['Ticker'] == t].copy()
+                    st.markdown(f"#### 📉 {t} : {ticker_names.get(t, t)} のギャップ別成績")
+                    
+                    # 窓開け方向を判定 (GU: ギャップアップ / GD: ギャップダウン)
+                    tdf['窓開け'] = tdf['Gap(%)'].apply(lambda x: '⤴️ GU (プラス)' if x > 0 else '⤵️ GD (マイナス)')
+                    
+                    g_stats = tdf.groupby('窓開け')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
+                    g_stats.columns = ['ギャップ方向', '数', '勝率', '平均損益']
+                    
+                    st.dataframe(g_stats.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'}), 
+                                 use_container_width=True, hide_index=True)
+                    st.divider()
+
+        with bt_tabs[3]: # 🧐 VWAP分析 (BACK TESTER 6.3 完全移植版)
+            if not res_df.empty:
+                for t in res_df['Ticker'].unique():
+                    tdf = res_df[res_df['Ticker'] == t].copy()
+                    st.markdown(f"#### 🧐 {t} : {ticker_names.get(t, t)} のVWAP乖離分析")
+                    
+                    # エントリー時のVWAP乖離率の平均などを算出
+                    tdf['VWAP乖離(%)'] = ((tdf['In'] - tdf['EntryVWAP']) / tdf['EntryVWAP']) * 100
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        avg_dev = tdf['VWAP乖離(%)'].mean()
+                        st.metric("平均エントリー乖離率", f"{avg_dev:+.2f}%")
+                    with col2:
+                        max_dev = tdf['VWAP乖離(%)'].max()
+                        st.metric("最大エントリー乖離率", f"{max_dev:+.2f}%")
+                    
+                    st.caption("※VWAPよりどれくらい上で買っているかの統計です。")
+                    st.divider()
 
         with bt_tabs[5]: # 📝 詳細ログ
             log_report = []
