@@ -433,22 +433,6 @@ with tab_bt:
                     except: st.warning(f"[{t}] ギャップ幅分析用のデータが不足しています。")
                     st.divider()
 
-        with bt_tabs[2]: # 📉 ギャップ分析 (BACK TESTER 6.3 完全移植版)
-            if not res_df.empty:
-                for t in res_df['Ticker'].unique():
-                    tdf = res_df[res_df['Ticker'] == t].copy()
-                    st.markdown(f"#### 📉 {t} : {ticker_names.get(t, t)} のギャップ別成績")
-                    
-                    # 窓開け方向を判定 (GU: ギャップアップ / GD: ギャップダウン)
-                    tdf['窓開け'] = tdf['Gap(%)'].apply(lambda x: '⤴️ GU (プラス)' if x > 0 else '⤵️ GD (マイナス)')
-                    
-                    g_stats = tdf.groupby('窓開け')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
-                    g_stats.columns = ['ギャップ方向', '数', '勝率', '平均損益']
-                    
-                    st.dataframe(g_stats.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'}), 
-                                 use_container_width=True, hide_index=True)
-                    st.divider()
-
         with bt_tabs[3]: # 🧐 VWAP分析 (BACK TESTER 6.3 完全移植版)
             if not res_df.empty:
                 for t in res_df['Ticker'].unique():
