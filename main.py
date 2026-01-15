@@ -168,6 +168,8 @@ with tab_top:
             current_list = [t.strip() for t in current_str.split(",") if t.strip()]
             combined_list = sorted(list(set(current_list + top_5_df['コード'].tolist())))
             st.session_state['target_tickers'] = ", ".join(combined_list)
+
+            st.session_state['bt_period'] = f"{(datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')} - {datetime.now().strftime('%Y-%m-%d')}"
             
             st.toast("🎯 期待値トップ5を監視リストに追加しました！")
             st.rerun()
@@ -190,8 +192,6 @@ with tab_top:
         if st.button("♻️ ワンタッチ結果をクリア", key="ot_clear_res"):
             del st.session_state['ot_last_top5']
             st.rerun()
-
-        st.session_state['bt_period'] = f"{(datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')} - {datetime.now().strftime('%Y-%m-%d')}"
 
 # --- タブ2: スクリーニングの実装 (結果保持・自動入力修正版) ---
 with tab_screen:
@@ -322,7 +322,13 @@ with tab_bt:
     if not res_df.empty:
         bt_tabs = st.tabs(["📊 サマリー", "🏅 勝ちパターン", "📉 ギャップ分析", "🧐 VWAP分析", "🕒 時間分析", "📝 詳細ログ"])
         
-        with bt_tabs[0]: # 📊 サマリー (BACK TESTER 6.3 完全移植版)
+        with bt_tabs[0]: # 📊 サマリー (修正版)
+            # 1. フォールバック処理：期間がなければ計算して代用
+            display_period = st.session_state.get('bt_period')
+            if not display_period or display_period == "不明":
+                display_period = f"{(datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')} - {datetime.now().strftime('%Y-%m-%d')}"
+            
+            # 2. 勝敗の計算 (ここを if の外に出します)
             wins = res_df[res_df['PnL'] > 0]
             losses = res_df[res_df['PnL'] <= 0]
             
@@ -338,8 +344,9 @@ with tab_bt:
             st.divider()
             
             # --- 2. 詳細テキストレポート (6.3の項目をすべて復元) ---
-            rpt = [("=================\n BACKTEST REPORT \n================="),
-                f"計測期間: {st.session_state.get('bt_period', '不明')}",
+            rpt = [
+                "=================\n BACKTEST REPORT \n=================",
+                f"計測期間: {display_period}", # 代用した期間を表示
             ]
             
             for t in res_df['Ticker'].unique():
