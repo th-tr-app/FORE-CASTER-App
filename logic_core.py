@@ -1,4 +1,3 @@
-# logic_core.py
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -27,54 +26,92 @@ def get_trade_pattern(row, gap_pct):
     elif (gap_pct >= 0.003) and (row['Close'] > row['EMA5']): return "B：押目上昇"
     return "E：他タイプ"
 
-# --- 2. スクリーニング・エンジン (日次データ用) ---
+# --- 2. スクリーニング・エンジン (日次データ用：12項目対応版) ---
 
 def evaluate_screening_conditions(df, params):
     """
-    1銘柄の日次データに対して、スクリーニング条件に合致するか判定する
+    1銘柄の日次データに対して、12項目の条件に合致するか判定する
+   
     """
-    if df.empty or len(df) < 25: return None
+    if df.empty or len(df) < 30: return None
     if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
 
-    # 判定に必要な指標を準備
-    p = df['Close'].iloc[-1]
-    v = df['Volume'].iloc[-1]
-    prev_p = df['Close'].iloc[-2]
-    ma25 = df['Close'].rolling(25).mean().iloc[-1]
-    atrp = (AverageTrueRange(df['High'], df['Low'], df['Close'], 14).average_true_range().iloc[-1] / p) * 100
-    adx = ADXIndicator(df['High'], df['Low'], df['Close']).adx().iloc[-1]
+    # 基礎数値
+    p = float(df['Close'].iloc[-1])
+    v = float(df['Volume'].iloc[-1])
+    prev_p = float(df['Close'].iloc[-2])
+    
+    # 指標算出
+    ma5 = df['Close'].rolling(5).mean(); ma10 = df['Close'].rolling(10).mean(); ma25 = df['Close'].rolling(25).mean()
+    ema9 = EMAIndicator(df['Close'], 9).ema_indicator(); ema21 = EMAIndicator(df['Close'], 21).ema_indicator()
+    atr = AverageTrueRange(df['High'], df['Low'], df['Close'], 14).average_true_range().iloc[-1]
+    atrp = (atr / p) * 100
+    adx = ADXIndicator(df['High'], df['Low'], df['Close'], 14).adx().iloc[-1]
     rsi = RSIIndicator(df['Close'], 14).rsi().iloc[-1]
     rci = calculate_rci(df['Close'], 9).iloc[-1]
-    ma25_dev = ((p - ma25) / ma25) * 100
-    val_total = (p * v) / 100000000 # 売買代金(億円)
-    v_avg_5 = df['Volume'].rolling(5).mean().iloc[-2]
-    vup_rate = v / v_avg_5 if v_avg_5 > 0 else 1.0
-    price_change_pct = ((p - prev_p) / prev_p) * 100
+    ma25_dev = ((p - ma25.iloc[-1]) / ma25.iloc[-1]) * 100
+    val_total = (p * v) / 100000000 # 億円
+    vup_rate = v / df['Volume'].rolling(5).mean().iloc[-2] if df['Volume'].rolling(5).mean().iloc[-2] > 0 else 1.0
+    
+    # ボリンジャーバンド (25日, 2σ)
+    bb = BollingerBands(df['Close'], 25, 2)
+    std = df['Close'].rolling(25).std().iloc[-1]
+    bb_sigma = (p - ma25.iloc[-1]) / std if std > 0 else 0
 
-    # 条件判定の連鎖
+    # 条件判定フラグ
     match = True
-    if params['c_p'] and not (params['p_range'][0] <= p <= params['p_range'][1]): match = False
-    if params['c_v'] and val_total < params['v_min']: match = False
-    if params['c_atrp'] and not (params['atrp_range'][0] <= atrp <= params['atrp_range'][1]): match = False
-    if params['c_adx'] and not (params['adx_range'][0] <= adx <= params['adx_range'][1]): match = False
-    if params['c_rsi'] and not (params['rsi_range'][0] <= rsi <= params['rsi_range'][1]): match = False
-    if params['c_rci'] and not (params['rci_range'][0] <= rci <= params['rci_range'][1]): match = False
-    if params['c_vol'] and (v / 10000) < params['vol_min']: match = False
-    if params['c_vup'] and vup_rate < params['vup_min']: match = False
-    if params['c_ma25'] and not (params['ma25_range'][0] <= ma25_dev <= params['ma25_range'][1]): match = False
+
+    # 1-3. 基本・ボラ
+    if params.get('c_p') and not (params['p_range'][0] <= p <= params['p_range'][1]): match = False
+    if params.get('c_v') and val_total < params['v_min']: match = False
+    if params.get('c_atrp') and not (params['atrp_range'][0] <= atrp <= params['atrp_range'][1]): match = False
+
+    # 4. 移動平均オプション判定
+    if params.get('c_ma'):
+        opt = params['ma_opt']
+        if opt == "最強：上昇トレンド":
+            if not (ma5.iloc[-1] > ma10.iloc[-1] > ma25.iloc[-1]): match = False
+        elif opt == "転換：GC直後":
+            if not (ma5.iloc[-1] > ma25.iloc[-1] and ma5.iloc[-2] <= ma25.iloc[-2]): match = False
+        elif opt == "収束：嵐の前の静けさ":
+            spread = max(ma5.iloc[-1], ma10.iloc[-1], ma25.iloc[-1]) / min(ma5.iloc[-1], ma10.iloc[-1], ma25.iloc[-1]) - 1
+            if spread > 0.02: match = False
+        elif opt == "リバウンド：短期MA上抜け":
+            if not (p > ma5.iloc[-1] and prev_p <= ma5.iloc[-2]): match = False
+
+    # 5. EMAオプション判定
+    if params.get('c_ema'):
+        opt = params['ema_opt']
+        if opt == "強気：EMAの上で価格維持":
+            if not (p > ema9.iloc[-1] > ema21.iloc[-1]): match = False
+        elif opt == "安定：EMA付近での推移":
+            if not (abs(p / ema9.iloc[-1] - 1) < 0.01): match = False
+        elif opt == "レンジ：EMAを上下にまたぐ":
+            if not (min(p, prev_p) < ema9.iloc[-1] < max(p, prev_p)): match = False
+
+    # 6-8. トレンド・オシレーター
+    if params.get('c_adx') and not (params['adx_range'][0] <= adx <= params['adx_range'][1]): match = False
+    if params.get('c_rci') and not (params['rci_range'][0] <= rci <= params['rci_range'][1]): match = False
+    if params.get('c_rsi') and not (params['rsi_range'][0] <= rsi <= params['rsi_range'][1]): match = False
+
+    # 9-12. 出来高・乖離・BB
+    if params.get('c_vol') and (v / 10000) < params['vol_min']: match = False
+    if params.get('c_vup') and vup_rate < params['vup_min']: match = False
+    if params.get('c_ma25') and not (params['ma25_range'][0] <= ma25_dev <= params['ma25_range'][1]): match = False
+    if params.get('c_bb') and not (params['bb_range'][0] <= bb_sigma <= params['bb_range'][1]): match = False
 
     if match:
         return {
-            "コード": df.index.name, # 呼び出し側で付与
             "株価": int(p),
-            "出来高": int(v),
-            "前日比": price_change_pct,
+            "前日比": ((p - prev_p) / prev_p) * 100,
             "売買代金": val_total,
+            "出来高": int(v),
             "ATR%": atrp
         }
     return None
 
 # --- 3. バックテスト・エンジン (5分足データ用) ---
+# (fetch_daily_stats_maps 以降のコードは変更不要のため、そのまま維持してください)
 
 def fetch_daily_stats_maps(ticker, start):
     """前日終値・当日始値・ATRのマップ作成"""
@@ -103,7 +140,6 @@ def run_ticker_simulation(ticker, df, pc_map, co_map, a_map, params):
     df = df[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
     df.index = df.index.tz_localize('UTC').tz_convert('Asia/Tokyo') if df.index.tzinfo is None else df.index.tz_convert('Asia/Tokyo')
     
-    # 指標の計算
     df['EMA5'] = EMAIndicator(close=df['Close'], window=5).ema_indicator()
     df['RSI14'] = RSIIndicator(close=df['Close'], window=14).rsi()
     df['RSI14_P'] = df['RSI14'].shift(1)
@@ -115,7 +151,6 @@ def run_ticker_simulation(ticker, df, pc_map, co_map, a_map, params):
         day = df[df.index.date == d].copy().between_time('09:00', '15:00')
         if day.empty: continue
         
-        # VWAPの算出
         day['VWAP'] = (day['Close'] * day['Volume']).cumsum() / day['Volume'].cumsum().replace(0, np.nan)
         date_str = d.strftime('%Y-%m-%d')
         pc = pc_map.get(date_str); do = co_map.get(date_str)
@@ -126,7 +161,6 @@ def run_ticker_simulation(ticker, df, pc_map, co_map, a_map, params):
         
         for ts, row in day.iterrows():
             if not in_pos:
-                # エントリー判定 (params を参照)
                 if params['start_t'] <= ts.time() <= params['end_t'] and params['g_min'] <= gap_v <= params['g_max']:
                     c_vwap = (row['Close'] > row['VWAP']) if params['u_vwap'] else True
                     c_ema = (row['Close'] > row['EMA5']) if params['u_ema'] else True
@@ -173,41 +207,24 @@ def run_ticker_simulation(ticker, df, pc_map, co_map, a_map, params):
 # --- 4. ワンタッチ機能：スコアリング・ランキング ---
 
 def get_one_touch_score(trades):
-    """
-    バックテスト結果から安定度スコアを算出する
-    期待値 * 勝率 * PF
-    """
     if not trades: return None
     tdf = pd.DataFrame(trades)
     wins = tdf[tdf['PnL'] > 0]; losses = tdf[tdf['PnL'] <= 0]
-    
     win_rate = len(wins) / len(tdf)
     pf = wins['PnL'].sum() / abs(losses['PnL'].sum()) if not losses.empty and losses['PnL'].sum() != 0 else 9.99
     ev = tdf['PnL'].mean()
-    
-    # スコア計算: 期待値 * 勝率 * PF
     score = ev * win_rate * pf
-    
-    return {
-        "win_rate": win_rate,
-        "pf": pf,
-        "ev": ev,
-        "score": score
-    }
-    
-# logic_core.py の末尾に追記
+    return {"win_rate": win_rate, "pf": pf, "ev": ev, "score": score}
+
 @st.cache_data(ttl=300)
 def fetch_market_info(market_indices):
-    """市場指標のデータを取得する"""
     data = {}
     for name, ticker in market_indices.items():
         try:
             df = yf.download(ticker, period="5d", progress=False)
             if not df.empty:
-                # 最新と前日の終値を取得
-                latest = float(df['Close'].iloc[-1])
-                prev = float(df['Close'].iloc[-2])
+                latest = float(df['Close'].iloc[-1]); prev = float(df['Close'].iloc[-2])
                 data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
-        except:
-            data[name] = {"val": None, "pct": None}
+        except: data[name] = {"val": None, "pct": None}
     return data
+    
