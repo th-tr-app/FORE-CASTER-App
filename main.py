@@ -433,24 +433,60 @@ with tab_bt:
                     except: st.warning(f"[{t}] ギャップ幅分析用のデータが不足しています。")
                     st.divider()
 
-        with bt_tabs[3]: # 🧐 VWAP分析 (BACK TESTER 6.3 完全移植版)
-            if not res_df.empty:
-                for t in res_df['Ticker'].unique():
+        with bt_tabs[3]: # 🧐 VWAP分析 (BACK TESTER 6.3 完全移植 & 3.0 変数同期版)
+            # --- データの存在チェック ---
+            if not res_df.empty and 'Ticker' in res_df.columns:
+                # 実際に結果が存在する銘柄コードのみを抽出してループ
+                unique_res_tickers = res_df['Ticker'].unique()
+                
+                for t in unique_res_tickers:
                     tdf = res_df[res_df['Ticker'] == t].copy()
-                    st.markdown(f"#### 🧐 {t} : {ticker_names.get(t, t)} のVWAP乖離分析")
+                    if tdf.empty: continue
                     
-                    # エントリー時のVWAP乖離率の平均などを算出
+                    t_name = ticker_names.get(t, t)
+                    st.markdown(f"### [{t}] {t_name}")
+                    st.markdown("##### エントリー時のVWAPと勝率")
+                    
+                    # --- VWAP乖離の計算 ---
+                    # EntryVWAP（エントリー時点のVWAP値）から乖離率を算出
                     tdf['VWAP乖離(%)'] = ((tdf['In'] - tdf['EntryVWAP']) / tdf['EntryVWAP']) * 100
                     
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        avg_dev = tdf['VWAP乖離(%)'].mean()
-                        st.metric("平均エントリー乖離率", f"{avg_dev:+.2f}%")
-                    with col2:
-                        max_dev = tdf['VWAP乖離(%)'].max()
-                        st.metric("最大エントリー乖離率", f"{max_dev:+.2f}%")
+                    try:
+                        # レンジ（bin）の作成 (0.2%刻みに調整)
+                        # 最小・最大値を0.2単位で丸めて範囲を決定
+                        min_dev = np.floor(tdf['VWAP乖離(%)'].min() * 5) / 5
+                        max_dev = np.ceil(tdf['VWAP乖離(%)'].max() * 5) / 5
+                        if np.isnan(min_dev): min_dev = -1.0; max_dev = 1.0
+                        
+                        # 0.2刻みの配列を生成
+                        bins = np.arange(min_dev, max_dev + 0.2, 0.2)
+                        tdf['Range'] = pd.cut(tdf['VWAP乖離(%)'], bins=bins)
+                        
+                        # 統計集計（Named Aggregation形式）
+                        vwap_stats = tdf.groupby('Range', observed=True).agg(
+                            Count=('PnL', 'count'), 
+                            WinRate=('PnL', lambda x: (x > 0).mean()), 
+                            AvgPnL=('PnL', 'mean')
+                        ).reset_index()
+                        
+                        # ラベルの整形 (0.2%刻みを正確に表示)
+                        def format_vwap_interval(i): 
+                            return f"{i.left:.2f}% ～ {i.right:.2f}%"
+                        vwap_stats['RangeLabel'] = vwap_stats['Range'].apply(format_vwap_interval)
+                        
+                        # 表示用データフレームの構築
+                        display_stats = vwap_stats[['RangeLabel', 'Count', 'WinRate', 'AvgPnL']].copy()
+                        display_stats['WinRate'] = display_stats['WinRate'].apply(lambda x: f"{x:.1%}")
+                        display_stats['AvgPnL'] = display_stats['AvgPnL'].apply(lambda x: f"{x:+.2%}")
+                        display_stats['Count'] = display_stats['Count'].astype(str)
+                        display_stats.columns = ['乖離率レンジ', 'トレード数', '勝率', '平均損益']
+                        
+                        # 表の表示
+                        st.dataframe(display_stats.style.set_properties(**{'text-align': 'left'}), hide_index=True, use_container_width=True)
                     
-                    st.caption("※VWAPよりどれくらい上で買っているかの統計です。")
+                    except Exception:
+                        st.warning(f"[{t}] VWAP乖離分析を生成するためのデータが不足しています。")
+                    
                     st.divider()
 
         with bt_tabs[5]: # 📝 詳細ログ
