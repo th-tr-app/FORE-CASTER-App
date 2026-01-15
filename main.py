@@ -176,7 +176,7 @@ with tab_screen:
                             results.append(res)
                     status.update(label=f"✅ {len(results)} 銘柄発見", state="complete")
                 
-                # 計算結果をセッションに保存 (これで操作しても消えなくなる)
+                # 計算結果をセッションに保存
                 st.session_state[f"sc_res_df_{i}"] = pd.DataFrame(results) if results else None
 
             # --- 結果表示と自動入力エリア (修正版) ---
@@ -188,26 +188,27 @@ with tab_screen:
                     res_df[['コード', '銘柄名', '株価', '前日比', '売買代金']],
                     use_container_width=True, hide_index=True, 
                     on_select="rerun", selection_mode="multi-row", 
-                    key=f"df_sc_view_final_{i}" # 固有のキー
+                    key=f"df_sc_view_final_{i}" 
                 )
                 
-            # --- スクリーニングまたはランキングの追加ロジック内 ---
+                # 追加ロジックの修正
+                selected_rows = sel_event.selection.rows
+                if selected_rows:
+                    # rdf ではなくこのスコープの res_df を使用
+                    selected_codes = res_df.iloc[selected_rows]['コード'].tolist()
 
-            # 選択された行のコードを取得
-            selected_codes = rdf.iloc[selected_rows]['コード'].tolist() # または res_df
+                    # 現在のリストを取得
+                    current_list = [t.strip() for t in st.session_state.get('target_tickers', "").split(",") if t.strip()]
 
-            # 現在のリストを取得
-            current_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
+                    # 新しい銘柄を合流（重複排除）
+                    new_combined = sorted(list(set(current_list + selected_codes)))
+                    new_tickers_str = ", ".join(new_combined)
 
-            # 新しい銘柄を合流（重複排除）
-            new_combined = sorted(list(set(current_list + selected_codes)))
-            new_tickers_str = ", ".join(new_combined)
-
-            # 【修正ポイント】値が変わっている場合のみ更新し、即座に st.rerun()
-            if new_tickers_str != st.session_state['target_tickers']:
-                st.session_state['target_tickers'] = new_tickers_str
-                st.toast(f"銘柄リストを更新しました！")
-                st.rerun() # これで画面上部の入力欄が書き換わります
+                    # 値が変わっている場合のみ更新し、即座に st.rerun()
+                    if new_tickers_str != st.session_state.get('target_tickers', ""):
+                        st.session_state['target_tickers'] = new_tickers_str
+                        st.toast(f"銘柄リストを更新しました！")
+                        st.rerun()
 
 # --- タブ3: バックテスト (6.3の全分析機能を復元) ---
 with tab_bt:
@@ -301,7 +302,8 @@ with tab_rank:
     if st.button("🚀 ランキング生成開始", type="primary", use_container_width=True, key="rank_run_btn"):
         rank_list = []
         all_tickers = list(TICKER_NAME_MAP.keys())
-        end_date = datetime.now(); start_date = end_date - timedelta(days=days_back)
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days_back)
         
         with st.status("🔍 全銘柄を分析中...", expanded=True) as status:
             pb_r = st.progress(0)
@@ -309,18 +311,21 @@ with tab_rank:
                 status.update(label=f"Scanning {i+1}/{len(all_tickers)}: {t}")
                 pb_r.progress((i+1)/len(all_tickers))
                 
+                # MultiIndex対策を含めたデータ取得
                 df_r = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
                 if df_r.empty: continue
-                if isinstance(df_r.columns, pd.MultiIndex): df_r.columns = df_r.columns.get_level_values(0)
+                if isinstance(df_r.columns, pd.MultiIndex): 
+                    df_r.columns = df_r.columns.get_level_values(0)
                 
                 try:
+                    # 数値(scalar)として取得して比較
                     current_p = float(df_r['Close'].iloc[-1])
                     if p_range[0] <= current_p <= p_range[1]:
                         p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
                         t_trades = core.run_ticker_simulation(t, df_r, p_map, o_map, a_map, params)
                         
                         if t_trades:
-                            # スコア計算: Score = EV * WinRate * PF
+                            # スコア算出ロジック
                             score_data = core.get_one_touch_score(t_trades)
                             rank_list.append({
                                 'コード': t, '銘柄名': TICKER_NAME_MAP.get(t, t),
@@ -335,6 +340,7 @@ with tab_rank:
 
     # --- 結果の表示と転送機能 (修正版) ---
     if 'last_rank_df' in st.session_state:
+        # rdfを確実に定義
         rdf = st.session_state['last_rank_df']
         st.caption("👇 銘柄をチェックすると監視リストに反映されます。")
         
@@ -342,21 +348,27 @@ with tab_rank:
             rdf.style.format({'勝率': '{:.1%}', '期待値': '{:+.2%}', 'PF': '{:.2f}'}),
             use_container_width=True, hide_index=True, 
             on_select="rerun", selection_mode="multi-row", 
-            key="rank_df_view_final" # 固有のキー
+            key="rank_df_view_final" 
         )
         
+        # 選択行の取得と監視リストへの反映
         selected_rows = event.selection.rows
         if selected_rows:
+            # rdf.iloc を使用して選択されたコードを抽出
             selected_codes = rdf.iloc[selected_rows]['コード'].tolist()
-            current_tickers = [t.strip() for t in st.session_state.get('target_tickers', '').split(",") if t.strip()]
             
-            new_tickers = [c for c in selected_codes if c not in current_tickers]
-            if new_tickers:
-                updated_list = sorted(list(set(current_tickers + selected_codes)))
+            # 現在のセッション状態を取得
+            current_str = st.session_state.get('target_tickers', "")
+            current_list = [t.strip() for t in current_str.split(",") if t.strip()]
+            
+            # 未登録の銘柄がある場合のみ更新 (無限リラン防止)
+            new_found = [c for c in selected_codes if c not in current_list]
+            if new_found:
+                updated_list = sorted(list(set(current_list + selected_codes)))
                 st.session_state['target_tickers'] = ", ".join(updated_list)
                 st.toast(f"期待値トップ銘柄を監視リストに追加しました！")
-                st.rerun() # 更新を反映
+                st.rerun() 
 
         if st.button("♻️ ランキングをクリア", key="rank_clear_btn", use_container_width=True):
-            del st.session_state['last_rank_df']; st.rerun()
-            
+            del st.session_state['last_rank_df']
+            st.rerun()
