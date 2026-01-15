@@ -574,31 +574,56 @@ with tab_bt:
                     st.divider()
 
         with bt_tabs[5]: # 📝 詳細ログ (BACK TESTER 6.3 完全移植版)
-            if not res_df.empty:
+            st.markdown("### 📝 詳細取引ログ")
+            
+            # --- データの存在チェック ---
+            if not res_df.empty and 'Ticker' in res_df.columns:
+                # リストの初期化
                 log_report = []
-                # 銘柄ごとにグループ化して表示
-                for t in res_df['Ticker'].unique():
-                    tdf = res_df[res_df['Ticker'] == t].copy().sort_values('Entry', ascending=False)
-                    log_report.append(f"[{t}] {ticker_names.get(t, t)} 取引履歴\n" + "-"*110)
+                
+                # 実際に結果が存在する銘柄コードのみを抽出してループ
+                unique_res_tickers = res_df['Ticker'].unique()
+
+                for t in unique_res_tickers:
+                    # データの抽出とソート (新しい順)
+                    tdf = res_df[res_df['Ticker'] == t].copy().sort_values('Entry', ascending=False).reset_index(drop=True)
+                    if tdf.empty: continue
                     
-                    for _, row in tdf.iterrows():
-                        # VWAP乖離の算出 (小数第2位)
-                        vwap_dev = ((row['In'] - row['EntryVWAP']) / row['EntryVWAP']) * 100
+                    # VWAP乖離の再計算
+                    tdf['VWAP乖離(%)'] = ((tdf['In'] - tdf['EntryVWAP']) / tdf['EntryVWAP']) * 100
+                    t_name = ticker_names.get(t, t)
+                    
+                    log_report.append(f"[{t}] {t_name} 取引履歴")
+                    log_report.append("-" * 80)
+                    
+                    for i, row in tdf.iterrows():
+                        entry_str = row['Entry'].strftime('%Y-%m-%d %H:%M')
                         
-                        # 6.3形式の1行ログ作成
+                        # VWAP表示の整形
+                        if pd.notna(row['EntryVWAP']) and row['EntryVWAP'] != 0:
+                            vwap_val = int(round(row['EntryVWAP']))
+                            vwap_dev = f"{row['VWAP乖離(%)']:+.2f}%"
+                            vwap_str = f"{vwap_val} (乖離 {vwap_dev})"
+                        else:
+                            vwap_str = "- (乖離 -)"
+                        
+                        # 6.3形式の1行詳細ログ作成 (金額は int で整形)
                         line = (
-                            f"{row['Entry'].strftime('%Y-%m-%d %H:%M')} | "
-                            f"{row['Pattern']:<15} | "
-                            f"損益: {row['PnL']:+.2%} | "
-                            f"買: {int(row['In']):5} | 売: {int(row['Out']):5} | "
-                            f"VWAP乖離: {vwap_dev:+.2f}% | "
-                            f"理由: {row['Reason']}"
+                            f"{entry_str} | "
+                            f"前終値：{int(row['PrevClose'])} | 始値：{int(row['DayOpen'])} | "
+                            f"{row['Pattern']} | "
+                            f"PnL: {row['PnL']:+.2%} | Gap: {row['Gap(%)']:+.2f}% | "
+                            f"買：{int(row['In'])} | 売：{int(row['Out'])} | "
+                            f"VWAP: {vwap_str} | "
+                            f"{row['Reason']}"
                         )
                         log_report.append(line)
                     log_report.append("\n")
                 
-                st.caption("全取引の履歴です（新しい順）")
+                st.caption("右上のコピーボタンで全文コピーできます↓")
                 st.code("\n".join(log_report), language="text")
+
+                st.divider()
                 
 # --- タブ4: ランキング (スキャン & 自動転送) ---
 with tab_rank:
