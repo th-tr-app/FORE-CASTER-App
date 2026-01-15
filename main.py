@@ -322,50 +322,51 @@ with tab_bt:
     if not res_df.empty:
         bt_tabs = st.tabs(["📊 サマリー", "🏅 勝ちパターン", "📉 ギャップ分析", "🧐 VWAP分析", "🕒 時間分析", "📝 詳細ログ"])
         
-        with bt_tabs[0]: # 📊 サマリー (修正版)
-            # 1. フォールバック処理：期間がなければ計算して代用
+    with bt_tabs[0]: # 📊 サマリー (6.3 完全移植 + 3.0 整合版)
+            # --- 1. 計測期間の取得 (フォールバック付) ---
             display_period = st.session_state.get('bt_period')
             if not display_period or display_period == "不明":
                 display_period = f"{(datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')} - {datetime.now().strftime('%Y-%m-%d')}"
             
-            # 2. 勝敗の計算 (ここを if の外に出します)
-            wins = res_df[res_df['PnL'] > 0]
-            losses = res_df[res_df['PnL'] <= 0]
-            
-            # --- 1. 統計カード表示 ---
-            pf = wins['PnL'].sum() / abs(losses['PnL'].sum()) if not losses.empty and losses['PnL'].sum() != 0 else 0
+            # --- 2. 全体集計 ---
+            count_all = len(res_df)
+            wins_all = res_df[res_df['PnL'] > 0]
+            losses_all = res_df[res_df['PnL'] <= 0]
+            win_rate_all = len(wins_all) / count_all if count_all > 0 else 0
+            pf_all = wins_all['PnL'].sum() / abs(losses_all['PnL'].sum()) if not losses_all.empty else 0
+            expectancy_all = res_df['PnL'].mean()
+
+            # --- 3. メトリクス表示 (3.0のデザインを継承) ---
             st.markdown(f"""
                 <div class='metric-grid'>
-                    <div class='summary-box'><div class='card-label'>総トレード数</div><div class='card-value'>{len(res_df)}回</div></div>
-                    <div class='summary-box'><div class='card-label'>勝率</div><div class='card-value'>{(len(wins)/len(res_df)):.1%}</div></div>
-                    <div class='summary-box'><div class='card-label'>PF（総利益 ÷ 総損失）</div><div class='card-value'>{pf:.2f}</div></div>
-                    <div class='summary-box'><div class='card-label'>期待値</div><div class='card-value'>{res_df['PnL'].mean():.2%}</div></div>
+                    <div class='summary-box'><div class='card-label'>総トレード数</div><div class='card-value'>{count_all}回</div></div>
+                    <div class='summary-box'><div class='card-label'>勝率</div><div class='card-value'>{win_rate_all:.1%}</div></div>
+                    <div class='summary-box'><div class='card-label'>PF（利益÷損失）</div><div class='card-value'>{pf_all:.2f}</div></div>
+                    <div class='summary-box'><div class='card-label'>期待値</div><div class='card-value'>{expectancy_all:.2%}</div></div>
                 </div>""", unsafe_allow_html=True)
             st.divider()
-            
-            # --- 2. 詳細テキストレポート (6.3の項目をすべて復元) ---
-            rpt = [
-                "=================\n BACKTEST REPORT \n=================",
-                f"Period: {display_period}", # 代用した期間を表示
-            ]
+        
+            # --- 4. テキストレポート生成 (6.3の詳細度を復元) ---
+            report = ["=================\n BACKTEST REPORT \n=================", f"Period: {display_period}\n"]
             
             for t in res_df['Ticker'].unique():
                 tdf = res_df[res_df['Ticker'] == t]
-                tw = tdf[tdf['PnL'] > 0]['PnL']
-                tl = tdf[tdf['PnL'] <= 0]['PnL']
+                if tdf.empty: continue
                 
-                # 6.3準拠の1銘柄サマリー行
-                line = (
-                    f">>> TICKER: {t} | {ticker_names.get(t, t)}\n"
-                    f"トレード数: {len(tdf):2} | 勝率: {(len(tw)/len(tdf)):.1%} | "
-                    f"利益平均: {tw.mean():+.2%} | 損失平均: {tl.mean():+.2%} | "
-                    f"PF: {(tw.sum()/abs(tl.sum()) if not tl.empty else 9.9):.2f} | "
-                    f"期待値: {tdf['PnL'].mean():+.2%}\n"
-                )
-                rpt.append(line)
+                t_wins = tdf[tdf['PnL'] > 0]
+                t_losses = tdf[tdf['PnL'] <= 0]
+                t_wr = len(t_wins) / len(tdf)
+                t_pf = t_wins['PnL'].sum() / abs(t_losses['PnL'].sum()) if not t_losses.empty else 9.9
+                
+                report.append(f">>> TICKER: {t} | {ticker_names.get(t, t)}")
+                report.append(f"トレード数: {len(tdf)} | 勝率: {t_wr:.1%} | 利益平均: {t_wins['PnL'].mean():+.2%} | 損失平均: {t_losses['PnL'].mean():+.2%} | PF: {t_pf:.2f} | 期待値: {tdf['PnL'].mean():+.2%}\n")
             
-            st.caption("右上のコピーボタンで全文コピーできます↓") 
-            st.code("\n".join(rpt), language="text")
+            st.caption("右上のコピーボタンで全文コピーできます↓")
+            st.code("\n".join(report), language="text")
+
+            if st.button("♻️ バックテスト結果をクリア", key="reset_summary_final"):
+                st.session_state['res_df'] = pd.DataFrame()
+                st.rerun()
 
         with bt_tabs[1]: # 🏅 勝ちパターン (3回以上優先 ＆ 1回以上代用版)
             st.markdown("### 🏅 勝ちパターン分析")
