@@ -370,6 +370,7 @@ with tab_bt:
                 
         with bt_tabs[1]: # 🏅 勝ちパターン (3回以上優先 ＆ 1回以上代用版)
             st.markdown("### 🏅 勝ちパターン分析")
+            st.caption("チャートパターン別の成績分析と、ベストなエントリー条件を言語化して勝ちパターンを抽出します。")
             if not res_df.empty and 'Ticker' in res_df.columns:
                 unique_res_tickers = res_df['Ticker'].unique()
 
