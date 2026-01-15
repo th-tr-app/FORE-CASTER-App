@@ -471,7 +471,7 @@ with tab_bt:
                         
                         # ラベルの整形 (0.2%刻みを正確に表示)
                         def format_vwap_interval(i): 
-                            return f"{i.left:.2f}% ～ {i.right:.2f}%"
+                            return f"{i.left:.1f}% ～ {i.right:.1f}%"
                         vwap_stats['RangeLabel'] = vwap_stats['Range'].apply(format_vwap_interval)
                         
                         # 表示用データフレームの構築
