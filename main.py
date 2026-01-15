@@ -251,39 +251,40 @@ with tab_screen:
 
             # --- スクリーニング実行 ---
             if st.button(f"🚀 {['通常', 'ディフェンシブ', '横ばい'][i]} スキャン開始", type="primary", use_container_width=True, key=f"btn_sc_exec_{i}"):
-            # --- 結果表示と自動入力エリア (12パラメーター対応 & 連携機能維持版) ---
-            res_df = st.session_state.get(f"sc_res_df_{i}")
+
+                # --- 結果表示と自動入力エリア (12パラメーター対応 & 連携機能維持版) ---
+                res_df = st.session_state.get(f"sc_res_df_{i}")
             
-            if res_df is not None and not res_df.empty:
-                st.info("💡 銘柄をチェックすると、最上部の監視リストに自動で追加されます。")
+                if res_df is not None and not res_df.empty:
+                    st.info("💡 銘柄をチェックすると、最上部の監視リストに自動で追加されます。")
                 
-                # インタラクティブなデータフレーム表示
-                sel_event = st.dataframe(
-                    res_df[['コード', '銘柄名', '株価', '前日比', '売買代金']],
-                    use_container_width=True, hide_index=True, 
-                    on_select="rerun", selection_mode="multi-row", 
-                    key=f"df_sc_view_final_{i}"  # タブごとに一意のキー
-                )
+                    # インタラクティブなデータフレーム表示
+                    sel_event = st.dataframe(
+                        res_df[['コード', '銘柄名', '株価', '前日比', '売買代金']],
+                        use_container_width=True, hide_index=True, 
+                        on_select="rerun", selection_mode="multi-row", 
+                        key=f"df_sc_view_final_{i}"  # タブごとに一意のキー
+                    )
                 
-                # チェックが入った時の自動入力ロジック
-                selected_rows = sel_event.selection.rows
-                if selected_rows:
-                    selected_codes = res_df.iloc[selected_rows]['コード'].tolist()
+                    # チェックが入った時の自動入力ロジック
+                    selected_rows = sel_event.selection.rows
+                    if selected_rows:
+                        selected_codes = res_df.iloc[selected_rows]['コード'].tolist()
 
-                    # 現在の監視銘柄リストを取得
-                    current_str = st.session_state.get('target_tickers', "")
-                    current_list = [t.strip() for t in current_str.split(",") if t.strip()]
+                        # 現在の監視銘柄リストを取得
+                        current_str = st.session_state.get('target_tickers', "")
+                        current_list = [t.strip() for t in current_str.split(",") if t.strip()]
 
-                    # 重複を排除して合流
-                    new_combined = sorted(list(set(current_list + selected_codes)))
-                    new_tickers_str = ", ".join(new_combined)
+                        # 重複を排除して合流
+                        new_combined = sorted(list(set(current_list + selected_codes)))
+                        new_tickers_str = ", ".join(new_combined)
 
-                    # 変化がある場合のみセッションを更新してリラン
-                    if new_tickers_str != st.session_state.get('target_tickers', ""):
-                        st.session_state['target_tickers'] = new_tickers_str
-                        st.toast(f"監視リストに {len(selected_codes)} 銘柄を反映しました")
-                        st.rerun()
-                
+                        # 変化がある場合のみセッションを更新してリラン
+                        if new_tickers_str != st.session_state.get('target_tickers', ""):
+                            st.session_state['target_tickers'] = new_tickers_str
+                            st.toast(f"監視リストに {len(selected_codes)} 銘柄を反映しました")
+                            st.rerun()
+            
                 # 実行時に最新のp（session_state）を辞書化してロジックへ渡す
                 s_logic_params = {
                     'c_p': p['c_p'], 'p_range': p['p_rng'], 'c_v': p['c_v'], 'v_min': p['v_min'], 
