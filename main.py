@@ -97,10 +97,11 @@ if ticker_input_val != st.session_state['target_tickers']:
 # --- 5. メインタブ構成 ---
 tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト", "🏆 ランキング"])
 
-# --- タブ1: ワンタッチ (指標ウォッチ内包) ---
+# --- タブ1: ワンタッチ (トップ5リスト表示版) ---
 with tab_top:
-    m_data = core.fetch_market_info(MARKET_INDICES) # logic_core経由で取得
+    m_data = core.fetch_market_info(MARKET_INDICES)
     
+    # 指標ウォッチ
     with st.expander(f"🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
         cards_html = '<div class="metric-grid">'
         for n, t in MARKET_INDICES.items():
@@ -111,81 +112,84 @@ with tab_top:
                 cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
     
-    # AI予測 (VIX指数を活用)
     vix = m_data.get("VIX指数", {}).get("val", 0)
-    st.info(f"🤖 **AI予測:** VIX指数は {vix:.1f} です。サイドバーの戦略プリセットから「{st.session_state['preset']}」を選択し、ワンタッチ判定を開始してください。")
+    current_preset = st.session_state['preset']
+    st.info(f"🤖 **AI予測:** VIX {vix:.1f}。現在は「**{current_preset}**」戦略が選択されています。")
     
+    # 判定開始ボタン
     if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
-        # 1. 選択されている戦略のパラメータを取得
-        p_idx = 0 if st.session_state['preset'] == "NORMAL" else 1 if st.session_state['preset'] == "DEFENSIVE" else 2
+        p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
         p = st.session_state['sc_params'][p_idx]
         
-        # 【重要】logic_core.py が期待する変数名にマッピング（翻訳）
+        # パラメータのマッピング
         s_logic_params = {
-            'c_p': p['c_p'], 'p_range': p['p_rng'], 
-            'c_v': p['c_v'], 'v_min': p['v_min'], 
-            'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 
-            'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
-            'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 
-            'c_rci': p['c_rci'], 'rci_range': p['rci_rng'],
-            'c_vol': p['c_vol'], 'vol_min': p['vol_min'], 
-            'c_vup': p['c_vup'], 'vup_min': p['vup_min'],
+            'c_p': p['c_p'], 'p_range': p['p_rng'], 'c_v': p['c_v'], 'v_min': p['v_min'], 
+            'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
+            'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 'c_rci': p['c_rci'], 'rci_range': p['rci_rng'],
+            'c_vol': p['c_vol'], 'vol_min': p['vol_min'], 'c_vup': p['c_vup'], 'vup_min': p['vup_min'],
             'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng']
         }
         
         all_tickers = list(TICKER_NAME_MAP.keys())
         ot_results = []
         
-        with st.status(f"🔍 {st.session_state['preset']} 戦略で全銘柄をフル分析中...", expanded=True) as status:
+        with st.status(f"🔍 {current_preset} 戦略で全銘柄をフル分析中...", expanded=True) as status:
             pb_ot = st.progress(0)
-            
             for idx, t in enumerate(all_tickers):
                 pb_ot.progress((idx+1)/len(all_tickers))
                 status.update(label=f"分析中 ({idx+1}/{len(all_tickers)}): {t}")
                 
                 df_d = yf.download(t, period="3mo", interval="1d", progress=False)
-                if df_d.empty: continue
-                if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
-                
-                # 翻訳済みの s_logic_params を渡すことでエラーを回避
-                if core.evaluate_screening_conditions(df_d, s_logic_params):
-                    # --- 以降のバックテスト処理などは変更なし ---
-                    end_date = datetime.now()
-                    start_date = end_date - timedelta(days=days_back)
+                if not df_d.empty and core.evaluate_screening_conditions(df_d, s_logic_params):
+                    end_date = datetime.now(); start_date = end_date - timedelta(days=days_back)
                     df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
-                    if df_5m.empty: continue
-                    if isinstance(df_5m.columns, pd.MultiIndex): df_5m.columns = df_5m.columns.get_level_values(0)
-                    
-                    p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
-                    trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
-                    
-                    if trades:
-                        score_data = core.get_one_touch_score(trades)
-                        ot_results.append({
-                            'コード': t, '銘柄名': TICKER_NAME_MAP.get(t, t),
-                            '勝率': score_data['win_rate'], 'PF': score_data['pf'], 
-                            '期待値': score_data['ev'], '総合スコア': score_data['score']
-                        })
-            
-            status.update(label="✅ 分析完了！地合いに最適な銘柄を選出しました", state="complete")
+                    if not df_5m.empty:
+                        if isinstance(df_5m.columns, pd.MultiIndex): df_5m.columns = df_5m.columns.get_level_values(0)
+                        p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
+                        trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
+                        if trades:
+                            score_data = core.get_one_touch_score(trades)
+                            ot_results.append({
+                                'コード': t, '銘柄名': TICKER_NAME_MAP.get(t, t),
+                                '勝率': score_data['win_rate'], 'PF': score_data['pf'], 
+                                '期待値': score_data['ev'], '総合スコア': score_data['score']
+                            })
+            status.update(label="✅ 分析完了！", state="complete")
 
-        # 3. 結果の合流処理 (以前作成したコードと同じ)
         if ot_results:
+            # スコア順にソートしてトップ5を抽出
             top_5_df = pd.DataFrame(ot_results).sort_values('総合スコア', ascending=False).head(5)
-            top_5_tickers = top_5_df['コード'].tolist()
             
+            # セッション状態に保存 (リラン後も表示するため)
+            st.session_state['ot_last_top5'] = top_5_df
+            
+            # 監視リストへの合流ロジック
             current_str = st.session_state.get('target_tickers', "")
             current_list = [t.strip() for t in current_str.split(",") if t.strip()]
-            
-            combined_list = sorted(list(set(current_list + top_5_tickers)))
+            combined_list = sorted(list(set(current_list + top_5_df['コード'].tolist())))
             st.session_state['target_tickers'] = ", ".join(combined_list)
             
-            st.success(f"🎯 期待値の高い {len(top_5_tickers)} 銘柄を監視リストに追加しました！")
-            st.dataframe(top_5_df.style.format({'勝率': '{:.1%}', '期待値': '{:+.2%}', 'PF': '{:.2f}', '総合スコア': '{:.4f}'}), 
-                         use_container_width=True, hide_index=True)
+            st.toast("🎯 期待値トップ5を監視リストに追加しました！")
             st.rerun()
-        else:
-            st.warning("条件に合致する銘柄が見つかりませんでした。")
+
+    # --- ボタンの下にトップ5銘柄をリスト表示 (チェックなし) ---
+    if 'ot_last_top5' in st.session_state:
+        st.markdown("#### 🏆 本日の厳選トップ5銘柄")
+        rdf_ot = st.session_state['ot_last_top5']
+        
+        # ランキングと同じ書式で表示 (選択不可設定)
+        st.dataframe(
+            rdf_ot.style.format({
+                '勝率': '{:.1%}', '期待値': '{:+.2%}', 'PF': '{:.2f}', '総合スコア': '{:.4f}'
+            }),
+            use_container_width=True,
+            hide_index=True,
+            selection_mode=None # チェックボタンを非表示にする
+        )
+        
+        if st.button("♻️ ワンタッチ結果をクリア", key="ot_clear_res"):
+            del st.session_state['ot_last_top5']
+            st.rerun()
 
 # --- タブ2: スクリーニングの実装 (結果保持・自動入力修正版) ---
 with tab_screen:
