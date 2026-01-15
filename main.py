@@ -333,7 +333,7 @@ with tab_bt:
                     <div class='summary-box'><div class='card-label'>PF（総利益 ÷ 総損失）</div><div class='card-value'>{pf:.2f}</div></div>
                     <div class='summary-box'><div class='card-label'>期待値</div><div class='card-value'>{res_df['PnL'].mean():.2%}</div></div>
                 </div>""", unsafe_allow_html=True)
-                st.divider()
+            st.divider()
             
             # --- 2. 詳細テキストレポート (6.3の項目をすべて復元) ---
             rpt = [("=================\n BACKTEST REPORT \n================="),
