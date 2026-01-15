@@ -116,14 +116,26 @@ with tab_top:
     st.info(f"🤖 **AI予測:** VIX指数は {vix:.1f} です。サイドバーの戦略プリセットから「{st.session_state['preset']}」を選択し、ワンタッチ判定を開始してください。")
     
     if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
-        # 1. サイドバーで選ばれている戦略のパラメータを取得
+        # 1. 選択されている戦略のパラメータを取得
         p_idx = 0 if st.session_state['preset'] == "NORMAL" else 1 if st.session_state['preset'] == "DEFENSIVE" else 2
-        s_params = st.session_state['sc_params'][p_idx]
+        p = st.session_state['sc_params'][p_idx]
+        
+        # 【重要】logic_core.py が期待する変数名にマッピング（翻訳）
+        s_logic_params = {
+            'c_p': p['c_p'], 'p_range': p['p_rng'], 
+            'c_v': p['c_v'], 'v_min': p['v_min'], 
+            'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 
+            'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
+            'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 
+            'c_rci': p['c_rci'], 'rci_range': p['rci_rng'],
+            'c_vol': p['c_vol'], 'vol_min': p['vol_min'], 
+            'c_vup': p['c_vup'], 'vup_min': p['vup_min'],
+            'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng']
+        }
         
         all_tickers = list(TICKER_NAME_MAP.keys())
         ot_results = []
         
-        # 2. 全銘柄フル分析開始
         with st.status(f"🔍 {st.session_state['preset']} 戦略で全銘柄をフル分析中...", expanded=True) as status:
             pb_ot = st.progress(0)
             
@@ -131,14 +143,13 @@ with tab_top:
                 pb_ot.progress((idx+1)/len(all_tickers))
                 status.update(label=f"分析中 ({idx+1}/{len(all_tickers)}): {t}")
                 
-                # A. スクリーニング判定 (日次データ)
                 df_d = yf.download(t, period="3mo", interval="1d", progress=False)
                 if df_d.empty: continue
                 if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
                 
-                # スクリーニング条件に合致するかチェック
-                if core.evaluate_screening_conditions(df_d, s_params):
-                    # B. 合致した銘柄のみバックテスト実行 (5分足データ)
+                # 翻訳済みの s_logic_params を渡すことでエラーを回避
+                if core.evaluate_screening_conditions(df_d, s_logic_params):
+                    # --- 以降のバックテスト処理などは変更なし ---
                     end_date = datetime.now()
                     start_date = end_date - timedelta(days=days_back)
                     df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
@@ -149,7 +160,6 @@ with tab_top:
                     trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
                     
                     if trades:
-                        # C. スコア算出 (EV * WinRate * PF)
                         score_data = core.get_one_touch_score(trades)
                         ot_results.append({
                             'コード': t, '銘柄名': TICKER_NAME_MAP.get(t, t),
@@ -159,29 +169,23 @@ with tab_top:
             
             status.update(label="✅ 分析完了！地合いに最適な銘柄を選出しました", state="complete")
 
-        # 3. 結果の合流処理
+        # 3. 結果の合流処理 (以前作成したコードと同じ)
         if ot_results:
-            # スコア順にソートしてトップ5を抽出
             top_5_df = pd.DataFrame(ot_results).sort_values('総合スコア', ascending=False).head(5)
             top_5_tickers = top_5_df['コード'].tolist()
             
-            # 【重要】既存の銘柄を維持したまま合流させるロジック
             current_str = st.session_state.get('target_tickers', "")
             current_list = [t.strip() for t in current_str.split(",") if t.strip()]
             
-            # 既存リスト + ワンタッチ結果 (setで重複を排除し、見やすくソート)
             combined_list = sorted(list(set(current_list + top_5_tickers)))
             st.session_state['target_tickers'] = ", ".join(combined_list)
             
-            # 画面表示
             st.success(f"🎯 期待値の高い {len(top_5_tickers)} 銘柄を監視リストに追加しました！")
             st.dataframe(top_5_df.style.format({'勝率': '{:.1%}', '期待値': '{:+.2%}', 'PF': '{:.2f}', '総合スコア': '{:.4f}'}), 
                          use_container_width=True, hide_index=True)
-            
-            # 最上部の入力欄に反映させるためにリラン
             st.rerun()
         else:
-            st.warning("現在の相場環境で条件に合致する銘柄が見つかりませんでした。設定を緩めてみてください。")
+            st.warning("条件に合致する銘柄が見つかりませんでした。")
 
 # --- タブ2: スクリーニングの実装 (結果保持・自動入力修正版) ---
 with tab_screen:
