@@ -322,7 +322,7 @@ with tab_bt:
     if not res_df.empty:
         bt_tabs = st.tabs(["📊 サマリー", "🏅 勝ちパターン", "📉 ギャップ分析", "🧐 VWAP分析", "🕒 時間分析", "📝 詳細ログ"])
         
-    with bt_tabs[0]: # 📊 サマリー (6.3 完全移植 + 3.0 整合版)
+        with bt_tabs[0]: # 📊 サマリー (6.3 完全移植 + 3.0 整合版)
             # --- 1. 計測期間の取得 (フォールバック付) ---
             display_period = st.session_state.get('bt_period')
             if not display_period or display_period == "不明":
@@ -367,7 +367,7 @@ with tab_bt:
             if st.button("♻️ バックテスト結果をクリア", key="reset_summary_final"):
                 st.session_state['res_df'] = pd.DataFrame()
                 st.rerun()
-
+                
         with bt_tabs[1]: # 🏅 勝ちパターン (3回以上優先 ＆ 1回以上代用版)
             st.markdown("### 🏅 勝ちパターン分析")
             if not res_df.empty and 'Ticker' in res_df.columns:
