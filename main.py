@@ -363,10 +363,6 @@ with tab_bt:
             
             st.caption("右上のコピーボタンで全文コピーできます↓")
             st.code("\n".join(report), language="text")
-
-            if st.button("♻️ バックテスト結果をクリア", key="reset_summary_final"):
-                st.session_state['res_df'] = pd.DataFrame()
-                st.rerun()
                 
         with bt_tabs[1]: # 🏅 勝ちパターン (3回以上優先 ＆ 1回以上代用版)
             st.markdown("### 🏅 勝ちパターン分析")
@@ -573,20 +569,33 @@ with tab_bt:
                     
                     st.divider()
 
-        with bt_tabs[5]: # 📝 詳細ログ
-            log_report = []
-            for t in res_df['Ticker'].unique():
-                tdf = res_df[res_df['Ticker'] == t].copy().sort_values('Entry', ascending=False)
-                log_report.append(f"[{t}] {ticker_names.get(t, t)} 取引履歴\n" + "-"*80)
-                for _, row in tdf.iterrows():
-                    vwap_dev = ((row['In'] - row['EntryVWAP']) / row['EntryVWAP']) * 100
-                    log_report.append(f"{row['Entry'].strftime('%Y-%m-%d %H:%M')} | {row['Pattern']} | PnL: {row['PnL']:+.2%} | 買：{int(row['In'])} | 売：{int(row['Out'])} | VWAP乖離: {vwap_dev:+.2f}% | {row['Reason']}")
-                log_report.append("\n")
-            st.code("\n".join(log_report), language="text")
-
-        if st.button("♻️ 個別テスト結果をリセット", key="reset_bt_final", use_container_width=True):
-            st.session_state['res_df'] = pd.DataFrame(); st.rerun()
-
+        with bt_tabs[5]: # 📝 詳細ログ (BACK TESTER 6.3 完全移植版)
+            if not res_df.empty:
+                log_report = []
+                # 銘柄ごとにグループ化して表示
+                for t in res_df['Ticker'].unique():
+                    tdf = res_df[res_df['Ticker'] == t].copy().sort_values('Entry', ascending=False)
+                    log_report.append(f"[{t}] {ticker_names.get(t, t)} 取引履歴\n" + "-"*110)
+                    
+                    for _, row in tdf.iterrows():
+                        # VWAP乖離の算出 (小数第2位)
+                        vwap_dev = ((row['In'] - row['EntryVWAP']) / row['EntryVWAP']) * 100
+                        
+                        # 6.3形式の1行ログ作成
+                        line = (
+                            f"{row['Entry'].strftime('%Y-%m-%d %H:%M')} | "
+                            f"{row['Pattern']:<15} | "
+                            f"損益: {row['PnL']:+.2%} | "
+                            f"買: {int(row['In']):5} | 売: {int(row['Out']):5} | "
+                            f"VWAP乖離: {vwap_dev:+.2f}% | "
+                            f"理由: {row['Reason']}"
+                        )
+                        log_report.append(line)
+                    log_report.append("\n")
+                
+                st.caption("全取引の履歴です（新しい順）")
+                st.code("\n".join(log_report), language="text")
+                
 # --- タブ4: ランキング (スキャン & 自動転送) ---
 with tab_rank:
     st.markdown("### 🏆 登録銘柄期待値ランキング")
