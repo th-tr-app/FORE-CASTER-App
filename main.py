@@ -367,32 +367,81 @@ with tab_bt:
             st.caption("右上のコピーボタンで全文コピーできます↓") 
             st.code("\n".join(rpt), language="text")
 
-        with bt_tabs[1]: # 🏅 勝ちパターン (6.3 完全移植 + 信頼性フィルタ版)
-            if not res_df.empty:
-                for t in res_df['Ticker'].unique():
-                    tdf = res_df[res_df['Ticker'] == t]
-                    st.markdown(f"#### 🎯 {t} : {ticker_names.get(t, t)} のパターン別分析")
+        with bt_tabs[1]: # 🏅 勝ちパターン (6.3 完全移植 + 3.0 統合ロジック版)
+            st.markdown("### 🏅 勝ちパターン分析")
+            st.caption("チャートパターン、ギャップ、VWAP、時間帯の4要素から、最も信頼性の高いエントリー条件を自動抽出します。")
+            
+            # --- データの存在チェック ---
+            if not res_df.empty and 'Ticker' in res_df.columns:
+                unique_res_tickers = res_df['Ticker'].unique()
+
+                for t in unique_res_tickers:
+                    tdf = res_df[res_df['Ticker'] == t].copy()
+                    if tdf.empty: continue
                     
-                    # 1. パターン統計の集計 (試行回数、勝率、平均損益)
-                    p_stats = tdf.groupby('Pattern')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
-                    p_stats.columns = ['パターン', '試行回数', '勝率', '平均損益']
+                    t_name = ticker_names.get(t, t)
+                    st.markdown(f"#### [{t}] {t_name}")
                     
-                    st.dataframe(p_stats.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'}), 
-                                 use_container_width=True, hide_index=True)
+                    # 1. パターン別統計 (A~E)
+                    pat_stats = tdf.groupby('Pattern', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
+                    pat_stats.columns = ['パターン', 'トレード数', '勝率', '平均損益']
                     
-                    # 2. 推奨パターンの抽出 (最低3回以上のフィルタ)
-                    min_trades = 3 
-                    reliable_p = p_stats[p_stats['試行回数'] >= min_trades].sort_values('勝率', ascending=False)
+                    # 表示用にフォーマット
+                    pat_disp = pat_stats.copy()
+                    pat_disp['勝率'] = pat_disp['勝率'].apply(lambda x: f"{x:.1%}")
+                    pat_disp['平均損益'] = pat_disp['平均損益'].apply(lambda x: f"{x:+.2%}")
+                    st.dataframe(pat_disp, hide_index=True, use_container_width=True)
                     
-                    if not reliable_p.empty:
-                        best = reliable_p.iloc[0]
-                        # 勝率60%以上かつ利益が出ている場合のみ「最強」と認定
-                        if best['勝率'] >= 0.6 and best['平均損益'] > 0:
-                            st.success(f"✅ **最強パターン:** 『{best['パターン']}』は過去 {int(best['試行回数'])} 回のトレードで勝率 {best['勝率']:.1%} を記録。この銘柄の鉄板エントリー根拠です。")
+                    # 2. ベスト条件の抽出 (信頼性フィルター：最低3回以上のトレード)
+                    try:
+                        min_tr = 3 # 信頼性のしきい値
+                        
+                        # A. ベストパターンの抽出
+                        pat_valid = pat_stats[pat_stats['トレード数'].astype(int) >= min_tr]
+                        best_pat = pat_valid.loc[pat_valid['勝率'].str.rstrip('%').astype(float).idxmax()] if not pat_valid.empty else None
+                        
+                        # B. ベストギャップ分析 (0.5%刻み)
+                        min_g = np.floor(tdf['Gap(%)'].min()); max_g = np.ceil(tdf['Gap(%)'].max())
+                        if np.isnan(min_g): min_g=-3.0; max_g=1.0
+                        bins_g = np.arange(min_g, max_g+0.5, 0.5)
+                        tdf['GapRange'] = pd.cut(tdf['Gap(%)'], bins=bins_g)
+                        gap_stats = tdf.groupby('GapRange', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
+                        gap_valid = gap_stats[gap_stats['count'] >= min_tr]
+                        best_g = gap_valid.loc[gap_valid['<lambda_0>'].idxmax()] if not gap_valid.empty else None
+                        
+                        # C. ベストVWAP分析 (0.2%刻み)
+                        tdf['VWAP_Diff'] = ((tdf['In'] - tdf['EntryVWAP']) / tdf['EntryVWAP']) * 100
+                        min_v = np.floor(tdf['VWAP_Diff'].min()*5)/5; max_v = np.ceil(tdf['VWAP_Diff'].max()*5)/5
+                        if np.isnan(min_v): min_v=-1.0; max_v=1.0
+                        bins_v = np.arange(min_v, max_v+0.2, 0.2)
+                        tdf['VwapRange'] = pd.cut(tdf['VWAP_Diff'], bins=bins_v)
+                        vwap_stats = tdf.groupby('VwapRange', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
+                        vwap_valid = vwap_stats[vwap_stats['count'] >= min_tr]
+                        best_v = vwap_valid.loc[vwap_valid['<lambda_0>'].idxmax()] if not vwap_valid.empty else None
+                        
+                        # D. ベスト時間分析 (5分刻み)
+                        def get_time_range(dt): return f"{dt.strftime('%H:%M')}～{(dt + timedelta(minutes=5)).strftime('%H:%M')}"
+                        tdf['TimeRange'] = tdf['Entry'].apply(get_time_range)
+                        time_stats = tdf.groupby('TimeRange')['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
+                        time_valid = time_stats[time_stats['count'] >= min_tr]
+                        best_t = time_valid.loc[time_valid['<lambda_0>'].idxmax()] if not time_valid.empty else None
+                        
+                        # 3. 勝ちパターンレポートの生成
+                        if all([best_pat is not None, best_g is not None, best_v is not None, best_t is not None]):
+                            gap_txt = "ギャップアップ" if best_g['GapRange'].left >= 0 else "ギャップダウン"
+                            
+                            st.info(f"**🏆 最高勝率パターン**\n\n"
+                                    f"最も勝率が高かったのは、**{best_pat['パターン']}** で、"
+                                    f"**{gap_txt} ({best_g['GapRange'].left:.1f}% ～ {best_g['GapRange'].right:.1f}%)** スタートで、"
+                                    f"VWAPから **{best_v['VwapRange'].left:.1f}% ～ {best_v['VwapRange'].right:.1f}%** の位置にある時、"
+                                    f"**{best_t['TimeRange']}** にエントリーするパターンです。\n\n"
+                                    f"(GAP勝率: {best_g['<lambda_0>']:.1%} / VWAP勝率: {best_v['<lambda_0>']:.1%} / 時間勝率: {best_t['<lambda_0>']:.1%})")
                         else:
-                            st.info(f"💡 **注目パターン:** 『{best['パターン']}』の取引数が {int(best['試行回数'])} 回を超えました。現在の勝率は {best['勝率']:.1%} です。")
-                    else:
-                        st.warning(f"⚠️ 試行回数が {min_trades} 回以上のパターンがまだありません。個別の履歴を確認してください。")
+                            st.warning(f"⚠️ 試行回数（各条件{min_tr}回以上）を満たす勝ちパターンがまだ見つかりません。")
+                            
+                    except Exception as e:
+                        st.warning(f"[{t}] 分析生成エラー: データの蓄積が不足しています。")
+                    
                     st.divider()
 
         with bt_tabs[2]: # 📉 ギャップ分析 (BACK TESTER 6.3 完全移植版)
