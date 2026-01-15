@@ -363,6 +363,10 @@ with tab_bt:
             
             st.caption("右上のコピーボタンで全文コピーできます↓")
             st.code("\n".join(report), language="text")
+
+            if st.button("♻️ バックテスト結果をクリア", key="reset_summary_final"):
+                st.session_state['res_df'] = pd.DataFrame()
+                st.rerun()
                 
         with bt_tabs[1]: # 🏅 勝ちパターン (3回以上優先 ＆ 1回以上代用版)
             st.markdown("### 🏅 勝ちパターン分析")
