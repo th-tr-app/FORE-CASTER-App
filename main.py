@@ -191,6 +191,8 @@ with tab_top:
             del st.session_state['ot_last_top5']
             st.rerun()
 
+        st.session_state['bt_period'] = f"{(datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')} - {datetime.now().strftime('%Y-%m-%d')}"
+
 # --- タブ2: スクリーニングの実装 (結果保持・自動入力修正版) ---
 with tab_screen:
     st.markdown("### 🔍 戦略別スクリーニング設定")
