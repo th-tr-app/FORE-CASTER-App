@@ -208,6 +208,7 @@ with tab_screen:
             p = st.session_state['sc_params'][i]
             exp_t = f"🔍 スクリーニング設定 ({['通常', 'ディフェンシブ', '横ばい'][i]})"
             
+            # --- 1. パラメーター設定エリア ---
             with st.expander(exp_t, expanded=True):
                 c1, c2, c3 = st.columns(3)
                 with c1:
@@ -222,7 +223,6 @@ with tab_screen:
                     st.divider()
                     p['c_ma'] = st.checkbox("**移動平均上抜け/並び**", p['c_ma'], key=f"c_ma_{i}")
                     p['ma_opt'] = st.selectbox("条件選択", ["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"], index=["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"].index(p['ma_opt']), key=f"v_ma_{i}")
-
                 with c2:
                     p['c_ema'] = st.checkbox("**EMA (9日・21日)**", p['c_ema'], key=f"c_ema_{i}")
                     p['ema_opt'] = st.selectbox("EMA基準", ["強気：EMAの上で価格維持", "安定：EMA付近での推移", "レンジ：EMAを上下にまたぐ"], index=["強気：EMAの上で価格維持", "安定：EMA付近での推移", "レンジ：EMAを上下にまたぐ"].index(p['ema_opt']), key=f"v_ema_{i}")
@@ -235,7 +235,6 @@ with tab_screen:
                     st.divider()
                     p['c_rsi'] = st.checkbox("**RSI (レンジ)**", p['c_rsi'], key=f"c_rsi_{i}")
                     p['rsi_rng'] = st.slider("RSIレンジ", 0, 100, p['rsi_rng'], step=5, key=f"v_rsi_{i}")
-
                 with c3:
                     p['c_vol'] = st.checkbox("**出来高 (万株)**", p['c_vol'], key=f"c_vol_{i}")
                     p['vol_min'] = st.number_input("万株以上", value=p['vol_min'], step=10.0, key=f"v_vol_{i}")
@@ -249,43 +248,8 @@ with tab_screen:
                     p['c_bb'] = st.checkbox("**ボリンジャーバンド**", p['c_bb'], key=f"c_bb_{i}")
                     p['bb_rng'] = st.slider("σ範囲", -3.0, 3.0, p['bb_rng'], step=1.0, key=f"v_bb_{i}")
 
-            # --- スクリーニング実行 ---
+            # --- 2. スクリーニング実行 (計算のみ) ---
             if st.button(f"🚀 {['通常', 'ディフェンシブ', '横ばい'][i]} スキャン開始", type="primary", use_container_width=True, key=f"btn_sc_exec_{i}"):
-
-                # --- 結果表示と自動入力エリア (12パラメーター対応 & 連携機能維持版) ---
-                res_df = st.session_state.get(f"sc_res_df_{i}")
-            
-                if res_df is not None and not res_df.empty:
-                    st.info("💡 銘柄をチェックすると、最上部の監視リストに自動で追加されます。")
-                
-                    # インタラクティブなデータフレーム表示
-                    sel_event = st.dataframe(
-                        res_df[['コード', '銘柄名', '株価', '前日比', '売買代金']],
-                        use_container_width=True, hide_index=True, 
-                        on_select="rerun", selection_mode="multi-row", 
-                        key=f"df_sc_view_final_{i}"  # タブごとに一意のキー
-                    )
-                
-                    # チェックが入った時の自動入力ロジック
-                    selected_rows = sel_event.selection.rows
-                    if selected_rows:
-                        selected_codes = res_df.iloc[selected_rows]['コード'].tolist()
-
-                        # 現在の監視銘柄リストを取得
-                        current_str = st.session_state.get('target_tickers', "")
-                        current_list = [t.strip() for t in current_str.split(",") if t.strip()]
-
-                        # 重複を排除して合流
-                        new_combined = sorted(list(set(current_list + selected_codes)))
-                        new_tickers_str = ", ".join(new_combined)
-
-                        # 変化がある場合のみセッションを更新してリラン
-                        if new_tickers_str != st.session_state.get('target_tickers', ""):
-                            st.session_state['target_tickers'] = new_tickers_str
-                            st.toast(f"監視リストに {len(selected_codes)} 銘柄を反映しました")
-                            st.rerun()
-            
-                # 実行時に最新のp（session_state）を辞書化してロジックへ渡す
                 s_logic_params = {
                     'c_p': p['c_p'], 'p_range': p['p_rng'], 'c_v': p['c_v'], 'v_min': p['v_min'], 
                     'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'],
@@ -311,6 +275,33 @@ with tab_screen:
                     status.update(label=f"✅ {len(results)} 銘柄発見", state="complete")
                 
                 st.session_state[f"sc_res_df_{i}"] = pd.DataFrame(results) if results else None
+                st.rerun() # 結果を即座に表示させるために再描画
+
+            # --- 3. 結果の表示と自動入力 (ボタンの外に配置) ---
+            current_res = st.session_state.get(f"sc_res_df_{i}")
+            if current_res is not None and not current_res.empty:
+                st.info("💡 銘柄をチェックすると、最上部の監視リストに自動で追加されます。")
+                
+                sel_event = st.dataframe(
+                    current_res[['コード', '銘柄名', '株価', '前日比', '売買代金']],
+                    use_container_width=True, hide_index=True, 
+                    on_select="rerun", selection_mode="multi-row", 
+                    key=f"df_sc_view_final_{i}"
+                )
+                
+                # 自動入力ロジック
+                if sel_event.selection.rows:
+                    selected_codes = current_res.iloc[sel_event.selection.rows]['コード'].tolist()
+                    current_str = st.session_state.get('target_tickers', "")
+                    current_list = [t.strip() for t in current_str.split(",") if t.strip()]
+
+                    new_combined = sorted(list(set(current_list + selected_codes)))
+                    new_tickers_str = ", ".join(new_combined)
+
+                    if new_tickers_str != st.session_state.get('target_tickers', ""):
+                        st.session_state['target_tickers'] = new_tickers_str
+                        st.toast(f"監視リストに {len(selected_codes)} 銘柄を反映しました")
+                        st.rerun()
 
 # --- タブ3: バックテスト (6.3の全分析機能を復元) ---
 with tab_bt:
