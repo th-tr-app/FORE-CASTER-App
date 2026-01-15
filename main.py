@@ -396,6 +396,44 @@ with tab_bt:
                     st.divider()
 
         with bt_tabs[2]: # 📉 ギャップ分析 (BACK TESTER 6.3 完全移植版)
+            if not res_df.empty and 'Ticker' in res_df.columns:
+                for t in res_df['Ticker'].unique():
+                    tdf = res_df[res_df['Ticker'] == t].copy()
+                    t_name = ticker_names.get(t, t)
+                    st.markdown(f"### [{t}] {t_name}")
+                    
+                    # --- 1. 始値ギャップ方向の分析 ---
+                    st.markdown("##### 始値ギャップ方向と成績")
+                    tdf['GapDir'] = tdf['Gap(%)'].apply(lambda x: 'ギャップアップ' if x > 0 else ('ギャップダウン' if x < 0 else 'フラット'))
+                    gap_dir_stats = tdf.groupby('GapDir', observed=True).agg(
+                        Count=('PnL', 'count'), WinRate=('PnL', lambda x: (x > 0).mean()), AvgPnL=('PnL', 'mean')
+                    ).reset_index()
+                    
+                    gap_dir_disp = gap_dir_stats.copy()
+                    gap_dir_disp['WinRate'] = gap_dir_disp['WinRate'].apply(lambda x: f"{x:.1%}")
+                    gap_dir_disp['AvgPnL'] = gap_dir_disp['AvgPnL'].apply(lambda x: f"{x:+.2%}")
+                    gap_dir_disp.columns = ['方向', 'トレード数', '勝率', '平均損益']
+                    st.dataframe(gap_dir_disp, hide_index=True, use_container_width=True)
+
+                    # --- 2. ギャップ幅ごとの分析 (0.5%刻み) ---
+                    st.markdown("##### ギャップ幅ごとの勝率")
+                    try:
+                        min_g = np.floor(tdf['Gap(%)'].min()); max_g = np.ceil(tdf['Gap(%)'].max())
+                        bins_g = np.arange(min_g if not np.isnan(min_g) else -3.0, (max_g if not np.isnan(max_g) else 1.0) + 0.5, 0.5)
+                        tdf['GapRange'] = pd.cut(tdf['Gap(%)'], bins=bins_g)
+                        gap_range_stats = tdf.groupby('GapRange', observed=True).agg(
+                            Count=('PnL', 'count'), WinRate=('PnL', lambda x: (x > 0).mean()), AvgPnL=('PnL', 'mean')
+                        ).reset_index()
+                        gap_range_stats['RangeLabel'] = gap_range_stats['GapRange'].apply(lambda i: f"{i.left:.1f}% ～ {i.right:.1f}%")
+                        disp_gap = gap_range_stats[['RangeLabel', 'Count', 'WinRate', 'AvgPnL']].copy()
+                        disp_gap['WinRate'] = disp_gap['WinRate'].apply(lambda x: f"{x:.1%}")
+                        disp_gap['AvgPnL'] = disp_gap['AvgPnL'].apply(lambda x: f"{x:+.2%}")
+                        disp_gap.columns = ['ギャップ幅', 'トレード数', '勝率', '平均損益']
+                        st.dataframe(disp_gap, hide_index=True, use_container_width=True)
+                    except: st.warning(f"[{t}] ギャップ幅分析用のデータが不足しています。")
+                    st.divider()
+
+        with bt_tabs[2]: # 📉 ギャップ分析 (BACK TESTER 6.3 完全移植版)
             if not res_df.empty:
                 for t in res_df['Ticker'].unique():
                     tdf = res_df[res_df['Ticker'] == t].copy()
