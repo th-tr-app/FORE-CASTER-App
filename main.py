@@ -347,7 +347,7 @@ with tab_bt:
                 
                 # 6.3準拠の1銘柄サマリー行
                 line = (
-                    f">>> {t} | {ticker_names.get(t, t)}\n"
+                    f">>> TICKER: {t} | {ticker_names.get(t, t)}\n"
                     f"トレード数: {len(tdf):2} | 勝率: {(len(tw)/len(tdf)):.1%} | "
                     f"利益平均: {tw.mean():+.2%} | 損失平均: {tl.mean():+.2%} | "
                     f"PF: {(tw.sum()/abs(tl.sum()) if not tl.empty else 9.9):.2f} | "
