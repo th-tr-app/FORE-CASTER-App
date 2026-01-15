@@ -346,7 +346,7 @@ with tab_bt:
             # --- 2. 詳細テキストレポート (6.3の項目をすべて復元) ---
             rpt = [
                 "=================\n BACKTEST REPORT \n=================",
-                f"計測期間: {display_period}", # 代用した期間を表示
+                f"Period: {display_period}", # 代用した期間を表示
             ]
             
             for t in res_df['Ticker'].unique():
@@ -367,13 +367,33 @@ with tab_bt:
             st.caption("右上のコピーボタンで全文コピーできます↓") 
             st.code("\n".join(rpt), language="text")
 
-        with bt_tabs[1]: # 🏅 勝ちパターン
-            for t in res_df['Ticker'].unique():
-                tdf = res_df[res_df['Ticker'] == t]
-                st.write(f"**{t} ({ticker_names.get(t,t)})**")
-                p_stats = tdf.groupby('Pattern')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
-                p_stats.columns = ['パターン', '数', '勝率', '平均損益']
-                st.dataframe(p_stats.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'}), use_container_width=True, hide_index=True)
+        with bt_tabs[1]: # 🏅 勝ちパターン (6.3 完全移植 + 信頼性フィルタ版)
+            if not res_df.empty:
+                for t in res_df['Ticker'].unique():
+                    tdf = res_df[res_df['Ticker'] == t]
+                    st.markdown(f"#### 🎯 {t} : {ticker_names.get(t, t)} のパターン別分析")
+                    
+                    # 1. パターン統計の集計 (試行回数、勝率、平均損益)
+                    p_stats = tdf.groupby('Pattern')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
+                    p_stats.columns = ['パターン', '試行回数', '勝率', '平均損益']
+                    
+                    st.dataframe(p_stats.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'}), 
+                                 use_container_width=True, hide_index=True)
+                    
+                    # 2. 推奨パターンの抽出 (最低3回以上のフィルタ)
+                    min_trades = 3 
+                    reliable_p = p_stats[p_stats['試行回数'] >= min_trades].sort_values('勝率', ascending=False)
+                    
+                    if not reliable_p.empty:
+                        best = reliable_p.iloc[0]
+                        # 勝率60%以上かつ利益が出ている場合のみ「最強」と認定
+                        if best['勝率'] >= 0.6 and best['平均損益'] > 0:
+                            st.success(f"✅ **最強パターン:** 『{best['パターン']}』は過去 {int(best['試行回数'])} 回のトレードで勝率 {best['勝率']:.1%} を記録。この銘柄の鉄板エントリー根拠です。")
+                        else:
+                            st.info(f"💡 **注目パターン:** 『{best['パターン']}』の取引数が {int(best['試行回数'])} 回を超えました。現在の勝率は {best['勝率']:.1%} です。")
+                    else:
+                        st.warning(f"⚠️ 試行回数が {min_trades} 回以上のパターンがまだありません。個別の履歴を確認してください。")
+                    st.divider()
 
         with bt_tabs[2]: # 📉 ギャップ分析
             for t in res_df['Ticker'].unique():
