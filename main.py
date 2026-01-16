@@ -13,7 +13,7 @@ st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="w
 st.logo("image_13.png", icon_image="image_12.png")
 
 # 基本情報の初期化
-if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "7203.T"
+if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = ""
 if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 if 'res_df' not in st.session_state: st.session_state['res_df'] = pd.DataFrame()
 if 't_names' not in st.session_state: st.session_state['t_names'] = {}
@@ -47,6 +47,7 @@ st.markdown("""
     .delta-badge { font-size: 14px; font-weight: 600; }
     .plus { color: #ff4b4b; } .minus { color: #00f0a8; }
     .summary-box { background-color: #262730; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #3d414b; }
+     [data-testid="stSidebarCollapsedControl"] {flex-direction: row-reverse !important;justify-content: flex-end !important;gap: 10px !important; }
     </style>
     """, unsafe_allow_html=True)
 
