@@ -47,12 +47,6 @@ st.markdown("""
     .delta-badge { font-size: 14px; font-weight: 600; }
     .plus { color: #ff4b4b; } .minus { color: #00f0a8; }
     .summary-box { background-color: #262730; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #3d414b; }
-    /* サイドバー開閉ボタンとロゴの並びを整える */
-    [data-testid="stSidebarCollapsedControl"] {
-        flex-direction: row-reverse !important; /* 要素の左右を入れ替え */
-        justify-content: flex-end !important;   /* 左側に寄せる */
-        gap: 10px !important;                   /* ボタンとロゴの間隔 */
-    }
     </style>
     """, unsafe_allow_html=True)
 
