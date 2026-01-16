@@ -50,10 +50,9 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- デザインCSS内に追加 ---
+# --- デザインCSS内に追加 ---    /* サイドバーボタンとロゴの並び順を入れ替える */
 st.markdown("""
     <style>
-    /* サイドバーボタンとロゴの並び順を入れ替える */
     [data-testid="stSidebarCollapsedControl"] {
         flex-direction: row-reverse !important;
         justify-content: flex-end !important;
