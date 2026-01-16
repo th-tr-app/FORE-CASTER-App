@@ -47,7 +47,18 @@ st.markdown("""
     .delta-badge { font-size: 14px; font-weight: 600; }
     .plus { color: #ff4b4b; } .minus { color: #00f0a8; }
     .summary-box { background-color: #262730; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #3d414b; }
-     [data-testid="stSidebarCollapsedControl"] {flex-direction: row-reverse !important;justify-content: flex-end !important;gap: 10px !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- デザインCSS内に追加 ---
+st.markdown("""
+    <style>
+    /* サイドバーボタンとロゴの並び順を入れ替える */
+    [data-testid="stSidebarCollapsedControl"] {
+        flex-direction: row-reverse !important;
+        justify-content: flex-end !important;
+        gap: 10px !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
