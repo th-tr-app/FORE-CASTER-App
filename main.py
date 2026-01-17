@@ -200,7 +200,7 @@ with tab_top:
             st.rerun()
 
 # --- タブ2: スクリーニングの実装 (14パラメーター対応版) ---
-with tab_screen:
+with s_tab:
     p = st.session_state['sc_params'][i]
     exp_t = f"🔍 スクリーニング設定 ({['通常', 'ディフェンシブ', '横ばい'][i]})"
             
