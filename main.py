@@ -177,7 +177,7 @@ with tab_top:
             'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'],
             'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 
             'c_rci': p['c_rci'], 'rci_range': p['rci_rng'],
-            ''c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
+            'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
             'c_vup': p['c_vup'], 'vup_min': p['vup_min'], 
             'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'],
             'c_bb': p['c_bb'], 'bb_range': p['bb_rng']
