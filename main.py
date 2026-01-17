@@ -237,7 +237,8 @@ with tab_screen:
                     st.divider()
                     p['c_ma'] = st.checkbox("**移動平均上抜け/並び**", p['c_ma'], key=f"c_ma_{i}")
                     p['ma_opt'] = st.selectbox("条件選択", ["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"], index=["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"].index(p['ma_opt']), key=f"v_ma_{i}")
-
+                    st.divider()
+                    
                 with c2:
                     p['c_gain'] = st.checkbox("**前日値上がり率 (%)**", p['c_gain'], key=f"c_gain_{i}")
                     p['gain_rng'] = st.slider("変動幅%", -10.0, 10.0, p['gain_rng'], step=0.5, key=f"v_gain_{i}")
@@ -253,7 +254,8 @@ with tab_screen:
                     st.divider()
                     p['c_rsi'] = st.checkbox("**RSI (レンジ)**", p['c_rsi'], key=f"c_rsi_{i}")
                     p['rsi_rng'] = st.slider("RSIレンジ", 0, 100, p['rsi_rng'], step=5, key=f"v_rsi_{i}")
-
+                    st.divider()
+                    
                 with c3:
                     p['c_vol'] = st.checkbox("**出来高 (万株)**", p['c_vol'], key=f"c_vol_{i}")
                     p['vol_min'] = st.number_input("万株以上", value=p['vol_min'], step=10.0, key=f"v_vol_{i}")
@@ -266,7 +268,8 @@ with tab_screen:
                     st.divider()
                     p['c_bb'] = st.checkbox("**ボリンジャーバンド**", p['c_bb'], key=f"c_bb_{i}")
                     p['bb_rng'] = st.slider("σ範囲", -3.0, 3.0, p['bb_rng'], step=1.0, key=f"v_bb_{i}")
-
+                    st.divider()
+                    
             # --- 実行ボタン ---
             if st.button(f"🚀 {['通常', 'ディフェンシブ', '横ばい'][i]} スキャン開始", key=f"btn_sc_exec_{i}", type="primary", use_container_width=True):
                 # A. 業種フィルタリング
