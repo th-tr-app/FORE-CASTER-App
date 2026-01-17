@@ -199,7 +199,7 @@ with tab_top:
             del st.session_state['ot_last_top5']
             st.rerun()
 
-# --- タブ2: スクリーニングの実装 (14パラメーター対応・完全版) ---
+# --- タブ2: スクリーニングの実装 (業種 + 12パラメーター・スマホ最適化版) ---
 with tab_screen:
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -237,8 +237,8 @@ with tab_screen:
                     st.divider()
                     p['c_ma'] = st.checkbox("**移動平均上抜け/並び**", p['c_ma'], key=f"c_ma_{i}")
                     p['ma_opt'] = st.selectbox("条件選択", ["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"], index=["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"].index(p['ma_opt']), key=f"v_ma_{i}")
-                    st.divider()
-                    
+                    st.divider() # スマホ表示用ライン
+
                 with c2:
                     p['c_gain'] = st.checkbox("**前日値上がり率 (%)**", p['c_gain'], key=f"c_gain_{i}")
                     p['gain_rng'] = st.slider("変動幅%", -10.0, 10.0, p['gain_rng'], step=0.5, key=f"v_gain_{i}")
@@ -251,14 +251,11 @@ with tab_screen:
                     st.divider()
                     p['c_rci'] = st.checkbox("**RCI (過熱感)**", p['c_rci'], key=f"c_rci_{i}")
                     p['rci_rng'] = st.slider("RCI範囲", -100, 100, p['rci_rng'], step=5, key=f"v_rci_{i}")
-                    st.divider()
+                    st.divider() # スマホ表示用ライン
+
+                with c3:
                     p['c_rsi'] = st.checkbox("**RSI (レンジ)**", p['c_rsi'], key=f"c_rsi_{i}")
                     p['rsi_rng'] = st.slider("RSIレンジ", 0, 100, p['rsi_rng'], step=5, key=f"v_rsi_{i}")
-                    st.divider()
-                    
-                with c3:
-                    p['c_vol'] = st.checkbox("**出来高 (万株)**", p['c_vol'], key=f"c_vol_{i}")
-                    p['vol_min'] = st.number_input("万株以上", value=p['vol_min'], step=10.0, key=f"v_vol_{i}")
                     st.divider()
                     p['c_vup'] = st.checkbox("**出来高増加率**", p['c_vup'], key=f"c_vup_{i}")
                     p['vup_min'] = st.slider("増加倍率", 1.0, 5.0, p['vup_min'], step=0.1, key=f"v_vup_{i}")
@@ -268,7 +265,7 @@ with tab_screen:
                     st.divider()
                     p['c_bb'] = st.checkbox("**ボリンジャーバンド**", p['c_bb'], key=f"c_bb_{i}")
                     p['bb_rng'] = st.slider("σ範囲", -3.0, 3.0, p['bb_rng'], step=1.0, key=f"v_bb_{i}")
-                    st.divider()
+                    st.divider() # スマホ表示用ライン
                     
             # --- 実行ボタン ---
             if st.button(f"🚀 {['通常', 'ディフェンシブ', '横ばい'][i]} スキャン開始", key=f"btn_sc_exec_{i}", type="primary", use_container_width=True):
@@ -281,14 +278,14 @@ with tab_screen:
                     target_tickers = [t for t, d in TICKER_DETAILS.items() if d[1] in selected_sids]
                     scan_label = ", ".join([SECTOR_MAP[sid] for sid in selected_sids])
 
-                # B. パラメータセット
+                # B. パラメータセット (出来高 c_vol, vol_min を削除)
                 s_logic_params = {
                     'c_gain': p['c_gain'], 'gain_range': p['gain_rng'],
                     'c_p': p['c_p'], 'p_range': p['p_rng'], 'c_v': p['c_v'], 'v_min': p['v_min'], 
                     'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'],
                     'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'], 'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 
                     'c_rci': p['c_rci'], 'rci_range': p['rci_rng'], 'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
-                    'c_vol': p['c_vol'], 'vol_min': p['vol_min'], 'c_vup': p['c_vup'], 'vup_min': p['vup_min'],
+                    'c_vup': p['c_vup'], 'vup_min': p['vup_min'],
                     'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'], 'c_bb': p['c_bb'], 'bb_range': p['bb_rng']
                 }
 
@@ -323,28 +320,18 @@ with tab_screen:
                     key=f"df_sc_view_final_{i}"
                 )
                 
-                # 自動入力ロジックの改善
+                # 自動入力ロジック
                 if sel_event.selection.rows:
                     selected_codes = current_res.iloc[sel_event.selection.rows]['コード'].tolist()
-                    
-                    # 現在の監視銘柄をリスト化
                     current_str = st.session_state.get('target_tickers', "")
                     current_list = [t.strip() for t in current_str.split(",") if t.strip()]
-
-                    # 【重要】本当に「新しい（リストにない）」銘柄だけを抽出
                     new_only = [c for c in selected_codes if c not in current_list]
 
-                    # 新しい銘柄がある場合のみ更新処理を行う
                     if new_only:
                         new_combined = sorted(list(set(current_list + new_only)))
                         st.session_state['target_tickers'] = ", ".join(new_combined)
-                        
-                        # 通知を出して再実行
                         st.toast(f"監視リストに {len(new_only)} 銘柄を反映しました")
                         st.rerun()
-                    else:
-                        # すでにリストに含まれている場合は何もしない（ここでループが止まる）
-                        pass
 
 # --- タブ3: バックテスト (6.3の全分析機能を復元) ---
 with tab_bt:
