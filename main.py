@@ -26,7 +26,7 @@ if 'sc_params' not in st.session_state:
         {
             'sector': [0], # 全業種
             'c_gain': True, 'gain_rng': (0.5, 5.0),    # 少し浮いている銘柄
-            'c_p': True, 'p_rng': (300, 10000),       # 範囲を拡大
+            'c_p': True, 'p_rng': (500, 6000),       # 範囲を拡大
             'c_v': True, 'v_min': 30.0,               # 50億から30億へ緩和
             'c_atrp': False, 'atrp_rng': (1.5, 5.0), 
             'c_ma': True, 'ma_opt': "最強：上昇トレンド", 
@@ -42,7 +42,7 @@ if 'sc_params' not in st.session_state:
         {
             'sector': [2, 5, 13, 14, 16], # 食品、医薬品、商社、金融、サービス
             'c_gain': True, 'gain_rng': (-2.0, 1.0),   # 押し目狙い
-            'c_p': True, 'p_rng': (500, 8000), 
+            'c_p': True, 'p_rng': (500, 6000), 
             'c_v': True, 'v_min': 50.0,               # 300億から大幅緩和
             'c_atrp': True, 'atrp_rng': (0.5, 2.5),   # 低ボラ必須
             'c_ma': False, 'ma_opt': "収束：嵐の前の静けさ", 
@@ -56,9 +56,9 @@ if 'sc_params' not in st.session_state:
         },
         # ↔️ 横ばい相場：リバウンド（初動重視）
         {
-            'sector': [0], # 全業種
+            'sector': [1, 3, 4, 8, 9], # 水産、繊維、化学、金属、機械
             'c_gain': True, 'gain_rng': (-1.0, 2.0), 
-            'c_p': True, 'p_rng': (200, 6000), 
+            'c_p': True, 'p_rng': (500, 6000), 
             'c_v': True, 'v_min': 20.0,               # 200億から大幅緩和
             'c_atrp': True, 'atrp_rng': (1.0, 3.0), 
             'c_ma': True, 'ma_opt': "リバウンド：短期MA上抜け", 
