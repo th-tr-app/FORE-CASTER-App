@@ -260,7 +260,7 @@ with tab_screen:
             p = st.session_state['sc_params'][i]
             exp_t = f"🔍 スクリーニング設定 ({['通常', 'ディフェンシブ', '横ばい'][i]})"
             
-            with st.expander(exp_t, expanded=True):
+            with st.expander(exp_t, expanded=False):
                 # --- A. 業種選択 ---
                 p['sector'] = st.multiselect(
                     "**対象業種 (複数選択可)**", 
@@ -358,7 +358,7 @@ with tab_screen:
             # --- 結果の表示と自動入力 (表示最適化+無限ループ防止) ---
             current_res = st.session_state.get(f"sc_res_df_{i}")
             if current_res is not None and not current_res.empty:
-                st.info("💡 銘柄をチェックすると、監視リストに反映されます。")
+                st.info("☑️ 銘柄をチェックすると、監視リストに反映されます。")
                 
                 # 並び順を売買代金順（降順）で固定
                 current_res = current_res.sort_values("売買代金", ascending=False)
