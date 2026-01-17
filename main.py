@@ -199,14 +199,13 @@ with tab_top:
             del st.session_state['ot_last_top5']
             st.rerun()
 
-# --- タブ2: スクリーニングの実装 (12パラメーター対応版) ---
-# main.py タブ2 内
+# --- タブ2: スクリーニングの実装 (14パラメーター対応版) ---
 with s_tab:
     p = st.session_state['sc_params'][i]
     exp_t = f"🔍 スクリーニング設定 ({['通常', 'ディフェンシブ', '横ばい'][i]})"
-    
+            
     with st.expander(exp_t, expanded=True):
-        # --- A. 業種選択 (カラムの上で全幅表示) ---
+        # --- A. 業種選択 (全幅) ---
         p['sector'] = st.multiselect(
             "**対象業種 (複数選択可)**", 
             options=list(SECTOR_MAP.keys()), 
@@ -231,7 +230,6 @@ with s_tab:
             p['ma_opt'] = st.selectbox("条件選択", ["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"], index=["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"].index(p['ma_opt']), key=f"v_ma_{i}")
 
         with c2:
-            # --- 新規項目：前日値上がり率 ---
             p['c_gain'] = st.checkbox("**前日値上がり率 (%)**", p['c_gain'], key=f"c_gain_{i}")
             p['gain_rng'] = st.slider("変動幅%", -10.0, 10.0, p['gain_rng'], step=0.5, key=f"v_gain_{i}")
             st.divider()
@@ -248,7 +246,6 @@ with s_tab:
             p['rsi_rng'] = st.slider("RSIレンジ", 0, 100, p['rsi_rng'], step=5, key=f"v_rsi_{i}")
 
         with c3:
-            # (以下、出来高、増加率、MA25、ボリンジャーバンドなどは変更なし)
             p['c_vol'] = st.checkbox("**出来高 (万株)**", p['c_vol'], key=f"c_vol_{i}")
             p['vol_min'] = st.number_input("万株以上", value=p['vol_min'], step=10.0, key=f"v_vol_{i}")
             st.divider()
@@ -261,81 +258,77 @@ with s_tab:
             p['c_bb'] = st.checkbox("**ボリンジャーバンド**", p['c_bb'], key=f"c_bb_{i}")
             p['bb_rng'] = st.slider("σ範囲", -3.0, 3.0, p['bb_rng'], step=1.0, key=f"v_bb_{i}")
 
-            # --- 2. スキャン開始ボタン内のロジック ---
-            if st.button(f"🚀 {['通常', 'ディフェンシブ', '横ばい'][i]} スキャン開始", key=f"btn_sc_exec_{i}", type="primary", use_container_width=True):
-    
-                # 1. 業種フィルタリング [重要]
-                selected_sids = p['sector']
-                # 「全業種(#0)」が含まれているか、何も選択されていない場合は全銘柄
-                if 0 in selected_sids or not selected_sids:
-                    target_tickers = list(TICKER_DETAILS.keys())
-                    scan_label = "全業種"
-                else:
-                    # 選択された業種IDを持つ銘柄のみを抽出
-                    target_tickers = [t for t, d in TICKER_DETAILS.items() if d[1] in selected_sids]
-                    scan_label = ", ".join([SECTOR_MAP[sid] for sid in selected_sids])
-    
-                # 2. ロジックへのパラメータ受け渡し (14項目対応)
-                s_logic_params = {
-                    'c_gain': p['c_gain'], 'gain_range': p['gain_rng'],
-                    'c_p': p['c_p'], 'p_range': p['p_rng'], 
-                    'c_v': p['c_v'], 'v_min': p['v_min'], 
-                    'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 
-                    'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'],
-                    'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'], 
-                    'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 
-                    'c_rci': p['c_rci'], 'rci_range': p['rci_rng'], 
-                    'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
-                    'c_vol': p['c_vol'], 'vol_min': p['vol_min'], 
-                    'c_vup': p['c_vup'], 'vup_min': p['vup_min'],
-                    'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'], 
-                    'c_bb': p['c_bb'], 'bb_range': p['bb_rng']
-                }
-    
-                results = []
-                
-    with st.status(f"🔍 {scan_label} の {len(target_tickers)} 銘柄をスキャン中...", expanded=True) as status:
-        pb = st.progress(0)
-        for idx, t in enumerate(target_tickers):
-            pb.progress((idx+1)/len(target_tickers))
-            df_d = yf.download(t, period="3mo", interval="1d", progress=False)
-            if not df_d.empty:
-                if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
-                # 判定エンジンの呼び出し
-                res = core.evaluate_screening_conditions(df_d, s_logic_params)
-                if res:
-                    res['コード'] = t
-                    res['銘柄名'] = TICKER_DETAILS[t][0] # 銘柄名を取得
-                    results.append(res)
-        status.update(label=f"✅ {len(results)} 銘柄発見", state="complete")
-    
-    st.session_state[f"sc_res_df_{i}"] = pd.DataFrame(results) if results else None
-    st.rerun()
-            # --- 3. 結果の表示と自動入力 (ボタンの外に配置) ---
-            current_res = st.session_state.get(f"sc_res_df_{i}")
-            if current_res is not None and not current_res.empty:
-                st.info("💡 銘柄をチェックすると、最上部の監視リストに自動で追加されます。")
-                
-                sel_event = st.dataframe(
-                    current_res[['コード', '銘柄名', '株価', '前日比', '売買代金']],
-                    use_container_width=True, hide_index=True, 
-                    on_select="rerun", selection_mode="multi-row", 
-                    key=f"df_sc_view_final_{i}"
-                )
-                
-                # 自動入力ロジック
-                if sel_event.selection.rows:
-                    selected_codes = current_res.iloc[sel_event.selection.rows]['コード'].tolist()
-                    current_str = st.session_state.get('target_tickers', "")
-                    current_list = [t.strip() for t in current_str.split(",") if t.strip()]
+    # --- 2. スキャン開始ボタンの処理 ---
+    if st.button(f"🚀 {['通常', 'ディフェンシブ', '横ばい'][i]} スキャン開始", key=f"btn_sc_exec_{i}", type="primary", use_container_width=True):
+        # A. 業種フィルタリング
+        selected_sids = p['sector']
+        if 0 in selected_sids or not selected_sids:
+            target_tickers = list(TICKER_DETAILS.keys())
+            scan_label = "全業種"
+        else:
+            target_tickers = [t for t, d in TICKER_DETAILS.items() if d[1] in selected_sids]
+            scan_label = ", ".join([SECTOR_MAP[sid] for sid in selected_sids])
 
-                    new_combined = sorted(list(set(current_list + selected_codes)))
-                    new_tickers_str = ", ".join(new_combined)
+        # B. パラメータセット
+        s_logic_params = {
+            'c_gain': p['c_gain'], 'gain_range': p['gain_rng'],
+            'c_p': p['c_p'], 'p_range': p['p_rng'], 
+            'c_v': p['c_v'], 'v_min': p['v_min'], 
+            'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 
+            'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'],
+            'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'], 
+            'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 
+            'c_rci': p['c_rci'], 'rci_range': p['rci_rng'], 
+            'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
+            'c_vol': p['c_vol'], 'vol_min': p['vol_min'], 
+            'c_vup': p['c_vup'], 'vup_min': p['vup_min'],
+            'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'], 
+            'c_bb': p['c_bb'], 'bb_range': p['bb_rng']
+        }
 
-                    if new_tickers_str != st.session_state.get('target_tickers', ""):
-                        st.session_state['target_tickers'] = new_tickers_str
-                        st.toast(f"監視リストに {len(selected_codes)} 銘柄を反映しました")
-                        st.rerun()
+        # C. 実行ループ
+        results = []
+        with st.status(f"🔍 {scan_label} の {len(target_tickers)} 銘柄をスキャン中...", expanded=True) as status:
+            pb = st.progress(0)
+            for idx, t in enumerate(target_tickers):
+                pb.progress((idx+1)/len(target_tickers))
+                df_d = yf.download(t, period="3mo", interval="1d", progress=False)
+                if not df_d.empty:
+                    if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
+                    res = core.evaluate_screening_conditions(df_d, s_logic_params)
+                    if res:
+                        res['コード'] = t
+                        res['銘柄名'] = TICKER_DETAILS[t][0]
+                        results.append(res)
+            status.update(label=f"✅ {len(results)} 銘柄発見", state="complete")
+                
+        st.session_state[f"sc_res_df_{i}"] = pd.DataFrame(results) if results else None
+        st.rerun()
+
+    # --- 3. 結果の表示と自動入力 (ボタンの外、タブの中) ---
+    current_res = st.session_state.get(f"sc_res_df_{i}")
+    if current_res is not None and not current_res.empty:
+        st.info("💡 銘柄をチェックすると、最上部の監視リストに自動で追加されます。")
+                
+        sel_event = st.dataframe(
+            current_res[['コード', '銘柄名', '株価', '前日比', '売買代金', 'RSI', '25MA乖離', 'ATR%']],
+            use_container_width=True, hide_index=True, 
+            on_select="rerun", selection_mode="multi-row", 
+            key=f"df_sc_view_final_{i}"
+        )
+                
+        if sel_event.selection.rows:
+            selected_codes = current_res.iloc[sel_event.selection.rows]['コード'].tolist()
+            current_str = st.session_state.get('target_tickers', "")
+            current_list = [t.strip() for t in current_str.split(",") if t.strip()]
+
+            new_combined = sorted(list(set(current_list + selected_codes)))
+            new_tickers_str = ", ".join(new_combined)
+
+            if new_tickers_str != st.session_state.get('target_tickers', ""):
+                st.session_state['target_tickers'] = new_tickers_str
+                st.toast(f"監視リストに {len(selected_codes)} 銘柄を反映しました")
+                st.rerun()
 
 # --- タブ3: バックテスト (6.3の全分析機能を復元) ---
 with tab_bt:
