@@ -355,19 +355,34 @@ with tab_screen:
                 st.session_state[f"sc_res_df_{i}"] = pd.DataFrame(results) if results else None
                 st.rerun()
 
-            # --- 結果の表示と自動入力 (無限ループ防止版) ---
+            # --- 結果の表示と自動入力 (表示最適化+無限ループ防止) ---
             current_res = st.session_state.get(f"sc_res_df_{i}")
             if current_res is not None and not current_res.empty:
-                st.info("💡 銘柄をチェックすると、最上部の監視リストに自動で追加されます。")
+                st.info("💡 銘柄をチェックすると、監視リストに反映されます。")
+                
+                # 並び順を売買代金順（降順）で固定
+                current_res = current_res.sort_values("売買代金", ascending=False)
+                
+                # 表示高さを銘柄数に合わせて自動計算（縦スクロールを防止）
+                df_height = (len(current_res) + 1) * 35 + 5 
                 
                 sel_event = st.dataframe(
                     current_res[['コード', '銘柄名', '株価', '前日比', '売買代金', 'RSI', '25MA乖離', 'ATR%']],
-                    use_container_width=True, hide_index=True, 
-                    on_select="rerun", selection_mode="multi-row", 
-                    key=f"df_sc_view_final_{i}"
+                    use_container_width=True, 
+                    hide_index=True, 
+                    on_select="rerun", 
+                    selection_mode="multi-row", 
+                    key=f"df_sc_view_final_{i}",
+                    height=df_height, # 動的高さ設定
+                    column_config={
+                        "前日比": st.column_config.NumberColumn("前日比", format="%+.2f%%"),
+                        "25MA乖離": st.column_config.NumberColumn("25MA乖離", format="%+.2f%%"),
+                        "ATR%": st.column_config.NumberColumn("ATR%", format="%.2f%%"),
+                        "売買代金": st.column_config.NumberColumn("売買代金(億)", format="%.1f")
+                    }
                 )
                 
-                # 自動入力ロジック
+                # 自動入力ロジック (無限ループ防止版)
                 if sel_event.selection.rows:
                     selected_codes = current_res.iloc[sel_event.selection.rows]['コード'].tolist()
                     current_str = st.session_state.get('target_tickers', "")
