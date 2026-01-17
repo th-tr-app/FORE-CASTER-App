@@ -19,15 +19,57 @@ if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 if 'res_df' not in st.session_state: st.session_state['res_df'] = pd.DataFrame()
 if 't_names' not in st.session_state: st.session_state['t_names'] = {}
 
-# スクリーニング用パラメータの保持
+# --- スクリーニング用パラメーターの最適化（12項目・緩和版） ---
 if 'sc_params' not in st.session_state:
     st.session_state['sc_params'] = [
-        # 通常フィルタ (i=0)
-        {'sector': [0], 'c_gain': True, 'gain_rng': (-2.0, 5.0), 'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 50.0, 'c_atrp': False, 'atrp_rng': (2.0, 4.0), 'c_ma': True, 'ma_opt': "最強：上昇トレンド", 'c_ema': True, 'ema_opt': "強気：EMAの上で価格維持", 'c_adx': False, 'adx_rng': (25, 40), 'c_rci': False, 'rci_rng': (20, 80), 'c_rsi': True, 'rsi_rng': (55, 70), 'c_vol': True, 'vol_min': 10.0, 'c_vup': False, 'vup_min': 1.3, 'c_ma25': True, 'ma25_rng': (0.0, 7.0), 'c_bb': True, 'bb_rng': (1.0, 2.0)},
-        # ディフェンシブ (i=1)
-        {'sector': [0], 'c_gain': False, 'gain_rng': (-1.0, 2.0), 'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 300.0, 'c_atrp': True, 'atrp_rng': (1.0, 2.5), 'c_ma': False, 'ma_opt': "収束：嵐の前の静けさ", 'c_ema': False, 'ema_opt': "安定：EMA付近での推移", 'c_adx': True, 'adx_rng': (10, 20), 'c_rci': True, 'rci_rng': (-20, 30), 'c_rsi': True, 'rsi_rng': (40, 55), 'c_vol': True, 'vol_min': 20.0, 'c_vup': True, 'vup_min': 1.1, 'c_ma25': True, 'ma25_rng': (-3.0, 2.0), 'c_bb': False, 'bb_rng': (-1.0, 0.0)},
-        # 横ばい相場 (i=2)
-        {'sector': [0], 'c_gain': True, 'gain_rng': (-3.0, 1.0), 'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 200.0, 'c_atrp': True, 'atrp_rng': (1.2, 2.5), 'c_ma': False, 'ma_opt': "リバウンド：短期MA上抜け", 'c_ema': False, 'ema_opt': "レンジ：EMAを上下にまたぐ", 'c_adx': False, 'adx_rng': (10, 20), 'c_rci': True, 'rci_rng': (-30, 30), 'c_rsi': True, 'rsi_rng': (45, 55), 'c_vol': True, 'vol_min': 10.0, 'c_vup': True, 'vup_min': 1.2, 'c_ma25': True, 'ma25_rng': (-2.0, 3.0), 'c_bb': False, 'bb_rng': (1.0, 2.0)},
+        # 🔍 通常フィルタ：トレンドフォロー（勢い重視）
+        {
+            'sector': [0], # 全業種
+            'c_gain': True, 'gain_rng': (0.5, 5.0),    # 少し浮いている銘柄
+            'c_p': True, 'p_rng': (300, 10000),       # 範囲を拡大
+            'c_v': True, 'v_min': 30.0,               # 50億から30億へ緩和
+            'c_atrp': False, 'atrp_rng': (1.5, 5.0), 
+            'c_ma': True, 'ma_opt': "最強：上昇トレンド", 
+            'c_ema': True, 'ema_opt': "強気：EMAの上で価格維持", 
+            'c_adx': False, 'adx_rng': (20, 100), 
+            'c_rci': False, 'rci_rng': (0, 100), 
+            'c_rsi': True, 'rsi_rng': (50, 80),       # 55〜70から拡大
+            'c_vup': False, 'vup_min': 1.2, 
+            'c_ma25': True, 'ma25_rng': (0.0, 10.0),  # 7%から10%へ緩和
+            'c_bb': True, 'bb_rng': (0.5, 2.5)        # バンドウォーク初動
+        },
+        # 🛡️ ディフェンシブ：逆張り・割安（底堅さ重視）
+        {
+            'sector': [2, 5, 13, 14, 16], # 食品、医薬品、商社、金融、サービス
+            'c_gain': True, 'gain_rng': (-2.0, 1.0),   # 押し目狙い
+            'c_p': True, 'p_rng': (500, 8000), 
+            'c_v': True, 'v_min': 50.0,               # 300億から大幅緩和
+            'c_atrp': True, 'atrp_rng': (0.5, 2.5),   # 低ボラ必須
+            'c_ma': False, 'ma_opt': "収束：嵐の前の静けさ", 
+            'c_ema': False, 'ema_opt': "安定：EMA付近での推移", 
+            'c_adx': True, 'adx_rng': (0, 30),        # トレンドが弱い状態
+            'c_rci': True, 'rci_rng': (-80, 20),      # 底値圏
+            'c_rsi': True, 'rsi_rng': (30, 55),       # 40〜55から拡大
+            'c_vup': False, 'vup_min': 1.0, 
+            'c_ma25': True, 'ma25_rng': (-5.0, 2.0),  # -3%から-5%へ緩和
+            'c_bb': True, 'bb_rng': (-2.0, 0.5)       # 下限付近
+        },
+        # ↔️ 横ばい相場：リバウンド（初動重視）
+        {
+            'sector': [0], # 全業種
+            'c_gain': True, 'gain_rng': (-1.0, 2.0), 
+            'c_p': True, 'p_rng': (200, 6000), 
+            'c_v': True, 'v_min': 20.0,               # 200億から大幅緩和
+            'c_atrp': True, 'atrp_rng': (1.0, 3.0), 
+            'c_ma': True, 'ma_opt': "リバウンド：短期MA上抜け", 
+            'c_ema': False, 'ema_opt': "レンジ：EMAを上下にまたぐ", 
+            'c_adx': False, 'adx_rng': (10, 30), 
+            'c_rci': True, 'rci_rng': (-50, 50),      # 中央付近
+            'c_rsi': True, 'rsi_rng': (45, 60), 
+            'c_vup': True, 'vup_min': 1.1, 
+            'c_ma25': True, 'ma25_rng': (-3.0, 3.0), 
+            'c_bb': False, 'bb_rng': (-1.0, 1.0)
+        }
     ]
 
 # 各タブのスキャン結果保持用
