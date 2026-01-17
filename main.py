@@ -308,10 +308,11 @@ with tab_screen:
                 st.session_state[f"sc_res_df_{i}"] = pd.DataFrame(results) if results else None
                 st.rerun()
 
-            # --- 結果表示 ---
+            # --- 結果の表示と自動入力 (無限ループ防止版) ---
             current_res = st.session_state.get(f"sc_res_df_{i}")
             if current_res is not None and not current_res.empty:
                 st.info("💡 銘柄をチェックすると、最上部の監視リストに自動で追加されます。")
+                
                 sel_event = st.dataframe(
                     current_res[['コード', '銘柄名', '株価', '前日比', '売買代金', 'RSI', '25MA乖離', 'ATR%']],
                     use_container_width=True, hide_index=True, 
@@ -319,14 +320,28 @@ with tab_screen:
                     key=f"df_sc_view_final_{i}"
                 )
                 
+                # 自動入力ロジックの改善
                 if sel_event.selection.rows:
                     selected_codes = current_res.iloc[sel_event.selection.rows]['コード'].tolist()
+                    
+                    # 現在の監視銘柄をリスト化
                     current_str = st.session_state.get('target_tickers', "")
                     current_list = [t.strip() for t in current_str.split(",") if t.strip()]
-                    new_combined = sorted(list(set(current_list + selected_codes)))
-                    st.session_state['target_tickers'] = ", ".join(new_combined)
-                    st.toast(f"監視リストに {len(selected_codes)} 銘柄を反映しました")
-                    st.rerun()
+
+                    # 【重要】本当に「新しい（リストにない）」銘柄だけを抽出
+                    new_only = [c for c in selected_codes if c not in current_list]
+
+                    # 新しい銘柄がある場合のみ更新処理を行う
+                    if new_only:
+                        new_combined = sorted(list(set(current_list + new_only)))
+                        st.session_state['target_tickers'] = ", ".join(new_combined)
+                        
+                        # 通知を出して再実行
+                        st.toast(f"監視リストに {len(new_only)} 銘柄を反映しました")
+                        st.rerun()
+                    else:
+                        # すでにリストに含まれている場合は何もしない（ここでループが止まる）
+                        pass
 
 # --- タブ3: バックテスト (6.3の全分析機能を復元) ---
 with tab_bt:
