@@ -167,15 +167,20 @@ with tab_top:
         p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
         p = st.session_state['sc_params'][p_idx]
         
-        # パラメータのマッピング (12項目に拡張)
+        # パラメータのマッピング (14項目対応版：c_volを削除し、c_gainを追加)
         s_logic_params = {
-            'c_p': p['c_p'], 'p_range': p['p_rng'], 'c_v': p['c_v'], 'v_min': p['v_min'], 
+            'c_gain': p['c_gain'], 'gain_range': p['gain_rng'], # 追加
+            'c_p': p['c_p'], 'p_range': p['p_rng'], 
+            'c_v': p['c_v'], 'v_min': p['v_min'], 
             'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 
-            'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'], 'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'], # 追加
-            'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 'c_rci': p['c_rci'], 'rci_range': p['rci_rng'],
-            'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'], 'c_vol': p['c_vol'], 'vol_min': p['vol_min'], 
-            'c_vup': p['c_vup'], 'vup_min': p['vup_min'], 'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'],
-            'c_bb': p['c_bb'], 'bb_range': p['bb_rng'] # 追加
+            'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'], 
+            'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'],
+            'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 
+            'c_rci': p['c_rci'], 'rci_range': p['rci_rng'],
+            ''c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
+            'c_vup': p['c_vup'], 'vup_min': p['vup_min'], 
+            'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'],
+            'c_bb': p['c_bb'], 'bb_range': p['bb_rng']
         }
         
         all_tickers = list(TICKER_NAME_MAP.keys())
