@@ -179,7 +179,8 @@ with tab_top:
     if diag["tips"]:
         forecast_md += "\n\n 🎯**注目セクターへのヒント:**\n"
         for tip in diag["tips"]:
-            forecast_md += f"- {tip}\n"
+            # <small>タグ、または <span> でフォントサイズを 0.85倍程度に下げます
+            forecast_md += f"<div style='font-size: 0.85em; color: #cccccc; margin-bottom: 4px;'>・ {tip}</div>\n"
 
     # 4. 青い枠（st.info）の中に表示
     st.info(forecast_md)
