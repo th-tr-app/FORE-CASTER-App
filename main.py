@@ -186,6 +186,8 @@ with tab_top:
         # ヘッダーからも絵文字を消し、少し小さめに設定
         forecast_md += "\n\n**注目セクターへのヒント:**\n"
         for tip in diag["tips"]:
+            # <small>タグ、または <span> でフォントサイズを 0.85倍程度に下げます
+            forecast_md += {tip}
 
     # 4. 青い枠（st.info）の中に表示
     st.info(forecast_md)
