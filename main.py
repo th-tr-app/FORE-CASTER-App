@@ -177,7 +177,7 @@ with tab_top:
     
     # 注目セクター（tips）があれば追加表示
     if diag["tips"]:
-        forecast_md += "\n\n **注目セクターへのヒント:**\n"
+        forecast_md += "\n\n 🎯**注目セクターへのヒント:**\n"
         for tip in diag["tips"]:
             forecast_md += f"- {tip}\n"
 
