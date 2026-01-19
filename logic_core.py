@@ -229,4 +229,73 @@ def fetch_market_info(market_indices):
                 data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
         except: data[name] = {"val": None, "pct": None}
     return data
+
+# --- 5. AI予測 ---
+
+def analyze_market_environment():
+    """
+    主要指数から今日の相場環境を診断し、戦略を提案する
+    """
+    indices = {
+        "N225": "^N225",   # 日経平均
+        "VIX": "^VIX",     # 恐怖指数
+        "DJI": "^DJI",     # NYダウ
+        "SOX": "^SOX",     # 半導体指数
+        "WTI": "CL=F",     # 原油先物
+        "CME": "NIY=F"     # 日経先物(CME)
+    }
+    
+    data = {}
+    for k, ticker in indices.items():
+        try:
+            df = yf.download(ticker, period="5d", interval="1d", progress=False)
+            if not df.empty:
+                data[k] = df
+        except:
+            continue
+
+    # --- 判定用変数の算出 ---
+    res = {"comment": "", "strategy": 0, "alert_level": "正常", "tips": []}
+    
+    # 1. 日経平均の乖離率と警戒レベル
+    if "N225" in data:
+        n225_close = data["N225"]['Close'].iloc[-1]
+        n225_ma25 = data["N225"]['Close'].rolling(25).mean().iloc[-1]
+        dev_rate = ((n225_close - n225_ma25) / n225_ma25) * 100
+        
+        if dev_rate > 5:
+            res["alert_level"] = "⚠️ 高値警戒（過熱）"
+            res["comment"] += f"日経平均が25日線から{dev_rate:.1f}%乖離しており、過熱感があります。利益確定を検討してください。 "
+        elif dev_rate < -5:
+            res["alert_level"] = "📢 底打ち警戒（売られすぎ）"
+            res["comment"] += f"25日線から{dev_rate:.1f}%乖離し売られすぎています。リバウンド狙いの好機かもしれません。 "
+    
+    # 2. VIXによる戦略決定
+    vix = data["VIX"]['Close'].iloc[-1] if "VIX" in data else 20
+    if vix > 25:
+        res["strategy"] = 1 # ディフェンシブ
+        res["comment"] += "VIX指数が高騰しており、市場は不安定です。守備重視の『ディフェンシブ』戦略が推奨されます。 "
+    elif 15 <= vix <= 25:
+        res["strategy"] = 2 # 横ばい
+    else:
+        res["strategy"] = 0 # 通常
+
+    # 3. CME先物から予測
+    if "CME" in data and "N225" in data:
+        cme_close = data["CME"]['Close'].iloc[-1]
+        n225_close = data["N225"]['Close'].iloc[-1]
+        diff = cme_close - n225_close
+        move = "ギャップアップ" if diff > 100 else "ギャップダウン" if diff < -100 else "小幅な動き"
+        res["comment"] += f"CME先物は前日比{diff:+.0f}円となっており、今日は{move}での開始が予想されます。 "
+
+    # 4. セクターヒント
+    if "SOX" in data:
+        sox_gain = ((data["SOX"]['Close'].iloc[-1] / data["SOX"]['Close'].iloc[-2]) - 1) * 100
+        if sox_gain > 1.5: res["tips"].append("🚀 SOX指数が好調です。業種『AI・半導体』に強い追い風が期待できます。")
+    
+    if "WTI" in data:
+        wti_gain = ((data["WTI"]['Close'].iloc[-1] / data["WTI"]['Close'].iloc[-2]) - 1) * 100
+        if wti_gain > 2.0: res["tips"].append("🛢️ 原油価格が上昇。業種『石油』セクターの動向に注目です。")
+
+    return res
     
