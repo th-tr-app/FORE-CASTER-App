@@ -171,7 +171,7 @@ with tab_top:
     ### AI 市場診断
     
     バランス** {diag['alert_level']}  
-    推奨戦略** 「{rec_strat}」が有効。
+    推奨戦略** {rec_strat}が有効。
     相場展望** {diag['comment']}
     """
     
