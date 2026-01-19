@@ -172,28 +172,21 @@ with tab_top:
     strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
     rec_strat = strat_names[diag["strategy"]]
     
-    # --- 3. デザインされた診断ボックスの構築 (HTML/CSS) ---
-    # st.info の代わりに、カスタムHTMLで枠組みを作成します
-    tips_html = ""
-    for tip in diag["tips"]:
-        # ヒント部分だけを 0.85em (小さめ) に設定
-        tips_html += f"<div style='font-size: 0.85em; color: #bbbbbb; margin-bottom: 4px;'>・ {tip}</div>"
-
-    # 全体を一つの HTML ブロックとして描画します
-    diag_html = f"""
-    <div style="background-color: #1e2a3a; padding: 18px; border-radius: 8px; border-left: 5px solid #3498db; margin-bottom: 20px;">
-        <h3 style="margin-top: 0; font-size: 1.2em; color: #3498db;">AI 市場診断</h3>
-        <hr style="border: 0; border-top: 1px solid #3d414b; margin: 10px 0;">
-        <div style="margin-bottom: 8px;"><strong>バランス：</strong> {diag['alert_level']}</div>
-        <div style="margin-bottom: 8px;"><strong>推奨戦略：</strong> {rec_strat}</div>
-        <div style="margin-bottom: 15px;"><strong>相場展望：</strong> {diag['comment']}</div>
-        {"<div style='margin-bottom: 8px;'><strong>注目セクターへのヒント：</strong></div>" if diag["tips"] else ""}
-        {tips_html}
-    </div>
+    # 3. 表示用テキストの組み立て (Markdown形式)
+    forecast_md = f"""
+    ### AI 市場診断
+    
+    バランス** {diag['alert_level']}  
+    推奨戦略** {rec_strat}
+    相場展望** {diag['comment']}
     """
     
-    # unsafe_allow_html=True を指定することで、divタグが正しくレンダリングされます
-    st.markdown(diag_html, unsafe_allow_html=True)
+    # 注目セクター（tips）があれば追加表示
+    if diag["tips"]:
+        # ヘッダーからも絵文字を消し、少し小さめに設定
+        forecast_md += "\n\n**注目セクターへのヒント:**\n"
+        for tip in diag["tips"]:
+            forecast_md +=  {tip}</div>\n"
 
     # 4. 青い枠（st.info）の中に表示
     st.info(forecast_md)
