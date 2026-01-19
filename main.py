@@ -157,10 +157,33 @@ with tab_top:
                 cls = "plus" if i['pct'] >= 0 else "minus"
                 cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
+
+    # 1. AI市場環境診断を実行
+    # logic_core.py に追加した関数を呼び出します
+    diag = core.analyze_market_environment()
     
-    vix = m_data.get("VIX指数", {}).get("val", 0)
-    current_preset = st.session_state['preset']
-    st.info(f"🤖 **AI予測:** VIX {vix:.1f}。現在は「**{current_preset}**」戦略が選択されています。")
+    # 2. 推奨戦略名の定義
+    strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
+    rec_strat = strat_names[diag["strategy"]]
+    
+    # 3. 表示用テキストの組み立て (Markdown形式)
+    forecast_md = f"""
+    ### 🤖 AI市場診断報告
+    ---
+    🚩 **警戒レベル:** {diag['alert_level']}  
+    💡 **推奨戦略:** 「**{rec_strat}**」が最も有効と予測されます。
+    
+    📝 **相場展望:** {diag['comment']}
+    """
+    
+    # 注目セクター（tips）があれば追加表示
+    if diag["tips"]:
+        forecast_md += "\n\n🎯 **注目セクターへのヒント:**\n"
+        for tip in diag["tips"]:
+            forecast_md += f"- {tip}\n"
+
+    # 4. 青い枠（st.info）の中に表示
+    st.info(forecast_md)
     
     # 判定開始ボタン
     if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
