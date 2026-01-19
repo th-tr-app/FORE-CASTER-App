@@ -216,11 +216,12 @@ with tab_top:
         }
         
         all_tickers = list(TICKER_NAME_MAP.keys())
-        ot_results = []
-        
-        with st.status(f"🔍 {current_preset} 戦略で全銘柄をフル分析中...", expanded=True) as status:
-            pb_ot = st.progress(0)
-            for idx, t in enumerate(all_tickers):
+        # --- 判定実行ループ ---
+        results = []
+        # current_preset を rec_strat_name に書き換えます
+        with st.status(f"🔍 {rec_strat_name} 戦略で全銘柄をフル分析中...", expanded=True) as status:
+            pb = st.progress(0)
+            for idx, t in enumerate(target_tickers):
                 pb_ot.progress((idx+1)/len(all_tickers))
                 status.update(label=f"分析中 ({idx+1}/{len(all_tickers)}): {t}")
                 
