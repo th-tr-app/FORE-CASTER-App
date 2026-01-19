@@ -234,77 +234,78 @@ def fetch_market_info(market_indices):
 
 def analyze_market_environment():
     """
-    主要指数から今日の相場環境を診断し、戦略を提案する
+    主要指数から今日の相場環境を診断する（エラー防止・高感度版）
     """
     indices = {
         "N225": "^N225", "VIX": "^VIX", "DJI": "^DJI",
         "SOX": "^SOX", "WTI": "CL=F", "CME": "NIY=F",
-        "USDJPY": "JPY=X",
-        "GOLD": "GC=F" # Gold先物を追加
+        "USDJPY": "JPY=X", "GOLD": "GC=F"
     }
     
     data = {}
     for k, ticker in indices.items():
         try:
-            df = yf.download(ticker, period="5d", interval="1d", progress=False)
-            if not df.empty:
+            # 余裕を持って期間を7日に設定
+            df = yf.download(ticker, period="7d", interval="1d", progress=False)
+            if not df.empty and len(df) >= 2:
                 if isinstance(df.columns, pd.MultiIndex):
                     df.columns = df.columns.get_level_values(0)
                 data[k] = df
         except:
             continue
 
-    res = {"comment": "", "strategy": 0, "alert_level": "正常", "tips": []}
+    # 初期値の設定
+    res = {
+        "comment": "本日の市場は比較的落ち着いた動きを見せています。 ", 
+        "strategy": 0, 
+        "alert_level": "正常", 
+        "tips": []
+    }
     
-    # 1. NYダウの動向 (相場展望へ)
+    # --- 各指標の判定（データが存在し、かつ2行以上ある場合のみ実行） ---
+
+    # 1. VIX：戦略のベース決定
+    if "VIX" in data:
+        vix = float(data["VIX"]['Close'].values[-1])
+        if vix > 25.0:
+            res["strategy"] = 1
+            res["comment"] = "VIXが高騰しており市場は不安定です。守備重視の『ディフェンシブ』を推奨します。 "
+        elif 15.0 <= vix <= 25.0:
+            res["strategy"] = 2
+            res["comment"] = "市場にやや迷いが見られます。レンジ内での『横ばい相場』戦略が有効です。 "
+
+    # 2. NYダウ：相場展望への反映
     if "DJI" in data:
         dji_now = float(data["DJI"]['Close'].values[-1])
         dji_prev = float(data["DJI"]['Close'].values[-2])
         dji_pct = ((dji_now / dji_prev) - 1) * 100
-        if dji_pct > 0.8:
-            res["comment"] += f"米国市場(NYダウ)が強気({dji_pct:+.1f}%)で、日本市場にも追い風の地合いです。 "
-        elif dji_pct < -0.8:
-            res["comment"] += f"米国市場が軟調({dji_pct:+.1f}%)。寄り付き後の売り圧力に注意してください。 "
+        if dji_pct > 0.5: res["comment"] += "米国株の上昇が日本市場の支えとなっています。 "
+        elif dji_pct < -0.5: res["comment"] += "米国株の軟調さが重荷となる可能性があります。 "
 
-    # 2. VIXによる戦略決定 (既存)
-    if "VIX" in data:
-        vix = float(data["VIX"]['Close'].values[-1])
-        if vix > 25.0:
-            res["strategy"] = 1 # ディフェンシブ
-            res["comment"] += "VIXが高騰しており不安定です。守り重視の戦略が有効です。 "
-        elif 15.0 <= vix <= 25.0:
-            res["strategy"] = 2 # 横ばい
-        else:
-            res["strategy"] = 0 # 通常
-
-    # 3. Gold（金先物）によるヒント (注目セクターへ)
+    # 3. Gold（金先物）：リスク回避ヒント
     if "GOLD" in data:
         gold_now = float(data["GOLD"]['Close'].values[-1])
         gold_prev = float(data["GOLD"]['Close'].values[-2])
         gold_pct = ((gold_now / gold_prev) - 1) * 100
-        if gold_pct > 1.2:
-            res["tips"].append(f"✨ 金先物が急騰中({gold_pct:+.1f}%)。安全資産への資金シフトが見られます。業種『8:金属』セクター等の動向に注目。")
-            # 金が急騰している場合は、戦略を「ディフェンシブ」に寄せる判断基準にもなります
-            if res["strategy"] == 0: res["strategy"] = 1 
+        # しきい値を1.0%に緩和
+        if gold_pct > 1.0:
+            res["tips"].append(f"✨ 金先物が上昇中({gold_pct:+.1f}%)。安全資産への関心が高まっています。業種『8:金属』セクターに注目。")
+            if res["strategy"] == 0: res["strategy"] = 1
 
-    # 4. 為替・SOX・WTIのヒント (既存を継承)
+    # 4. 為替：輸出・内需ヒント（しきい値を0.3%に緩和）
     if "USDJPY" in data:
         jpy_now = float(data["USDJPY"]['Close'].values[-1])
         jpy_prev = float(data["USDJPY"]['Close'].values[-2])
         jpy_change = ((jpy_now / jpy_prev) - 1) * 100
-        if jpy_change > 0.4:
-            res["tips"].append(f"💴 円安進行中({jpy_change:+.2f}%)。輸出セクター『11:輸送』『10:電機』に注目。")
-        elif jpy_change < -0.4:
-            res["tips"].append(f"💴 円高推移({jpy_change:+.2f}%)。内需セクター『2:水産・食品』『14:金融』をチェック。")
+        if jpy_change > 0.3:
+            res["tips"].append(f"💴 円安進行({jpy_change:+.2f}%)。輸出関連の『11:輸送』『10:電機』に追い風。")
+        elif jpy_change < -0.3:
+            res["tips"].append(f"💴 円高推移({jpy_change:+.2f}%)。為替影響の少ない『2:水産・食品』『14:金融』に注目。")
 
+    # 5. SOX：半導体ヒント（しきい値を1.0%に緩和）
     if "SOX" in data:
         sox_gain = ((float(data["SOX"]['Close'].values[-1]) / float(data["SOX"]['Close'].values[-2])) - 1) * 100
-        if sox_gain > 1.5: 
-            res["tips"].append(f"🚀 SOX指数が好調({sox_gain:+.1f}%)。業種『1:AI・半導体』セクターに強い追い風です。")
-    
-    if "WTI" in data:
-        wti_gain = ((float(data["WTI"]['Close'].values[-1]) / float(data["WTI"]['Close'].values[-2])) - 1) * 100
-        if wti_gain > 2.0: 
-            res["tips"].append(f"🛢️ 原油高({wti_gain:+.1f}%)。業種『6:石油』やエネルギー関連が物色されやすい地合いです。")
+        if sox_gain > 1.0: 
+            res["tips"].append(f"🚀 SOX指数好調({sox_gain:+.1f}%)。業種『1:AI・半導体』セクターへの波及が期待されます。")
 
     return res
