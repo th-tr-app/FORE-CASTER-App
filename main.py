@@ -172,22 +172,30 @@ with tab_top:
     strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
     rec_strat = strat_names[diag["strategy"]]
     
-    # 3. 表示用テキストの組み立て (Markdown形式)
-    forecast_md = f"""
-    ### AI 市場診断
-    
-    バランス** {diag['alert_level']}  
-    推奨戦略** {rec_strat}
-    相場展望** {diag['comment']}
+    # main.py の「🏠 ワンタッチ」タブ内の表示処理
+    # --- 3. 表示用テキストの組み立て ---
+    # ヒント部分のHTMLを先に生成します
+    tips_content = ""
+    if diag["tips"]:
+        for tip in diag["tips"]:
+            # フォントサイズを小さくし、色を少し薄くして補足情報らしくします
+            tips_content += f"<div style='font-size: 0.85em; color: #cccccc; margin-bottom: 4px;'>・ {tip}</div>"
+
+    # 全体のレイアウトをHTMLで構築（st.infoの青い枠を再現しつつカスタマイズ）
+    diag_html = f"""
+    <div style="background-color: #1e2a3a; padding: 16px; border-radius: 8px; border-left: 5px solid #3498db; margin-bottom: 20px;">
+        <h3 style="margin-top: 0; font-size: 1.2em; color: #3498db;">AI 市場診断</h3>
+        <div style="margin-bottom: 5px;"><b>バランス:</b> {diag['alert_level']}</div>
+        <div style="margin-bottom: 5px;"><b>推奨戦略:</b> {rec_strat}</div>
+        <div style="margin-bottom: 12px;"><b>相場展望:</b> {diag['comment']}</div>
+        {"<div style='margin-bottom: 5px; font-weight: bold;'>注目セクターへのヒント:</div>" if diag["tips"] else ""}
+        {tips_content}
+    </div>
     """
     
-    # 注目セクター（tips）があれば追加表示
-    if diag["tips"]:
-        # ヘッダーからも絵文字を消し、少し小さめに設定
-        forecast_md += "\n\n**注目セクターへのヒント:**\n"
-        for tip in diag["tips"]:
-            # <small>タグ、または <span> でフォントサイズを 0.85倍程度に下げます
-            forecast_md += f"<div style='font-size: 0.85em; color: #cccccc; margin-bottom: 4px;'>・ {tip}</div>\n"
+    # st.infoの代わりに st.markdown を使い、HTMLを許可します
+    st.markdown(diag_html, unsafe_allow_html=True)
+
 
     # 4. 青い枠（st.info）の中に表示
     st.info(forecast_md)
