@@ -18,15 +18,58 @@ if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 if 'res_df' not in st.session_state: st.session_state['res_df'] = pd.DataFrame()
 if 't_names' not in st.session_state: st.session_state['t_names'] = {}
 
-# スクリーニング用パラメータの保持 (12項目に拡張)
+# main.py 冒頭：sc_params の初期値を新しいIDに合わせて修正
+# --- 戦略別パラメーターの最適化（実戦テスト反映版） ---
 if 'sc_params' not in st.session_state:
     st.session_state['sc_params'] = [
-        # 通常フィルタ
-        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 50.0, 'c_atrp': False, 'atrp_rng': (2.0, 4.0), 'c_ma': True, 'ma_opt': "最強：上昇トレンド", 'c_ema': True, 'ema_opt': "強気：EMAの上で価格維持", 'c_adx': False, 'adx_rng': (25, 40), 'c_rci': False, 'rci_rng': (20, 80), 'c_rsi': True, 'rsi_rng': (55, 70), 'c_vol': True, 'vol_min': 10.0, 'c_vup': False, 'vup_min': 1.3, 'c_ma25': True, 'ma25_rng': (0.0, 7.0), 'c_bb': True, 'bb_rng': (1.0, 2.0)},
-        # ディフェンシブ
-        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 300.0, 'c_atrp': True, 'atrp_rng': (1.0, 2.5), 'c_ma': False, 'ma_opt': "収束：嵐の前の静けさ", 'c_ema': False, 'ema_opt': "安定：EMA付近での推移", 'c_adx': True, 'adx_rng': (10, 20), 'c_rci': True, 'rci_rng': (-20, 30), 'c_rsi': True, 'rsi_rng': (40, 55), 'c_vol': True, 'vol_min': 20.0, 'c_vup': True, 'vup_min': 1.1, 'c_ma25': True, 'ma25_rng': (-3.0, 2.0), 'c_bb': False, 'bb_rng': (-1.0, 0.0)},
-        # 横ばい相場
-        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 200.0, 'c_atrp': True, 'atrp_rng': (1.2, 2.5), 'c_ma': False, 'ma_opt': "リバウンド：短期MA上抜け", 'c_ema': False, 'ema_opt': "レンジ：EMAを上下にまたぐ", 'c_adx': False, 'adx_rng': (10, 20), 'c_rci': True, 'rci_rng': (-30, 30), 'c_rsi': True, 'rsi_rng': (45, 55), 'c_vol': True, 'vol_min': 10.0, 'c_vup': True, 'vup_min': 1.2, 'c_ma25': True, 'ma25_rng': (-2.0, 3.0), 'c_bb': False, 'bb_rng': (1.0, 2.0)},
+        # 🔍 通常フィルター：全業種を対象にトレンドを追う
+        {
+            'sector': [0], # 全業種
+            'c_gain': True, 'gain_rng': (0.5, 5.0), 
+            'c_p': True, 'p_rng': (300, 10000), 
+            'c_v': True, 'v_min': 30.0, 
+            'c_atrp': False, 'atrp_rng': (1.5, 5.0), 
+            'c_ma': True, 'ma_opt': "最強：上昇トレンド", 
+            'c_ema': True, 'ema_opt': "強気：EMAの上で価格維持", 
+            'c_adx': False, 'adx_rng': (20, 100), 
+            'c_rci': False, 'rci_rng': (0, 100), 
+            'c_rsi': True, 'rsi_rng': (50, 80), 
+            'c_vup': False, 'vup_min': 1.2, 
+            'c_ma25': True, 'ma25_rng': (0.0, 10.0), 
+            'c_bb': True, 'bb_rng': (0.5, 2.5)
+        },
+        # 🛡️ ディフェンシブ：実戦テスト結果を反映（5項目のみ有効）
+        {
+            'sector': [2, 5, 13, 14, 16], # 水産・食品、医薬品、商社、金融、サービス
+            'c_gain': False, 'gain_rng': (-2.0, 1.0), 
+            'c_p': True, 'p_rng': (500, 6000),          # 修正
+            'c_v': True, 'v_min': 50.0, 
+            'c_atrp': True, 'atrp_rng': (0.5, 2.5), 
+            'c_ma': False, 'ma_opt': "収束：嵐の前の静けさ", 
+            'c_ema': False, 'ema_opt': "安定：EMA付近での推移", 
+            'c_adx': False, 'adx_rng': (0, 30),         # チェックオフ
+            'c_rci': False, 'rci_rng': (-80, 20),       # チェックオフ
+            'c_rsi': True, 'rsi_rng': (40, 70),         # 修正
+            'c_vup': False, 'vup_min': 1.0, 
+            'c_ma25': True, 'ma25_rng': (0.0, 10.0),    # 修正
+            'c_bb': False, 'bb_rng': (-2.0, 0.5)        # チェックオフ
+        },
+        # ↔️ 横ばい相場：リバウンド（個別材料セクター）
+        {
+            'sector': [2, 3, 4, 8, 9], # 水産・食品、繊維、化学、金属、機械
+            'c_gain': True, 'gain_rng': (-1.0, 2.0), 
+            'c_p': True, 'p_rng': (200, 6000), 
+            'c_v': True, 'v_min': 20.0, 
+            'c_atrp': True, 'atrp_rng': (1.0, 3.0), 
+            'c_ma': True, 'ma_opt': "リバウンド：短期MA上抜け", 
+            'c_ema': False, 'ema_opt': "レンジ：EMAを上下にまたぐ", 
+            'c_adx': False, 'adx_rng': (10, 30), 
+            'c_rci': True, 'rci_rng': (-50, 50), 
+            'c_rsi': True, 'rsi_rng': (45, 60), 
+            'c_vup': True, 'vup_min': 1.1, 
+            'c_ma25': True, 'ma25_rng': (-3.0, 3.0), 
+            'c_bb': False, 'bb_rng': (-1.0, 1.0)
+        }
     ]
 
 # 各タブのスキャン結果保持用
