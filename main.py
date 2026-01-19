@@ -215,8 +215,8 @@ if st.button("🚀 全231銘柄をAI予測戦略で一斉判定", use_container_
         'c_bb': p['c_bb'], 'bb_range': p['bb_rng']
     }
         
-        all_tickers = list(TICKER_NAME_MAP.keys())
-        ot_results = []
+    all_tickers = list(TICKER_NAME_MAP.keys())
+    ot_results = []
         
         with st.status(f"🔍 {current_preset} 戦略で全銘柄をフル分析中...", expanded=True) as status:
             pb_ot = st.progress(0)
