@@ -193,25 +193,27 @@ with tab_top:
     st.info(forecast_md)
        
     # 判定開始ボタン
-    if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
-        p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
-        p = st.session_state['sc_params'][p_idx]
-        
-        # パラメータのマッピング (14項目対応版：c_volを削除し、c_gainを追加)
-        s_logic_params = {
-            'c_gain': p['c_gain'], 'gain_range': p['gain_rng'], # 追加
-            'c_p': p['c_p'], 'p_range': p['p_rng'], 
-            'c_v': p['c_v'], 'v_min': p['v_min'], 
-            'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 
-            'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'], 
-            'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'],
-            'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 
-            'c_rci': p['c_rci'], 'rci_range': p['rci_rng'],
-            'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
-            'c_vup': p['c_vup'], 'vup_min': p['vup_min'], 
-            'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'],
-            'c_bb': p['c_bb'], 'bb_range': p['bb_rng']
-        }
+if st.button("🚀 全231銘柄をAI予測戦略で一斉判定", use_container_width=True, type="primary"):
+    # エラー箇所を修正: AI診断の推奨インデックス（rec_idx）をそのまま使用
+    # もし AI診断をボタンの外で行っている場合は、その rec_idx を使います
+    p_idx = rec_idx 
+    
+    # パラメータのマッピング (12項目対応版：c_volを削除済み)
+    p = st.session_state['sc_params'][p_idx]
+    s_logic_params = {
+        'c_gain': p['c_gain'], 'gain_range': p['gain_rng'],
+        'c_p': p['c_p'], 'p_range': p['p_rng'], 
+        'c_v': p['c_v'], 'v_min': p['v_min'], 
+        'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 
+        'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'], 
+        'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'],
+        'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 
+        'c_rci': p['c_rci'], 'rci_range': p['rci_rng'],
+        'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
+        'c_vup': p['c_vup'], 'vup_min': p['vup_min'], 
+        'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'],
+        'c_bb': p['c_bb'], 'bb_range': p['bb_rng']
+    }
         
         all_tickers = list(TICKER_NAME_MAP.keys())
         ot_results = []
