@@ -760,7 +760,7 @@ with tab_rank:
     
     if st.button("🚀 ランキング生成開始", type="primary", use_container_width=True, key="rank_run_btn"):
         rank_list = []
-        all_tickers = list(TICKER_NAME_MAP.keys())
+        all_tickers = list(TICKER_DETAILS.keys())
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days_back)
         
