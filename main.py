@@ -168,12 +168,11 @@ with tab_top:
     
     # 3. 表示用テキストの組み立て (Markdown形式)
     forecast_md = f"""
-    ### 🤖 AI市場診断報告
-    ---
-    🚩 **警戒レベル:** {diag['alert_level']}  
-    💡 **推奨戦略:** 「**{rec_strat}**」が最も有効と予測されます。
+    ### AI 市場診断
     
-    📝 **相場展望:** {diag['comment']}
+    バランス** {diag['alert_level']}  
+    推奨戦略** 「{rec_strat}」が有効。
+    相場展望** {diag['comment']}
     """
     
     # 注目セクター（tips）があれば追加表示
