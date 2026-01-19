@@ -13,17 +13,20 @@ st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="w
 st.logo("image_13.png", icon_image="image_12.png")
 
 # 基本情報の初期化
-if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = "7203.T"
+if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = ""
 if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 if 'res_df' not in st.session_state: st.session_state['res_df'] = pd.DataFrame()
 if 't_names' not in st.session_state: st.session_state['t_names'] = {}
 
-# スクリーニング用パラメータの保持 (通常=0, ディフェンシブ=1, 横ばい=2)
+# スクリーニング用パラメータの保持 (12項目に拡張)
 if 'sc_params' not in st.session_state:
     st.session_state['sc_params'] = [
-        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 50.0, 'c_atrp': False, 'atrp_rng': (2.0, 4.0), 'c_rsi': True, 'rsi_rng': (55, 70), 'c_adx': False, 'adx_rng': (25, 40), 'c_rci': False, 'rci_rng': (20, 80), 'c_vol': True, 'vol_min': 10.0, 'c_vup': False, 'vup_min': 1.3, 'c_ma25': True, 'ma25_rng': (0.0, 7.0)},
-        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 300.0, 'c_atrp': True, 'atrp_rng': (1.0, 2.5), 'c_rsi': True, 'rsi_rng': (40, 55), 'c_adx': True, 'adx_rng': (10, 20), 'c_rci': True, 'rci_rng': (-30, 30), 'c_vol': True, 'vol_min': 20.0, 'c_vup': True, 'vup_min': 1.1, 'c_ma25': True, 'ma25_rng': (-3.0, 2.0)},
-        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 200.0, 'c_atrp': True, 'atrp_rng': (1.2, 2.5), 'c_rsi': True, 'rsi_rng': (45, 55), 'c_adx': False, 'adx_rng': (10, 20), 'c_rci': True, 'rci_rng': (-30, 30), 'c_vol': True, 'vol_min': 10.0, 'c_vup': True, 'vup_min': 1.2, 'c_ma25': True, 'ma25_rng': (-2.0, 3.0)},
+        # 通常フィルタ
+        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 50.0, 'c_atrp': False, 'atrp_rng': (2.0, 4.0), 'c_ma': True, 'ma_opt': "最強：上昇トレンド", 'c_ema': True, 'ema_opt': "強気：EMAの上で価格維持", 'c_adx': False, 'adx_rng': (25, 40), 'c_rci': False, 'rci_rng': (20, 80), 'c_rsi': True, 'rsi_rng': (55, 70), 'c_vol': True, 'vol_min': 10.0, 'c_vup': False, 'vup_min': 1.3, 'c_ma25': True, 'ma25_rng': (0.0, 7.0), 'c_bb': True, 'bb_rng': (1.0, 2.0)},
+        # ディフェンシブ
+        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 300.0, 'c_atrp': True, 'atrp_rng': (1.0, 2.5), 'c_ma': False, 'ma_opt': "収束：嵐の前の静けさ", 'c_ema': False, 'ema_opt': "安定：EMA付近での推移", 'c_adx': True, 'adx_rng': (10, 20), 'c_rci': True, 'rci_rng': (-20, 30), 'c_rsi': True, 'rsi_rng': (40, 55), 'c_vol': True, 'vol_min': 20.0, 'c_vup': True, 'vup_min': 1.1, 'c_ma25': True, 'ma25_rng': (-3.0, 2.0), 'c_bb': False, 'bb_rng': (-1.0, 0.0)},
+        # 横ばい相場
+        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 200.0, 'c_atrp': True, 'atrp_rng': (1.2, 2.5), 'c_ma': False, 'ma_opt': "リバウンド：短期MA上抜け", 'c_ema': False, 'ema_opt': "レンジ：EMAを上下にまたぐ", 'c_adx': False, 'adx_rng': (10, 20), 'c_rci': True, 'rci_rng': (-30, 30), 'c_rsi': True, 'rsi_rng': (45, 55), 'c_vol': True, 'vol_min': 10.0, 'c_vup': True, 'vup_min': 1.2, 'c_ma25': True, 'ma25_rng': (-2.0, 3.0), 'c_bb': False, 'bb_rng': (1.0, 2.0)},
     ]
 
 # 各タブのスキャン結果保持用
@@ -121,13 +124,15 @@ with tab_top:
         p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
         p = st.session_state['sc_params'][p_idx]
         
-        # パラメータのマッピング
+        # パラメータのマッピング (12項目に拡張)
         s_logic_params = {
             'c_p': p['c_p'], 'p_range': p['p_rng'], 'c_v': p['c_v'], 'v_min': p['v_min'], 
-            'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
+            'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 
+            'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'], 'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'], # 追加
             'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 'c_rci': p['c_rci'], 'rci_range': p['rci_rng'],
-            'c_vol': p['c_vol'], 'vol_min': p['vol_min'], 'c_vup': p['c_vup'], 'vup_min': p['vup_min'],
-            'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng']
+            'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'], 'c_vol': p['c_vol'], 'vol_min': p['vol_min'], 
+            'c_vup': p['c_vup'], 'vup_min': p['vup_min'], 'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'],
+            'c_bb': p['c_bb'], 'bb_range': p['bb_rng'] # 追加
         }
         
         all_tickers = list(TICKER_NAME_MAP.keys())
@@ -168,6 +173,8 @@ with tab_top:
             current_list = [t.strip() for t in current_str.split(",") if t.strip()]
             combined_list = sorted(list(set(current_list + top_5_df['コード'].tolist())))
             st.session_state['target_tickers'] = ", ".join(combined_list)
+
+            st.session_state['bt_period'] = f"{(datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')} - {datetime.now().strftime('%Y-%m-%d')}"
             
             st.toast("🎯 期待値トップ5を監視リストに追加しました！")
             st.rerun()
@@ -191,41 +198,67 @@ with tab_top:
             del st.session_state['ot_last_top5']
             st.rerun()
 
-# --- タブ2: スクリーニングの実装 (結果保持・自動入力修正版) ---
+# --- タブ2: スクリーニングの実装 (12パラメーター対応版) ---
 with tab_screen:
-    st.markdown("### 🔍 戦略別スクリーニング設定")
-    s_tabs = st.tabs(["🔍 通常フィルタ", "🔍 ディフェンシブ", "🔍 横ばい相場対応"])
+    st.markdown("<br>", unsafe_allow_html=True)
+    s_tabs = st.tabs(["🔍 通常フィルタ", "🔍 ディフェンシブ", "🔍 横ばい相場"])
     
     for i, s_tab in enumerate(s_tabs):
         with s_tab:
-            p = st.session_state['sc_params'][i] # 永続化されたパラメータを参照
+            p = st.session_state['sc_params'][i]
+            exp_t = f"🔍 スクリーニング設定 ({['通常', 'ディフェンシブ', '横ばい'][i]})"
             
-            # --- パラメータ入力エリア ---
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                p['c_p'] = st.checkbox("株価範囲", p['c_p'], key=f"c_p_chk_{i}")
-                p['p_rng'] = st.slider("価格(円)", 100, 10000, p['p_rng'], 100, key=f"p_rng_sld_{i}")
-                p['c_v'] = st.checkbox("売買代金(億円)", p['c_v'], key=f"c_v_chk_{i}")
-                p['v_min'] = st.number_input("億円以上", value=p['v_min'], key=f"v_min_in_{i}")
-                p['c_atrp'] = st.checkbox("平均値幅(ATR%)", p['c_atrp'], key=f"c_atrp_chk_{i}")
-                p['atrp_rng'] = st.slider("ATR%", 0.5, 5.0, p['atrp_rng'], 0.1, key=f"atrp_rng_sld_{i}")
-            with c2:
-                p['c_rsi'] = st.checkbox("RSI(14日)", p['c_rsi'], key=f"c_rsi_chk_{i}")
-                p['rsi_rng'] = st.slider("RSI範囲", 0, 100, p['rsi_rng'], 5, key=f"rsi_rng_sld_{i}")
-                p['c_adx'] = st.checkbox("ADX(トレンド)", p['c_adx'], key=f"c_adx_chk_{i}")
-                p['adx_rng'] = st.slider("ADX範囲", 0, 100, p['adx_rng'], 5, key=f"adx_rng_sld_{i}")
-                p['c_rci'] = st.checkbox("RCI(9日)", p['c_rci'], key=f"c_rci_chk_{i}")
-                p['rci_rng'] = st.slider("RCI範囲", -100, 100, p['rci_rng'], 5, key=f"rci_rng_sld_{i}")
-            with c3:
-                p['c_vol'] = st.checkbox("出来高(万株)", p['c_vol'], key=f"c_vol_chk_{i}")
-                p['vol_min'] = st.number_input("万株以上", value=p['vol_min'], key=f"vol_min_in_{i}")
-                p['c_vup'] = st.checkbox("出来高増加率", p['c_vup'], key=f"c_vup_chk_{i}")
-                p['vup_min'] = st.slider("倍率", 1.0, 5.0, p['vup_min'], 0.1, key=f"vup_min_sld_{i}")
-                p['c_ma25'] = st.checkbox("25MA乖離率", p['c_ma25'], key=f"c_ma25_chk_{i}")
-                p['ma25_rng'] = st.slider("偏差%", -20.0, 20.0, p['ma25_rng'], 1.0, key=f"ma25_rng_sld_{i}")
+            # --- 1. パラメーター設定エリア ---
+            with st.expander(exp_t, expanded=True):
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    p['c_p'] = st.checkbox("**株価の範囲**", p['c_p'], key=f"c_p_{i}")
+                    p['p_rng'] = st.slider("価格(円)", 100, 10000, p['p_rng'], step=100, key=f"v_p_{i}")
+                    st.divider()
+                    p['c_v'] = st.checkbox("**売買代金**", p['c_v'], key=f"c_v_{i}")
+                    p['v_min'] = st.number_input("億円以上", value=p['v_min'], step=10.0, key=f"v_v_{i}")
+                    st.divider()
+                    p['c_atrp'] = st.checkbox("**平均値幅 (ATR%)**", p['c_atrp'], key=f"c_atrp_{i}")
+                    p['atrp_rng'] = st.slider("期待範囲%", 0.5, 5.0, p['atrp_rng'], step=0.1, key=f"v_atrp_{i}")
+                    st.divider()
+                    p['c_ma'] = st.checkbox("**移動平均上抜け/並び**", p['c_ma'], key=f"c_ma_{i}")
+                    p['ma_opt'] = st.selectbox("条件選択", ["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"], index=["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"].index(p['ma_opt']), key=f"v_ma_{i}")
+                with c2:
+                    p['c_ema'] = st.checkbox("**EMA (9日・21日)**", p['c_ema'], key=f"c_ema_{i}")
+                    p['ema_opt'] = st.selectbox("EMA基準", ["強気：EMAの上で価格維持", "安定：EMA付近での推移", "レンジ：EMAを上下にまたぐ"], index=["強気：EMAの上で価格維持", "安定：EMA付近での推移", "レンジ：EMAを上下にまたぐ"].index(p['ema_opt']), key=f"v_ema_{i}")
+                    st.divider()
+                    p['c_adx'] = st.checkbox("**ADX (強度)**", p['c_adx'], key=f"c_adx_{i}")
+                    p['adx_rng'] = st.slider("強度スコア", 0, 100, p['adx_rng'], step=5, key=f"v_adx_{i}")
+                    st.divider()
+                    p['c_rci'] = st.checkbox("**RCI (過熱感)**", p['c_rci'], key=f"c_rci_{i}")
+                    p['rci_rng'] = st.slider("RCI範囲", -100, 100, p['rci_rng'], step=5, key=f"v_rci_{i}")
+                    st.divider()
+                    p['c_rsi'] = st.checkbox("**RSI (レンジ)**", p['c_rsi'], key=f"c_rsi_{i}")
+                    p['rsi_rng'] = st.slider("RSIレンジ", 0, 100, p['rsi_rng'], step=5, key=f"v_rsi_{i}")
+                with c3:
+                    p['c_vol'] = st.checkbox("**出来高 (万株)**", p['c_vol'], key=f"c_vol_{i}")
+                    p['vol_min'] = st.number_input("万株以上", value=p['vol_min'], step=10.0, key=f"v_vol_{i}")
+                    st.divider()
+                    p['c_vup'] = st.checkbox("**出来高増加率**", p['c_vup'], key=f"c_vup_{i}")
+                    p['vup_min'] = st.slider("増加倍率", 1.0, 5.0, p['vup_min'], step=0.1, key=f"v_vup_{i}")
+                    st.divider()
+                    p['c_ma25'] = st.checkbox("**25MA乖離率**", p['c_ma25'], key=f"c_ma25_{i}")
+                    p['ma25_rng'] = st.slider("偏差%", -20.0, 20.0, p['ma25_rng'], step=1.0, key=f"v_ma25_{i}")
+                    st.divider()
+                    p['c_bb'] = st.checkbox("**ボリンジャーバンド**", p['c_bb'], key=f"c_bb_{i}")
+                    p['bb_rng'] = st.slider("σ範囲", -3.0, 3.0, p['bb_rng'], step=1.0, key=f"v_bb_{i}")
 
-            # --- スクリーニング実行ロジック ---
+            # --- 2. スクリーニング実行 (計算のみ) ---
             if st.button(f"🚀 {['通常', 'ディフェンシブ', '横ばい'][i]} スキャン開始", type="primary", use_container_width=True, key=f"btn_sc_exec_{i}"):
+                s_logic_params = {
+                    'c_p': p['c_p'], 'p_range': p['p_rng'], 'c_v': p['c_v'], 'v_min': p['v_min'], 
+                    'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'],
+                    'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'], 'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 
+                    'c_rci': p['c_rci'], 'rci_range': p['rci_rng'], 'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
+                    'c_vol': p['c_vol'], 'vol_min': p['vol_min'], 'c_vup': p['c_vup'], 'vup_min': p['vup_min'],
+                    'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'], 'c_bb': p['c_bb'], 'bb_range': p['bb_rng']
+                }
+                
                 results = []
                 all_tickers = list(TICKER_NAME_MAP.keys())
                 with st.status("🔍 銘柄チェック中...", expanded=True) as status:
@@ -233,54 +266,41 @@ with tab_screen:
                     for idx, t in enumerate(all_tickers):
                         pb.progress((idx+1)/len(all_tickers))
                         df_d = yf.download(t, period="3mo", interval="1d", progress=False)
-                        if not df_d.empty and isinstance(df_d.columns, pd.MultiIndex): 
-                            df_d.columns = df_d.columns.get_level_values(0)
-                        
-                        # logic_core を利用した判定
-                        res = core.evaluate_screening_conditions(df_d, {
-                            'c_p': p['c_p'], 'p_range': p['p_rng'], 'c_v': p['c_v'], 'v_min': p['v_min'], 
-                            'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
-                            'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 'c_rci': p['c_rci'], 'rci_range': p['rci_rng'],
-                            'c_vol': p['c_vol'], 'vol_min': p['vol_min'], 'c_vup': p['c_vup'], 'vup_min': p['vup_min'],
-                            'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng']
-                        })
-                        if res:
-                            res['コード'] = t; res['銘柄名'] = TICKER_NAME_MAP.get(t, t)
-                            results.append(res)
+                        if not df_d.empty:
+                            if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
+                            res = core.evaluate_screening_conditions(df_d, s_logic_params)
+                            if res:
+                                res['コード'] = t; res['銘柄名'] = TICKER_NAME_MAP.get(t, t)
+                                results.append(res)
                     status.update(label=f"✅ {len(results)} 銘柄発見", state="complete")
                 
-                # 計算結果をセッションに保存
                 st.session_state[f"sc_res_df_{i}"] = pd.DataFrame(results) if results else None
+                st.rerun() # 結果を即座に表示させるために再描画
 
-            # --- 結果表示と自動入力エリア (修正版) ---
-            res_df = st.session_state.get(f"sc_res_df_{i}")
-            if res_df is not None and not res_df.empty:
+            # --- 3. 結果の表示と自動入力 (ボタンの外に配置) ---
+            current_res = st.session_state.get(f"sc_res_df_{i}")
+            if current_res is not None and not current_res.empty:
                 st.info("💡 銘柄をチェックすると、最上部の監視リストに自動で追加されます。")
                 
                 sel_event = st.dataframe(
-                    res_df[['コード', '銘柄名', '株価', '前日比', '売買代金']],
+                    current_res[['コード', '銘柄名', '株価', '前日比', '売買代金']],
                     use_container_width=True, hide_index=True, 
                     on_select="rerun", selection_mode="multi-row", 
-                    key=f"df_sc_view_final_{i}" 
+                    key=f"df_sc_view_final_{i}"
                 )
                 
-                # 追加ロジックの修正
-                selected_rows = sel_event.selection.rows
-                if selected_rows:
-                    # rdf ではなくこのスコープの res_df を使用
-                    selected_codes = res_df.iloc[selected_rows]['コード'].tolist()
+                # 自動入力ロジック
+                if sel_event.selection.rows:
+                    selected_codes = current_res.iloc[sel_event.selection.rows]['コード'].tolist()
+                    current_str = st.session_state.get('target_tickers', "")
+                    current_list = [t.strip() for t in current_str.split(",") if t.strip()]
 
-                    # 現在のリストを取得
-                    current_list = [t.strip() for t in st.session_state.get('target_tickers', "").split(",") if t.strip()]
-
-                    # 新しい銘柄を合流（重複排除）
                     new_combined = sorted(list(set(current_list + selected_codes)))
                     new_tickers_str = ", ".join(new_combined)
 
-                    # 値が変わっている場合のみ更新し、即座に st.rerun()
                     if new_tickers_str != st.session_state.get('target_tickers', ""):
                         st.session_state['target_tickers'] = new_tickers_str
-                        st.toast(f"銘柄リストを更新しました！")
+                        st.toast(f"監視リストに {len(selected_codes)} 銘柄を反映しました")
                         st.rerun()
 
 # --- タブ3: バックテスト (6.3の全分析機能を復元) ---
@@ -320,53 +340,310 @@ with tab_bt:
     if not res_df.empty:
         bt_tabs = st.tabs(["📊 サマリー", "🏅 勝ちパターン", "📉 ギャップ分析", "🧐 VWAP分析", "🕒 時間分析", "📝 詳細ログ"])
         
-        with bt_tabs[0]: # 📊 サマリー
-            wins = res_df[res_df['PnL'] > 0]; losses = res_df[res_df['PnL'] <= 0]
-            pf = wins['PnL'].sum() / abs(losses['PnL'].sum()) if not losses.empty and losses['PnL'].sum() != 0 else 0
+        with bt_tabs[0]: # 📊 サマリー (6.3 完全移植 + 3.0 整合版)
+            # --- 1. 計測期間の取得 (フォールバック付) ---
+            display_period = st.session_state.get('bt_period')
+            if not display_period or display_period == "不明":
+                display_period = f"{(datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')} - {datetime.now().strftime('%Y-%m-%d')}"
+            
+            # --- 2. 全体集計 ---
+            count_all = len(res_df)
+            wins_all = res_df[res_df['PnL'] > 0]
+            losses_all = res_df[res_df['PnL'] <= 0]
+            win_rate_all = len(wins_all) / count_all if count_all > 0 else 0
+            pf_all = wins_all['PnL'].sum() / abs(losses_all['PnL'].sum()) if not losses_all.empty else 0
+            expectancy_all = res_df['PnL'].mean()
+
+            # --- 3. メトリクス表示 (3.0のデザインを継承) ---
             st.markdown(f"""
                 <div class='metric-grid'>
-                    <div class='summary-box'><div class='card-label'>トレード数</div><div class='card-value'>{len(res_df)}回</div></div>
-                    <div class='summary-box'><div class='card-label'>勝率</div><div class='card-value'>{(len(wins)/len(res_df)):.1%}</div></div>
-                    <div class='summary-box'><div class='card-label'>PF</div><div class='card-value'>{pf:.2f}</div></div>
-                    <div class='summary-box'><div class='card-label'>期待値</div><div class='card-value'>{res_df['PnL'].mean():.2%}</div></div>
+                    <div class='summary-box'><div class='card-label'>総トレード数</div><div class='card-value'>{count_all}回</div></div>
+                    <div class='summary-box'><div class='card-label'>勝率</div><div class='card-value'>{win_rate_all:.1%}</div></div>
+                    <div class='summary-box'><div class='card-label'>PF（利益÷損失）</div><div class='card-value'>{pf_all:.2f}</div></div>
+                    <div class='summary-box'><div class='card-label'>期待値</div><div class='card-value'>{expectancy_all:.2%}</div></div>
                 </div>""", unsafe_allow_html=True)
+            st.divider()
+        
+            # --- 4. テキストレポート生成 (6.3の詳細度を復元) ---
+            report = ["=================\n BACKTEST REPORT \n=================", f"Period: {display_period}\n"]
             
-            rpt = ["=================\n BACKTEST REPORT \n================="]
-            for t in res_df['Ticker'].unique():
-                tdf = res_df[res_df['Ticker'] == t]; tw = tdf[tdf['PnL']>0]['PnL']; tl = tdf[tdf['PnL']<=0]['PnL']
-                rpt.append(f">>> {t} | {ticker_names.get(t,t)}\n勝率: {(len(tw)/len(tdf)):.1%} | PF: {(tw.sum()/abs(tl.sum()) if not tl.empty else 9.9):.2f} | 期待値: {tdf['PnL'].mean():+.2%}")
-            st.code("\n".join(rpt), language="text")
-
-        with bt_tabs[1]: # 🏅 勝ちパターン
             for t in res_df['Ticker'].unique():
                 tdf = res_df[res_df['Ticker'] == t]
-                st.write(f"**{t} ({ticker_names.get(t,t)})**")
-                p_stats = tdf.groupby('Pattern')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
-                p_stats.columns = ['パターン', '数', '勝率', '平均損益']
-                st.dataframe(p_stats.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'}), use_container_width=True, hide_index=True)
+                if tdf.empty: continue
+                
+                t_wins = tdf[tdf['PnL'] > 0]
+                t_losses = tdf[tdf['PnL'] <= 0]
+                t_wr = len(t_wins) / len(tdf)
+                t_pf = t_wins['PnL'].sum() / abs(t_losses['PnL'].sum()) if not t_losses.empty else 9.9
+                
+                report.append(f">>> TICKER: {t} | {ticker_names.get(t, t)}")
+                report.append(f"トレード数: {len(tdf)} | 勝率: {t_wr:.1%} | 利益平均: {t_wins['PnL'].mean():+.2%} | 損失平均: {t_losses['PnL'].mean():+.2%} | PF: {t_pf:.2f} | 期待値: {tdf['PnL'].mean():+.2%}\n")
+            
+            st.caption("右上のコピーボタンで全文コピーできます↓")
+            st.code("\n".join(report), language="text")
 
-        with bt_tabs[2]: # 📉 ギャップ分析
-            for t in res_df['Ticker'].unique():
-                tdf = res_df[res_df['Ticker'] == t].copy()
-                tdf['方向'] = tdf['Gap(%)'].apply(lambda x: 'GU' if x > 0 else 'GD')
-                g_stats = tdf.groupby('方向')['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
-                st.write(f"**{t} の方向別成績**")
-                st.dataframe(g_stats.style.format({'<lambda_0>': '{:.1%}', 'mean': '{:+.2%}'}), use_container_width=True, hide_index=True)
+            if st.button("♻️ バックテスト結果をクリア", key="reset_summary_final"):
+                st.session_state['res_df'] = pd.DataFrame()
+                st.rerun()
+                
+        with bt_tabs[1]: # 🏅 勝ちパターン (3回以上優先 ＆ 1回以上代用版)
+            st.markdown("### 🏅 勝ちパターン分析")
+            st.caption("チャートパターン別の成績分析と、ベストなエントリー条件を言語化して勝ちパターンを抽出します。")
+            if not res_df.empty and 'Ticker' in res_df.columns:
+                unique_res_tickers = res_df['Ticker'].unique()
 
-        with bt_tabs[5]: # 📝 詳細ログ
-            log_report = []
-            for t in res_df['Ticker'].unique():
-                tdf = res_df[res_df['Ticker'] == t].copy().sort_values('Entry', ascending=False)
-                log_report.append(f"[{t}] {ticker_names.get(t, t)} 取引履歴\n" + "-"*80)
-                for _, row in tdf.iterrows():
-                    vwap_dev = ((row['In'] - row['EntryVWAP']) / row['EntryVWAP']) * 100
-                    log_report.append(f"{row['Entry'].strftime('%Y-%m-%d %H:%M')} | {row['Pattern']} | PnL: {row['PnL']:+.2%} | 買：{int(row['In'])} | 売：{int(row['Out'])} | VWAP乖離: {vwap_dev:+.2f}% | {row['Reason']}")
-                log_report.append("\n")
-            st.code("\n".join(log_report), language="text")
+                for t in unique_res_tickers:
+                    tdf = res_df[res_df['Ticker'] == t].copy()
+                    if tdf.empty: continue
+                    t_name = ticker_names.get(t, t)
+                    st.markdown(f"#### [{t}] {t_name}")
+                    
+                    # 1. パターン統計集計
+                    pat_stats = tdf.groupby('Pattern', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
+                    pat_stats.columns = ['パターン', 'トレード数', '勝率', '平均損益']
+                    st.dataframe(pat_stats.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'}), hide_index=True, use_container_width=True)
 
-        if st.button("♻️ 個別テスト結果をリセット", key="reset_bt_final", use_container_width=True):
-            st.session_state['res_df'] = pd.DataFrame(); st.rerun()
+                    # 2. ベスト条件抽出用ヘルパー関数 (代用ロジック)
+                    def get_best_row(df, count_col, rate_col, threshold=3):
+                        # まずは3回以上で探す
+                        valid = df[df[count_col] >= threshold]
+                        if valid.empty:
+                            # なければ1回以上で探す (一番良い数字を代用)
+                            valid = df[df[count_col] >= 1]
+                        return valid.loc[valid[rate_col].idxmax()] if not valid.empty else None
 
+                    try:
+                        # A. ギャップ分析 (0.5%刻み)
+                        g_min, g_max = tdf['Gap(%)'].min(), tdf['Gap(%)'].max()
+                        if pd.isna(g_min): g_min, g_max = -3.0, 1.0
+                        bins_g = np.arange(np.floor(g_min), np.ceil(g_max) + 0.5, 0.5)
+                        if len(bins_g) < 2: bins_g = [g_min - 0.5, g_min + 0.5] # 境界不足対策
+                        tdf['GapRange'] = pd.cut(tdf['Gap(%)'], bins=bins_g)
+                        g_s = tdf.groupby('GapRange', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
+                        
+                        # B. VWAP分析 (0.2%刻み)
+                        tdf['VWAP_Diff'] = ((tdf['In'] - tdf['EntryVWAP']) / tdf['EntryVWAP']) * 100
+                        v_min, v_max = tdf['VWAP_Diff'].min(), tdf['VWAP_Diff'].max()
+                        if pd.isna(v_min): v_min, v_max = -1.0, 1.0
+                        bins_v = np.arange(np.floor(v_min*5)/5, np.ceil(v_max*5)/5 + 0.2, 0.2)
+                        if len(bins_v) < 2: bins_v = [v_min - 0.2, v_min + 0.2]
+                        tdf['VwapRange'] = pd.cut(tdf['VWAP_Diff'], bins=bins_v)
+                        v_s = tdf.groupby('VwapRange', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
+
+                        # C. 時間分析 (5分刻み)
+                        tdf['TR'] = tdf['Entry'].apply(lambda dt: f"{dt.strftime('%H:%M')}～{(dt + timedelta(minutes=5)).strftime('%H:%M')}")
+                        t_s = tdf.groupby('TR', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
+
+                        # ベスト行の取得 (3回以上を優先し、なければ最大値を採用)
+                        best_p = get_best_row(pat_stats, 'トレード数', '勝率')
+                        best_g = get_best_row(g_s, 'count', '<lambda_0>')
+                        best_v = get_best_row(v_s, 'count', '<lambda_0>')
+                        best_t = get_best_row(t_s, 'count', '<lambda_0>')
+
+                        if all([best_p is not None, best_g is not None, best_v is not None, best_t is not None]):
+                            g_txt = "ギャップアップ" if best_g['GapRange'].left >= 0 else "ギャップダウン"
+                            reliability = "⭐⭐" if best_p['トレード数'] >= 3 else "⭐" # 信頼度アイコン
+                            
+                            st.info(f"**🏆 最高勝率パターン {reliability}**\n\n"
+                                    f"最も勝率が高かったのは、**{best_p['パターン']}** で、"
+                                    f"**{g_txt} ({best_g['GapRange'].left:.1f}% ～ {best_g['GapRange'].right:.1f}%)** スタートで、"
+                                    f"VWAPから **{best_v['VwapRange'].left:.1f}% ～ {best_v['VwapRange'].right:.1f}%** の位置にある時、"
+                                    f"**{best_t['TR']}** にエントリーするパターンです。\n\n"
+                                    f"(GAP勝率: {best_g['<lambda_0>']:.1%} / VWAP勝率: {best_v['<lambda_0>']:.1%} / 時間勝率: {best_t['<lambda_0>']:.1%})")
+                        else:
+                            st.warning("⚠️ パターンを特定するためのトレードデータが足りません。")
+                            
+                    except Exception as e:
+                        st.error(f"[{t}] 分析エラー: データの範囲が狭すぎるか、不足しています。")
+                    st.divider()
+
+        with bt_tabs[2]: # 📉 ギャップ分析 (BACK TESTER 6.3 完全移植版)
+            if not res_df.empty and 'Ticker' in res_df.columns:
+                for t in res_df['Ticker'].unique():
+                    tdf = res_df[res_df['Ticker'] == t].copy()
+                    t_name = ticker_names.get(t, t)
+                    st.markdown(f"### [{t}] {t_name}")
+                    
+                    # --- 1. 始値ギャップ方向の分析 ---
+                    st.markdown("##### 始値ギャップ方向と成績")
+                    tdf['GapDir'] = tdf['Gap(%)'].apply(lambda x: 'ギャップアップ' if x > 0 else ('ギャップダウン' if x < 0 else 'フラット'))
+                    gap_dir_stats = tdf.groupby('GapDir', observed=True).agg(
+                        Count=('PnL', 'count'), WinRate=('PnL', lambda x: (x > 0).mean()), AvgPnL=('PnL', 'mean')
+                    ).reset_index()
+                    
+                    gap_dir_disp = gap_dir_stats.copy()
+                    gap_dir_disp['WinRate'] = gap_dir_disp['WinRate'].apply(lambda x: f"{x:.1%}")
+                    gap_dir_disp['AvgPnL'] = gap_dir_disp['AvgPnL'].apply(lambda x: f"{x:+.2%}")
+                    gap_dir_disp.columns = ['方向', 'トレード数', '勝率', '平均損益']
+                    st.dataframe(gap_dir_disp, hide_index=True, use_container_width=True)
+
+                    # --- 2. ギャップ幅ごとの分析 (0.5%刻み) ---
+                    st.markdown("##### ギャップ幅ごとの勝率")
+                    try:
+                        min_g = np.floor(tdf['Gap(%)'].min()); max_g = np.ceil(tdf['Gap(%)'].max())
+                        bins_g = np.arange(min_g if not np.isnan(min_g) else -3.0, (max_g if not np.isnan(max_g) else 1.0) + 0.5, 0.5)
+                        tdf['GapRange'] = pd.cut(tdf['Gap(%)'], bins=bins_g)
+                        gap_range_stats = tdf.groupby('GapRange', observed=True).agg(
+                            Count=('PnL', 'count'), WinRate=('PnL', lambda x: (x > 0).mean()), AvgPnL=('PnL', 'mean')
+                        ).reset_index()
+                        gap_range_stats['RangeLabel'] = gap_range_stats['GapRange'].apply(lambda i: f"{i.left:.1f}% ～ {i.right:.1f}%")
+                        disp_gap = gap_range_stats[['RangeLabel', 'Count', 'WinRate', 'AvgPnL']].copy()
+                        disp_gap['WinRate'] = disp_gap['WinRate'].apply(lambda x: f"{x:.1%}")
+                        disp_gap['AvgPnL'] = disp_gap['AvgPnL'].apply(lambda x: f"{x:+.2%}")
+                        disp_gap.columns = ['ギャップ幅', 'トレード数', '勝率', '平均損益']
+                        st.dataframe(disp_gap, hide_index=True, use_container_width=True)
+                    except: st.warning(f"[{t}] ギャップ幅分析用のデータが不足しています。")
+                    st.divider()
+
+        with bt_tabs[3]: # 🧐 VWAP分析 (BACK TESTER 6.3 完全移植 & 3.0 変数同期版)
+            # --- データの存在チェック ---
+            if not res_df.empty and 'Ticker' in res_df.columns:
+                # 実際に結果が存在する銘柄コードのみを抽出してループ
+                unique_res_tickers = res_df['Ticker'].unique()
+                
+                for t in unique_res_tickers:
+                    tdf = res_df[res_df['Ticker'] == t].copy()
+                    if tdf.empty: continue
+                    
+                    t_name = ticker_names.get(t, t)
+                    st.markdown(f"### [{t}] {t_name}")
+                    st.markdown("##### エントリー時のVWAPと勝率")
+                    
+                    # --- VWAP乖離の計算 ---
+                    # EntryVWAP（エントリー時点のVWAP値）から乖離率を算出
+                    tdf['VWAP乖離(%)'] = ((tdf['In'] - tdf['EntryVWAP']) / tdf['EntryVWAP']) * 100
+                    
+                    try:
+                        # レンジ（bin）の作成 (0.2%刻みに調整)
+                        # 最小・最大値を0.2単位で丸めて範囲を決定
+                        min_dev = np.floor(tdf['VWAP乖離(%)'].min() * 5) / 5
+                        max_dev = np.ceil(tdf['VWAP乖離(%)'].max() * 5) / 5
+                        if np.isnan(min_dev): min_dev = -1.0; max_dev = 1.0
+                        
+                        # 0.2刻みの配列を生成
+                        bins = np.arange(min_dev, max_dev + 0.2, 0.2)
+                        tdf['Range'] = pd.cut(tdf['VWAP乖離(%)'], bins=bins)
+                        
+                        # 統計集計（Named Aggregation形式）
+                        vwap_stats = tdf.groupby('Range', observed=True).agg(
+                            Count=('PnL', 'count'), 
+                            WinRate=('PnL', lambda x: (x > 0).mean()), 
+                            AvgPnL=('PnL', 'mean')
+                        ).reset_index()
+                        
+                        # ラベルの整形 (0.2%刻みを正確に表示)
+                        def format_vwap_interval(i): 
+                            return f"{i.left:.1f}% ～ {i.right:.1f}%"
+                        vwap_stats['RangeLabel'] = vwap_stats['Range'].apply(format_vwap_interval)
+                        
+                        # 表示用データフレームの構築
+                        display_stats = vwap_stats[['RangeLabel', 'Count', 'WinRate', 'AvgPnL']].copy()
+                        display_stats['WinRate'] = display_stats['WinRate'].apply(lambda x: f"{x:.1%}")
+                        display_stats['AvgPnL'] = display_stats['AvgPnL'].apply(lambda x: f"{x:+.2%}")
+                        display_stats['Count'] = display_stats['Count'].astype(str)
+                        display_stats.columns = ['乖離率レンジ', 'トレード数', '勝率', '平均損益']
+                        
+                        # 表の表示
+                        st.dataframe(display_stats.style.set_properties(**{'text-align': 'left'}), hide_index=True, use_container_width=True)
+                    
+                    except Exception:
+                        st.warning(f"[{t}] VWAP乖離分析を生成するためのデータが不足しています。")
+                    
+                    st.divider()
+
+        with bt_tabs[4]: # 🕒 時間分析 (BACK TESTER 6.3 完全移植版)
+            # --- データの存在チェック ---
+            if not res_df.empty and 'Ticker' in res_df.columns:
+                # 実際に結果が存在する銘柄コードのみを抽出してループ
+                unique_res_tickers = res_df['Ticker'].unique()
+
+                for t in unique_res_tickers:
+                    tdf = res_df[res_df['Ticker'] == t].copy()
+                    if tdf.empty: continue
+                    
+                    t_name = ticker_names.get(t, t)
+                    st.markdown(f"### [{t}] {t_name}")
+                    st.markdown("##### エントリー時間帯ごとの勝率")
+                    
+                    # --- エントリー時間帯の5分刻み文字列作成 ---
+                    def get_time_range(dt): 
+                        return f"{dt.strftime('%H:%M')}～{(dt + timedelta(minutes=5)).strftime('%H:%M')}"
+                    
+                    tdf['TimeRange'] = tdf['Entry'].apply(get_time_range)
+                    
+                    # --- 時間帯ごとの集計 ---
+                    try:
+                        time_stats = tdf.groupby('TimeRange', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
+                        
+                        # 表示用に整形
+                        time_disp = time_stats.copy()
+                        time_disp.columns = ['時間帯', 'count', 'win_rate', 'mean']
+                        time_disp['WinRate'] = time_disp['win_rate'].apply(lambda x: f"{x:.1%}")
+                        time_disp['AvgPnL'] = time_disp['mean'].apply(lambda x: f"{x:+.2%}")
+                        time_disp['Count'] = time_disp['count'].astype(str)
+                        
+                        # 最終的な表示用カラム
+                        final_disp = time_disp[['時間帯', 'Count', 'WinRate', 'AvgPnL']]
+                        final_disp.columns = ['時間帯', 'トレード数', '勝率', '平均損益']
+                        
+                        st.dataframe(final_disp, hide_index=True, use_container_width=True)
+                    except Exception:
+                        st.warning(f"[{t}] 時間分析を生成するためのデータが不足しています。")
+                    
+                    st.divider()
+
+        with bt_tabs[5]: # 📝 詳細ログ (BACK TESTER 6.3 完全移植版)
+            st.markdown("### 📝 詳細取引ログ")
+            
+            # --- データの存在チェック ---
+            if not res_df.empty and 'Ticker' in res_df.columns:
+                # リストの初期化
+                log_report = []
+                
+                # 実際に結果が存在する銘柄コードのみを抽出してループ
+                unique_res_tickers = res_df['Ticker'].unique()
+
+                for t in unique_res_tickers:
+                    # データの抽出とソート (新しい順)
+                    tdf = res_df[res_df['Ticker'] == t].copy().sort_values('Entry', ascending=False).reset_index(drop=True)
+                    if tdf.empty: continue
+                    
+                    # VWAP乖離の再計算
+                    tdf['VWAP乖離(%)'] = ((tdf['In'] - tdf['EntryVWAP']) / tdf['EntryVWAP']) * 100
+                    t_name = ticker_names.get(t, t)
+                    
+                    log_report.append(f"[{t}] {t_name} 取引履歴")
+                    log_report.append("-" * 80)
+                    
+                    for i, row in tdf.iterrows():
+                        entry_str = row['Entry'].strftime('%Y-%m-%d %H:%M')
+                        
+                        # VWAP表示の整形
+                        if pd.notna(row['EntryVWAP']) and row['EntryVWAP'] != 0:
+                            vwap_val = int(round(row['EntryVWAP']))
+                            vwap_dev = f"{row['VWAP乖離(%)']:+.2f}%"
+                            vwap_str = f"{vwap_val} (乖離 {vwap_dev})"
+                        else:
+                            vwap_str = "- (乖離 -)"
+                        
+                        # 6.3形式の1行詳細ログ作成 (金額は int で整形)
+                        line = (
+                            f"{entry_str} | "
+                            f"前終値：{int(row['PrevClose'])} | 始値：{int(row['DayOpen'])} | "
+                            f"{row['Pattern']} | "
+                            f"PnL: {row['PnL']:+.2%} | Gap: {row['Gap(%)']:+.2f}% | "
+                            f"買：{int(row['In'])} | 売：{int(row['Out'])} | "
+                            f"VWAP: {vwap_str} | "
+                            f"{row['Reason']}"
+                        )
+                        log_report.append(line)
+                    log_report.append("\n")
+                
+                st.caption("右上のコピーボタンで全文コピーできます↓")
+                st.code("\n".join(log_report), language="text")
+
+                st.divider()
+                
 # --- タブ4: ランキング (スキャン & 自動転送) ---
 with tab_rank:
     st.markdown("### 🏆 登録銘柄期待値ランキング")
