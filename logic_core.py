@@ -287,19 +287,19 @@ def analyze_market_environment():
     if "GOLD" in data:
         gold_pct = ((float(data["GOLD"]['Close'].values[-1]) / float(data["GOLD"]['Close'].values[-2])) - 1) * 100
         if gold_pct > 1.0:
-            res["tips"].append(f"✨ 金高({gold_pct:+.1f}%)。リスク回避。業種『8:金属』に注目。")
+            res["tips"].append(f"金高({gold_pct:+.1f}%)。『8:金属』に注目。")
             if res["strategy"] == 0: res["strategy"] = 1
 
     if "USDJPY" in data:
         jpy_change = ((float(data["USDJPY"]['Close'].values[-1]) / float(data["USDJPY"]['Close'].values[-2])) - 1) * 100
         if jpy_change > 0.3:
-            res["tips"].append(f"💴 円安({jpy_change:+.2f}%)。輸出『11:輸送』『10:電機』に追い風。")
+            res["tips"].append(f"円安({jpy_change:+.2f}%)。『11:輸送』『10:電機』に追い風。")
         elif jpy_change < -0.3:
-            res["tips"].append(f"💴 円高({jpy_change:+.2f}%)。内需『2:水産・食品』『14:金融』に注目。")
+            res["tips"].append(f"円高({jpy_change:+.2f}%)。『2:水産・食品』『14:金融』に注目。")
 
     if "SOX" in data:
         sox_gain = ((float(data["SOX"]['Close'].values[-1]) / float(data["SOX"]['Close'].values[-2])) - 1) * 100
         if sox_gain > 1.0: 
-            res["tips"].append(f"🚀 SOX好調({sox_gain:+.1f}%)。業種『1:AI・半導体』に強い追い風。")
+            res["tips"].append(f"SOX好調({sox_gain:+.1f}%)。『1:AI・半導体』に追い風。")
 
     return res
