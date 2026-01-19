@@ -435,7 +435,7 @@ with tab_bt:
                 p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
                 trades = core.run_ticker_simulation(t, df, p_map, o_map, a_map, params)
                 all_trades.extend(trades)
-                t_names[t] = TICKER_NAME_MAP.get(t, t)
+                t_names[t] = TICKER_DETAILS.get(t, [t])[0]
                 
             st.session_state['res_df'] = pd.DataFrame(all_trades)
             st.session_state['t_names'] = t_names
