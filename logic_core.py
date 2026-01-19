@@ -234,11 +234,12 @@ def fetch_market_info(market_indices):
 
 def analyze_market_environment():
     """
-    主要指数から今日の相場環境を診断し、戦略を提案する
+    主要指数から今日の相場環境を診断し、戦略と推奨セクターを提案する
     """
     indices = {
         "N225": "^N225", "VIX": "^VIX", "DJI": "^DJI",
-        "SOX": "^SOX", "WTI": "CL=F", "CME": "NIY=F"
+        "SOX": "^SOX", "WTI": "CL=F", "CME": "NIY=F",
+        "USDJPY": "JPY=X" # 為替（ドル円）
     }
     
     data = {}
@@ -253,10 +254,11 @@ def analyze_market_environment():
         except:
             continue
 
-    res = {"comment": "", "strategy": 0, "alert_level": "正常", "tips": []}
-    n225_close = 0 # 初期化
+    # 推奨セクターIDを格納するリスト
+    res = {"comment": "", "strategy": 0, "alert_level": "正常", "tips": [], "rec_sectors": []}
+    n225_close = 0 
 
-    # 1. 日経平均の乖離率
+    # 1. 日経平均の乖離率判定
     if "N225" in data:
         df_n = data["N225"]
         n225_close = float(df_n['Close'].iloc[-1])
@@ -265,41 +267,56 @@ def analyze_market_environment():
         
         if dev_rate > 5.0:
             res["alert_level"] = "⚠️ 高値警戒（過熱）"
-            res["comment"] += f"日経平均が25日線から{dev_rate:.1f}%乖離しており、過熱感があります。利益確定を検討してください。 "
+            res["comment"] += f"日経平均が25日線から{dev_rate:.1f}%乖離しており、過熱感があります。 "
         elif dev_rate < -5.0:
             res["alert_level"] = "📢 底打ち警戒（売られすぎ）"
-            res["comment"] += f"25日線から{dev_rate:.1f}%乖離し売られすぎています。リバウンド狙いの好機かもしれません。 "
+            res["comment"] += f"25日線から{dev_rate:.1f}%乖離し売られすぎています。 "
 
     # 2. VIXによる戦略決定
     if "VIX" in data:
         vix = float(data["VIX"]['Close'].iloc[-1])
         if vix > 25.0:
             res["strategy"] = 1 # ディフェンシブ
-            res["comment"] += "VIX指数が高騰しており、市場は不安定です。守備重視の『ディフェンシブ』戦略が推奨されます。 "
+            res["comment"] += "VIXが高騰中。守備重視の『ディフェンシブ』が推奨されます。 "
         elif 15.0 <= vix <= 25.0:
             res["strategy"] = 2 # 横ばい
         else:
             res["strategy"] = 0 # 通常
 
-    # 3. CME先物予測
-    if "CME" in data and n225_close > 0:
-        cme_close = float(data["CME"]['Close'].iloc[-1])
-        diff = cme_close - n225_close
-        move = "ギャップアップ" if diff > 100 else "ギャップダウン" if diff < -100 else "小幅な動き"
-        res["comment"] += f"CME先物は前日比{diff:+.0f}円となっており、今日は{move}での開始が予想されます。 "
+    # 3. 為替（ドル円）による輸出銘柄診断
+    if "USDJPY" in data:
+        df_jpy = data["USDJPY"]
+        jpy_now = float(df_jpy['Close'].iloc[-1])
+        jpy_prev = float(df_jpy['Close'].iloc[-2])
+        jpy_change = ((jpy_now / jpy_prev) - 1) * 100
+        
+        if jpy_change > 0.4: # 円安進行
+            res["comment"] += f"ドル円は{jpy_now:.2f}円（円安）。輸出株への買い波及が期待できます。 "
+            res["tips"].append(f"💴 円安進行中({jpy_change:+.2f}%)。電機・輸送機セクターに注目。")
+            res["rec_sectors"].extend([10, 11, 12]) # 電機、輸送、精密
+        elif jpy_change < -0.4: # 円高進行
+            res["comment"] += f"ドル円は{jpy_now:.2f}円（円高）。為替感応度の低い内需株が有利な地合いです。 "
+            res["rec_sectors"].extend([2, 14, 15]) # 水産・食品、金融、不動産
 
-    # 4. セクターヒント（SOX/WTIも安全に数値抽出）
+    # 4. SOX・WTI（特定セクターヒント）
     if "SOX" in data:
         df_s = data["SOX"]
         sox_gain = ((float(df_s['Close'].iloc[-1]) / float(df_s['Close'].iloc[-2])) - 1) * 100
         if sox_gain > 1.5: 
-            res["tips"].append("🚀 SOX指数が好調です。業種『AI・半導体』に強い追い風が期待できます。")
+            res["tips"].append("🚀 SOX指数が好調。業種『AI・半導体』への資金流入に期待。")
+            res["rec_sectors"].append(1) # AI・半導体
     
     if "WTI" in data:
         df_w = data["WTI"]
         wti_gain = ((float(df_w['Close'].iloc[-1]) / float(df_w['Close'].iloc[-2])) - 1) * 100
         if wti_gain > 2.0: 
-            res["tips"].append("🛢️ 原油価格が上昇。業種『石油・ゴム・金属』セクターの動向に注目です。")
+            res["tips"].append("🛢️ 原油価格上昇。業種『石油』セクターに追い風。")
+            res["rec_sectors"].append(6) # 石油
 
+    # 推奨が特になければ全業種を初期値にする
+    if not res["rec_sectors"]:
+        res["rec_sectors"] = [0]
+    
+    res["rec_sectors"] = sorted(list(set(res["rec_sectors"])))
     return res
     
