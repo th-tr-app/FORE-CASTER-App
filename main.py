@@ -171,13 +171,13 @@ with tab_top:
     ### AI 市場診断
     
     バランス** {diag['alert_level']}  
-    推奨戦略** {rec_strat}が有効。
+    推奨戦略** {rec_strat}
     相場展望** {diag['comment']}
     """
     
     # 注目セクター（tips）があれば追加表示
     if diag["tips"]:
-        forecast_md += "\n\n🎯 **注目セクターへのヒント:**\n"
+        forecast_md += "\n\n **注目セクターへのヒント:**\n"
         for tip in diag["tips"]:
             forecast_md += f"- {tip}\n"
 
