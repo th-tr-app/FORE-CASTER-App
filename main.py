@@ -56,7 +56,7 @@ if 'sc_params' not in st.session_state:
         },
         # ↔️ 横ばい相場：リバウンド（初動重視）
         {
-            'sector': [1, 3, 4, 8, 9], # 水産、繊維、化学、金属、機械
+            'sector': [2, 3, 4, 8, 9], # 食品、繊維、化学、金属、機械
             'c_gain': True, 'gain_rng': (-1.0, 2.0), 
             'c_p': True, 'p_rng': (500, 6000), 
             'c_v': True, 'v_min': 20.0,               # 200億から大幅緩和
