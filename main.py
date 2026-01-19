@@ -157,32 +157,39 @@ with tab_top:
                 cls = "plus" if i['pct'] >= 0 else "minus"
                 cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
-    
-    # 1. AI市場環境診断を実行
-    # logic_core.py に追加した関数を呼び出します
+
+    # main.py タブ1 (One-touch) 内の AI予測表示エリア
+    # 1. AI市場環境診断を実行 (為替・セクターヒント込み)
     diag = core.analyze_market_environment()
     
-    # 2. 推奨戦略名の定義
-    strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
-    rec_strat = strat_names[diag["strategy"]]
+    # 2. 推奨戦略のインデックスを取得 (0:通常, 1:ディフェンシブ, 2:横ばい)
+    rec_idx = diag["strategy"] 
     
-    # 3. 表示用テキストの組み立て (Markdown形式)
+    # 3. 【重要：自動連携】推奨セクターをスクリーニング設定に反映
+    if diag["rec_sectors"]:
+        # AIが推奨した業種IDリストを、該当する戦略のセレクトボックス初期値として書き込む
+        st.session_state['sc_params'][rec_idx]['sector'] = diag["rec_sectors"]
+
+    # 4. 表示部分の組み立て
+    strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
+    rec_strat_name = strat_names[rec_idx] # 変数名を統一
+    
     forecast_md = f"""
     ### 🤖 AI市場診断報告
     ---
     🚩 **警戒レベル:** {diag['alert_level']}  
-    💡 **推奨戦略:** 「**{rec_strat}**」が最も有効と予測されます。
+    💡 **推奨戦略:** 「**{rec_strat_name}**」
     
     📝 **相場展望:** {diag['comment']}
     """
     
-    # 注目セクター（tips）があれば追加表示
+    # 注目セクター（tips）を画面に書き出す
     if diag["tips"]:
-        forecast_md += "\n\n🎯 **注目セクターへのヒント:**\n"
+        forecast_md += "\n\n🎯 **自動セットされた注目業種:**\n"
         for tip in diag["tips"]:
             forecast_md += f"- {tip}\n"
 
-    # 4. 青い枠（st.info）の中に表示
+    # 青い枠で表示
     st.info(forecast_md)
        
     # 判定開始ボタン
