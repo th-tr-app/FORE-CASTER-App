@@ -177,7 +177,8 @@ with tab_top:
     
     # 注目セクター（tips）があれば追加表示
     if diag["tips"]:
-        forecast_md += "\n\n 🎯**注目セクターへのヒント:**\n"
+        # ヘッダーからも絵文字を消し、少し小さめに設定
+        forecast_md += "\n\n**注目セクターへのヒント:**\n"
         for tip in diag["tips"]:
             # <small>タグ、または <span> でフォントサイズを 0.85倍程度に下げます
             forecast_md += f"<div style='font-size: 0.85em; color: #cccccc; margin-bottom: 4px;'>・ {tip}</div>\n"
