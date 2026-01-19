@@ -38,21 +38,21 @@ if 'sc_params' not in st.session_state:
             'c_ma25': True, 'ma25_rng': (0.0, 10.0),  # 7%から10%へ緩和
             'c_bb': True, 'bb_rng': (0.5, 2.5)        # バンドウォーク初動
         },
-        # 🛡️ ディフェンシブ：逆張り・割安（底堅さ重視）
+        # 🛡️ ディフェンシブ：実戦テスト結果を反映（5項目のみ有効）
         {
-            'sector': [2, 5, 13, 14, 16], # 食品、医薬品、商社、金融、サービス
-            'c_gain': True, 'gain_rng': (-2.0, 1.0),   # 押し目狙い
-            'c_p': True, 'p_rng': (500, 6000), 
-            'c_v': True, 'v_min': 50.0,               # 300億から大幅緩和
-            'c_atrp': True, 'atrp_rng': (0.5, 2.5),   # 低ボラ必須
+            'sector': [2, 5, 13, 14, 16], # 水産・食品、医薬品、商社、金融、サービス
+            'c_gain': False, 'gain_rng': (-2.0, 1.0), 
+            'c_p': True, 'p_rng': (500, 6000),          # 修正
+            'c_v': True, 'v_min': 50.0, 
+            'c_atrp': True, 'atrp_rng': (0.5, 2.5), 
             'c_ma': False, 'ma_opt': "収束：嵐の前の静けさ", 
             'c_ema': False, 'ema_opt': "安定：EMA付近での推移", 
-            'c_adx': True, 'adx_rng': (0, 30),        # トレンドが弱い状態
-            'c_rci': True, 'rci_rng': (-80, 20),      # 底値圏
-            'c_rsi': True, 'rsi_rng': (30, 55),       # 40〜55から拡大
+            'c_adx': False, 'adx_rng': (0, 30),         # チェックオフ
+            'c_rci': False, 'rci_rng': (-80, 20),       # チェックオフ
+            'c_rsi': True, 'rsi_rng': (40, 70),         # 修正
             'c_vup': False, 'vup_min': 1.0, 
-            'c_ma25': True, 'ma25_rng': (-5.0, 2.0),  # -3%から-5%へ緩和
-            'c_bb': True, 'bb_rng': (-2.0, 0.5)       # 下限付近
+            'c_ma25': True, 'ma25_rng': (0.0, 10.0),    # 修正
+            'c_bb': False, 'bb_rng': (-2.0, 0.5)        # チェックオフ
         },
         # ↔️ 横ばい相場：リバウンド（初動重視）
         {
