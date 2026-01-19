@@ -24,7 +24,7 @@ if 'sc_params' not in st.session_state:
     st.session_state['sc_params'] = [
         # 🔍 通常フィルタ：トレンドフォロー（勢い重視）
         {
-            'sector': [0], # 全業種
+            'sector': [0, 1], # 全業種 + AI・半導体
             'c_gain': True, 'gain_rng': (0.5, 5.0),    # 少し浮いている銘柄
             'c_p': True, 'p_rng': (500, 6000),       # 範囲を拡大
             'c_v': True, 'v_min': 30.0,               # 50億から30億へ緩和
