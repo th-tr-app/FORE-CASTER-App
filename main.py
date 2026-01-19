@@ -5,8 +5,7 @@ import numpy as np
 from datetime import datetime, timedelta, timezone, time
 
 # 外部モジュールのインポート
-from const import TICKER_DETAILS, SECTOR_MAP, MARKET_INDICES
-TICKER_NAME_MAP = {k: v[0] for k, v in TICKER_DETAILS.items()}
+from const import TICKER_NAME_MAP, MARKET_INDICES
 import logic_core as core
 
 # --- 1. ページ設定 & セッション管理 (永続化の定義) ---
@@ -19,57 +18,15 @@ if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 if 'res_df' not in st.session_state: st.session_state['res_df'] = pd.DataFrame()
 if 't_names' not in st.session_state: st.session_state['t_names'] = {}
 
-# --- スクリーニング用パラメーターの最適化（12項目・緩和版） ---
+# スクリーニング用パラメータの保持 (12項目に拡張)
 if 'sc_params' not in st.session_state:
     st.session_state['sc_params'] = [
-        # 🔍 通常フィルタ：トレンドフォロー（勢い重視）
-        {
-            'sector': [0], # 全業種
-            'c_gain': True, 'gain_rng': (0.5, 5.0),    # 少し浮いている銘柄
-            'c_p': True, 'p_rng': (500, 6000),       # 範囲を拡大
-            'c_v': True, 'v_min': 30.0,               # 50億から30億へ緩和
-            'c_atrp': False, 'atrp_rng': (1.5, 5.0), 
-            'c_ma': True, 'ma_opt': "最強：上昇トレンド", 
-            'c_ema': True, 'ema_opt': "強気：EMAの上で価格維持", 
-            'c_adx': False, 'adx_rng': (20, 100), 
-            'c_rci': False, 'rci_rng': (0, 100), 
-            'c_rsi': True, 'rsi_rng': (50, 80),       # 55〜70から拡大
-            'c_vup': False, 'vup_min': 1.2, 
-            'c_ma25': True, 'ma25_rng': (0.0, 10.0),  # 7%から10%へ緩和
-            'c_bb': True, 'bb_rng': (0.5, 2.5)        # バンドウォーク初動
-        },
-        # 🛡️ ディフェンシブ：実戦テスト結果を反映（5項目のみ有効）
-        {
-            'sector': [2, 5, 13, 14, 16], # 水産・食品、医薬品、商社、金融、サービス
-            'c_gain': False, 'gain_rng': (-2.0, 1.0), 
-            'c_p': True, 'p_rng': (500, 6000),          # 修正
-            'c_v': True, 'v_min': 50.0, 
-            'c_atrp': True, 'atrp_rng': (0.5, 2.5), 
-            'c_ma': False, 'ma_opt': "収束：嵐の前の静けさ", 
-            'c_ema': False, 'ema_opt': "安定：EMA付近での推移", 
-            'c_adx': False, 'adx_rng': (0, 30),         # チェックオフ
-            'c_rci': False, 'rci_rng': (-80, 20),       # チェックオフ
-            'c_rsi': True, 'rsi_rng': (40, 70),         # 修正
-            'c_vup': False, 'vup_min': 1.0, 
-            'c_ma25': True, 'ma25_rng': (0.0, 10.0),    # 修正
-            'c_bb': False, 'bb_rng': (-2.0, 0.5)        # チェックオフ
-        },
-        # ↔️ 横ばい相場：リバウンド（初動重視）
-        {
-            'sector': [2, 3, 4, 8, 9], # 食品、繊維、化学、金属、機械
-            'c_gain': True, 'gain_rng': (-1.0, 2.0), 
-            'c_p': True, 'p_rng': (500, 6000), 
-            'c_v': True, 'v_min': 20.0,               # 200億から大幅緩和
-            'c_atrp': True, 'atrp_rng': (1.0, 3.0), 
-            'c_ma': True, 'ma_opt': "リバウンド：短期MA上抜け", 
-            'c_ema': False, 'ema_opt': "レンジ：EMAを上下にまたぐ", 
-            'c_adx': False, 'adx_rng': (10, 30), 
-            'c_rci': True, 'rci_rng': (-50, 50),      # 中央付近
-            'c_rsi': True, 'rsi_rng': (45, 60), 
-            'c_vup': True, 'vup_min': 1.1, 
-            'c_ma25': True, 'ma25_rng': (-3.0, 3.0), 
-            'c_bb': False, 'bb_rng': (-1.0, 1.0)
-        }
+        # 通常フィルタ
+        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 50.0, 'c_atrp': False, 'atrp_rng': (2.0, 4.0), 'c_ma': True, 'ma_opt': "最強：上昇トレンド", 'c_ema': True, 'ema_opt': "強気：EMAの上で価格維持", 'c_adx': False, 'adx_rng': (25, 40), 'c_rci': False, 'rci_rng': (20, 80), 'c_rsi': True, 'rsi_rng': (55, 70), 'c_vol': True, 'vol_min': 10.0, 'c_vup': False, 'vup_min': 1.3, 'c_ma25': True, 'ma25_rng': (0.0, 7.0), 'c_bb': True, 'bb_rng': (1.0, 2.0)},
+        # ディフェンシブ
+        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 300.0, 'c_atrp': True, 'atrp_rng': (1.0, 2.5), 'c_ma': False, 'ma_opt': "収束：嵐の前の静けさ", 'c_ema': False, 'ema_opt': "安定：EMA付近での推移", 'c_adx': True, 'adx_rng': (10, 20), 'c_rci': True, 'rci_rng': (-20, 30), 'c_rsi': True, 'rsi_rng': (40, 55), 'c_vol': True, 'vol_min': 20.0, 'c_vup': True, 'vup_min': 1.1, 'c_ma25': True, 'ma25_rng': (-3.0, 2.0), 'c_bb': False, 'bb_rng': (-1.0, 0.0)},
+        # 横ばい相場
+        {'c_p': True, 'p_rng': (500, 5000), 'c_v': True, 'v_min': 200.0, 'c_atrp': True, 'atrp_rng': (1.2, 2.5), 'c_ma': False, 'ma_opt': "リバウンド：短期MA上抜け", 'c_ema': False, 'ema_opt': "レンジ：EMAを上下にまたぐ", 'c_adx': False, 'adx_rng': (10, 20), 'c_rci': True, 'rci_rng': (-30, 30), 'c_rsi': True, 'rsi_rng': (45, 55), 'c_vol': True, 'vol_min': 10.0, 'c_vup': True, 'vup_min': 1.2, 'c_ma25': True, 'ma25_rng': (-2.0, 3.0), 'c_bb': False, 'bb_rng': (1.0, 2.0)},
     ]
 
 # 各タブのスキャン結果保持用
@@ -157,71 +114,33 @@ with tab_top:
                 cls = "plus" if i['pct'] >= 0 else "minus"
                 cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
-
-    # main.py タブ1 (One-touch) 内の AI予測表示エリア
-    # 1. AI市場環境診断を実行 (為替・セクターヒント込み)
-    diag = core.analyze_market_environment()
     
-    # 2. 推奨戦略のインデックスを取得 (0:通常, 1:ディフェンシブ, 2:横ばい)
-    rec_idx = diag["strategy"] 
+    vix = m_data.get("VIX指数", {}).get("val", 0)
+    current_preset = st.session_state['preset']
+    st.info(f"🤖 **AI予測:** VIX {vix:.1f}。現在は「**{current_preset}**」戦略が選択されています。")
     
-    # 3. 【重要：自動連携】推奨セクターをスクリーニング設定に反映
-    if diag["rec_sectors"]:
-        # AIが推奨した業種IDリストを、該当する戦略のセレクトボックス初期値として書き込む
-        st.session_state['sc_params'][rec_idx]['sector'] = diag["rec_sectors"]
-
-    # 4. 表示部分の組み立て
-    strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
-    rec_strat_name = strat_names[rec_idx] # 変数名を統一
-    
-    forecast_md = f"""
-    ### 🤖 AI市場診断報告
-    ---
-    🚩 **警戒レベル:** {diag['alert_level']}  
-    💡 **推奨戦略:** 「**{rec_strat_name}**」
-    
-    📝 **相場展望:** {diag['comment']}
-    """
-    
-    # 注目セクター（tips）を画面に書き出す
-    if diag["tips"]:
-        forecast_md += "\n\n🎯 **自動セットされた注目業種:**\n"
-        for tip in diag["tips"]:
-            forecast_md += f"- {tip}\n"
-
-    # 青い枠で表示
-    st.info(forecast_md)
-       
     # 判定開始ボタン
-    if st.button("🚀 全231銘柄をAI予測戦略で一斉判定", use_container_width=True, type="primary"):
-        # エラー箇所を修正: AI診断の推奨インデックス（rec_idx）をそのまま使用
-        # もし AI診断をボタンの外で行っている場合は、その rec_idx を使います
-        p_idx = rec_idx 
-    
-        # パラメータのマッピング (12項目対応版：c_volを削除済み)
+    if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
+        p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
         p = st.session_state['sc_params'][p_idx]
+        
+        # パラメータのマッピング (12項目に拡張)
         s_logic_params = {
-            'c_gain': p['c_gain'], 'gain_range': p['gain_rng'],
-            'c_p': p['c_p'], 'p_range': p['p_rng'], 
-            'c_v': p['c_v'], 'v_min': p['v_min'], 
+            'c_p': p['c_p'], 'p_range': p['p_rng'], 'c_v': p['c_v'], 'v_min': p['v_min'], 
             'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 
-            'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'], 
-            'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'],
-            'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 
-            'c_rci': p['c_rci'], 'rci_range': p['rci_rng'],
-            'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
-            'c_vup': p['c_vup'], 'vup_min': p['vup_min'], 
-            'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'],
-            'c_bb': p['c_bb'], 'bb_range': p['bb_rng']
+            'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'], 'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'], # 追加
+            'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 'c_rci': p['c_rci'], 'rci_range': p['rci_rng'],
+            'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'], 'c_vol': p['c_vol'], 'vol_min': p['vol_min'], 
+            'c_vup': p['c_vup'], 'vup_min': p['vup_min'], 'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'],
+            'c_bb': p['c_bb'], 'bb_range': p['bb_rng'] # 追加
         }
         
         all_tickers = list(TICKER_NAME_MAP.keys())
-        # --- 判定実行ループ ---
-        results = []
-        # current_preset を rec_strat_name に書き換えます
-        with st.status(f"🔍 {rec_strat_name} 戦略で全銘柄をフル分析中...", expanded=True) as status:
-            pb = st.progress(0)
-            for idx, t in enumerate(target_tickers):
+        ot_results = []
+        
+        with st.status(f"🔍 {current_preset} 戦略で全銘柄をフル分析中...", expanded=True) as status:
+            pb_ot = st.progress(0)
+            for idx, t in enumerate(all_tickers):
                 pb_ot.progress((idx+1)/len(all_tickers))
                 status.update(label=f"分析中 ({idx+1}/{len(all_tickers)}): {t}")
                 
@@ -279,31 +198,18 @@ with tab_top:
             del st.session_state['ot_last_top5']
             st.rerun()
 
-# --- タブ2: スクリーニングの実装 (業種 + 12パラメーター・スマホ最適化版) ---
+# --- タブ2: スクリーニングの実装 (12パラメーター対応版) ---
 with tab_screen:
     st.markdown("<br>", unsafe_allow_html=True)
-    
-    # ここで s_tabs を定義します
     s_tabs = st.tabs(["🔍 通常フィルタ", "🔍 ディフェンシブ", "🔍 横ばい相場"])
     
-    # ここで s_tab をループで回します（エラー解消の鍵）
     for i, s_tab in enumerate(s_tabs):
         with s_tab:
-            # セッションから現在のタブ(i)の設定を取得
             p = st.session_state['sc_params'][i]
             exp_t = f"🔍 スクリーニング設定 ({['通常', 'ディフェンシブ', '横ばい'][i]})"
             
-            with st.expander(exp_t, expanded=False):
-                # --- A. 業種選択 ---
-                p['sector'] = st.multiselect(
-                    "**対象業種 (複数選択可)**", 
-                    options=list(SECTOR_MAP.keys()), 
-                    format_func=lambda x: f"#{x} {SECTOR_MAP[x]}", 
-                    default=p['sector'], 
-                    key=f"v_sector_{i}"
-                )
-                st.divider()
-
+            # --- 1. パラメーター設定エリア ---
+            with st.expander(exp_t, expanded=True):
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     p['c_p'] = st.checkbox("**株価の範囲**", p['c_p'], key=f"c_p_{i}")
@@ -317,12 +223,7 @@ with tab_screen:
                     st.divider()
                     p['c_ma'] = st.checkbox("**移動平均上抜け/並び**", p['c_ma'], key=f"c_ma_{i}")
                     p['ma_opt'] = st.selectbox("条件選択", ["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"], index=["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"].index(p['ma_opt']), key=f"v_ma_{i}")
-                    st.divider() # スマホ表示用ライン
-
                 with c2:
-                    p['c_gain'] = st.checkbox("**前日値上がり率 (%)**", p['c_gain'], key=f"c_gain_{i}")
-                    p['gain_rng'] = st.slider("変動幅%", -10.0, 10.0, p['gain_rng'], step=0.5, key=f"v_gain_{i}")
-                    st.divider()
                     p['c_ema'] = st.checkbox("**EMA (9日・21日)**", p['c_ema'], key=f"c_ema_{i}")
                     p['ema_opt'] = st.selectbox("EMA基準", ["強気：EMAの上で価格維持", "安定：EMA付近での推移", "レンジ：EMAを上下にまたぐ"], index=["強気：EMAの上で価格維持", "安定：EMA付近での推移", "レンジ：EMAを上下にまたぐ"].index(p['ema_opt']), key=f"v_ema_{i}")
                     st.divider()
@@ -331,11 +232,12 @@ with tab_screen:
                     st.divider()
                     p['c_rci'] = st.checkbox("**RCI (過熱感)**", p['c_rci'], key=f"c_rci_{i}")
                     p['rci_rng'] = st.slider("RCI範囲", -100, 100, p['rci_rng'], step=5, key=f"v_rci_{i}")
-                    st.divider() # スマホ表示用ライン
-
-                with c3:
+                    st.divider()
                     p['c_rsi'] = st.checkbox("**RSI (レンジ)**", p['c_rsi'], key=f"c_rsi_{i}")
                     p['rsi_rng'] = st.slider("RSIレンジ", 0, 100, p['rsi_rng'], step=5, key=f"v_rsi_{i}")
+                with c3:
+                    p['c_vol'] = st.checkbox("**出来高 (万株)**", p['c_vol'], key=f"c_vol_{i}")
+                    p['vol_min'] = st.number_input("万株以上", value=p['vol_min'], step=10.0, key=f"v_vol_{i}")
                     st.divider()
                     p['c_vup'] = st.checkbox("**出来高増加率**", p['c_vup'], key=f"c_vup_{i}")
                     p['vup_min'] = st.slider("増加倍率", 1.0, 5.0, p['vup_min'], step=0.1, key=f"v_vup_{i}")
@@ -345,87 +247,60 @@ with tab_screen:
                     st.divider()
                     p['c_bb'] = st.checkbox("**ボリンジャーバンド**", p['c_bb'], key=f"c_bb_{i}")
                     p['bb_rng'] = st.slider("σ範囲", -3.0, 3.0, p['bb_rng'], step=1.0, key=f"v_bb_{i}")
-                    st.divider() # スマホ表示用ライン
-                    
-            # --- 実行ボタン ---
-            if st.button(f"🚀 {['通常', 'ディフェンシブ', '横ばい'][i]} スキャン開始", key=f"btn_sc_exec_{i}", type="primary", use_container_width=True):
-                # A. 業種フィルタリング
-                selected_sids = p['sector']
-                if 0 in selected_sids or not selected_sids:
-                    target_tickers = list(TICKER_DETAILS.keys())
-                    scan_label = "全業種"
-                else:
-                    target_tickers = [t for t, d in TICKER_DETAILS.items() if d[1] in selected_sids]
-                    scan_label = ", ".join([SECTOR_MAP[sid] for sid in selected_sids])
 
-                # B. パラメータセット (出来高 c_vol, vol_min を削除)
+            # --- 2. スクリーニング実行 (計算のみ) ---
+            if st.button(f"🚀 {['通常', 'ディフェンシブ', '横ばい'][i]} スキャン開始", type="primary", use_container_width=True, key=f"btn_sc_exec_{i}"):
                 s_logic_params = {
-                    'c_gain': p['c_gain'], 'gain_range': p['gain_rng'],
                     'c_p': p['c_p'], 'p_range': p['p_rng'], 'c_v': p['c_v'], 'v_min': p['v_min'], 
                     'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'],
                     'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'], 'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 
                     'c_rci': p['c_rci'], 'rci_range': p['rci_rng'], 'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
-                    'c_vup': p['c_vup'], 'vup_min': p['vup_min'],
+                    'c_vol': p['c_vol'], 'vol_min': p['vol_min'], 'c_vup': p['c_vup'], 'vup_min': p['vup_min'],
                     'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'], 'c_bb': p['c_bb'], 'bb_range': p['bb_rng']
                 }
-
-                # C. 実行ループ
+                
                 results = []
-                with st.status(f"🔍 {scan_label} の {len(target_tickers)} 銘柄をスキャン中...", expanded=True) as status:
+                all_tickers = list(TICKER_NAME_MAP.keys())
+                with st.status("🔍 銘柄チェック中...", expanded=True) as status:
                     pb = st.progress(0)
-                    for idx, t in enumerate(target_tickers):
-                        pb.progress((idx+1)/len(target_tickers))
+                    for idx, t in enumerate(all_tickers):
+                        pb.progress((idx+1)/len(all_tickers))
                         df_d = yf.download(t, period="3mo", interval="1d", progress=False)
                         if not df_d.empty:
                             if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
                             res = core.evaluate_screening_conditions(df_d, s_logic_params)
                             if res:
-                                res['コード'] = t
-                                res['銘柄名'] = TICKER_DETAILS[t][0]
+                                res['コード'] = t; res['銘柄名'] = TICKER_NAME_MAP.get(t, t)
                                 results.append(res)
                     status.update(label=f"✅ {len(results)} 銘柄発見", state="complete")
                 
                 st.session_state[f"sc_res_df_{i}"] = pd.DataFrame(results) if results else None
-                st.rerun()
+                st.rerun() # 結果を即座に表示させるために再描画
 
-            # --- 結果の表示と自動入力 (表示最適化+無限ループ防止) ---
+            # --- 3. 結果の表示と自動入力 (ボタンの外に配置) ---
             current_res = st.session_state.get(f"sc_res_df_{i}")
             if current_res is not None and not current_res.empty:
-                st.info("☑️ 銘柄をチェックすると、監視リストに反映されます。")
-                
-                # 並び順を売買代金順（降順）で固定
-                current_res = current_res.sort_values("売買代金", ascending=False)
-                
-                # 表示高さを銘柄数に合わせて自動計算（縦スクロールを防止）
-                df_height = (len(current_res) + 1) * 35 + 5 
+                st.info("💡 銘柄をチェックすると、最上部の監視リストに自動で追加されます。")
                 
                 sel_event = st.dataframe(
-                    current_res[['コード', '銘柄名', '株価', '前日比', '売買代金', 'RSI', '25MA乖離', 'ATR%']],
-                    use_container_width=True, 
-                    hide_index=True, 
-                    on_select="rerun", 
-                    selection_mode="multi-row", 
-                    key=f"df_sc_view_final_{i}",
-                    height=df_height, # 動的高さ設定
-                    column_config={
-                        "前日比": st.column_config.NumberColumn("前日比", format="%+.2f%%"),
-                        "25MA乖離": st.column_config.NumberColumn("25MA乖離", format="%+.2f%%"),
-                        "ATR%": st.column_config.NumberColumn("ATR%", format="%.2f%%"),
-                        "売買代金": st.column_config.NumberColumn("売買代金(億)", format="%.1f")
-                    }
+                    current_res[['コード', '銘柄名', '株価', '前日比', '売買代金']],
+                    use_container_width=True, hide_index=True, 
+                    on_select="rerun", selection_mode="multi-row", 
+                    key=f"df_sc_view_final_{i}"
                 )
                 
-                # 自動入力ロジック (無限ループ防止版)
+                # 自動入力ロジック
                 if sel_event.selection.rows:
                     selected_codes = current_res.iloc[sel_event.selection.rows]['コード'].tolist()
                     current_str = st.session_state.get('target_tickers', "")
                     current_list = [t.strip() for t in current_str.split(",") if t.strip()]
-                    new_only = [c for c in selected_codes if c not in current_list]
 
-                    if new_only:
-                        new_combined = sorted(list(set(current_list + new_only)))
-                        st.session_state['target_tickers'] = ", ".join(new_combined)
-                        st.toast(f"監視リストに {len(new_only)} 銘柄を反映しました")
+                    new_combined = sorted(list(set(current_list + selected_codes)))
+                    new_tickers_str = ", ".join(new_combined)
+
+                    if new_tickers_str != st.session_state.get('target_tickers', ""):
+                        st.session_state['target_tickers'] = new_tickers_str
+                        st.toast(f"監視リストに {len(selected_codes)} 銘柄を反映しました")
                         st.rerun()
 
 # --- タブ3: バックテスト (6.3の全分析機能を復元) ---
