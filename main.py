@@ -187,23 +187,32 @@ with tab_top:
     
     # 判定開始ボタン
     if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
+        # 【修正】current_preset をセッション状態から取得し定義
+        current_preset = st.session_state['preset'] 
         p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
         p = st.session_state['sc_params'][p_idx]
         
-        # パラメータのマッピング (12項目に拡張)
+        # 【修正】パラメータのマッピング (KeyError防止のため、sc_paramsに存在する項目のみに修正)
         s_logic_params = {
-            'c_p': p['c_p'], 'p_range': p['p_rng'], 'c_v': p['c_v'], 'v_min': p['v_min'], 
-            'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 
-            'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'], 'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'], # 追加
-            'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 'c_rci': p['c_rci'], 'rci_range': p['rci_rng'],
-            'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'], 'c_vol': p['c_vol'], 'vol_min': p['vol_min'], 
-            'c_vup': p['c_vup'], 'vup_min': p['vup_min'], 'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'],
-            'c_bb': p['c_bb'], 'bb_range': p['bb_rng'] # 追加
+            'c_gain': p.get('c_gain'), 'gain_range': p.get('gain_rng'),
+            'c_p': p.get('c_p'), 'p_range': p.get('p_rng'), 
+            'c_v': p.get('c_v'), 'v_min': p.get('v_min'), 
+            'c_atrp': p.get('c_atrp'), 'atrp_range': p.get('atrp_rng'), 
+            'c_ma': p.get('c_ma'), 'ma_opt': p.get('ma_opt'), 
+            'c_ema': p.get('c_ema'), 'ema_opt': p.get('ema_opt'),
+            'c_adx': p.get('c_adx'), 'adx_range': p.get('adx_rng'), 
+            'c_rci': p.get('c_rci'), 'rci_range': p.get('rci_rng'),
+            'c_rsi': p.get('c_rsi'), 'rsi_range': p.get('rsi_rng'),
+            'c_vup': p.get('c_vup'), 'vup_min': p.get('vup_min'), 
+            'c_ma25': p.get('c_ma25'), 'ma25_range': p.get('ma25_rng'),
+            'c_bb': p.get('c_bb'), 'bb_range': p.get('bb_rng')
         }
         
-        all_tickers = list(TICKER_NAME_MAP.keys())
+        # 【修正】TICKER_NAME_MAP を 正しい定数名 TICKER_DETAILS に変更
+        all_tickers = list(TICKER_DETAILS.keys())
         ot_results = []
         
+        # 【修正】current_preset を使用してステータスを表示
         with st.status(f"🔍 {current_preset} 戦略で全銘柄をフル分析中...", expanded=True) as status:
             pb_ot = st.progress(0)
             for idx, t in enumerate(all_tickers):
@@ -221,7 +230,9 @@ with tab_top:
                         if trades:
                             score_data = core.get_one_touch_score(trades)
                             ot_results.append({
-                                'コード': t, '銘柄名': TICKER_NAME_MAP.get(t, t),
+                                'コード': t, 
+                                # 【修正】TICKER_DETAILS から銘柄名を取得
+                                '銘柄名': TICKER_DETAILS.get(t, [t])[0],
                                 '勝率': score_data['win_rate'], 'PF': score_data['pf'], 
                                 '期待値': score_data['ev'], '総合スコア': score_data['score']
                             })
