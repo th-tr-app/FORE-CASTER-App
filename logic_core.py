@@ -26,10 +26,12 @@ def get_trade_pattern(row, gap_pct):
     elif (gap_pct >= 0.003) and (row['Close'] > row['EMA5']): return "B：押目上昇"
     return "E：他タイプ"
 
-# --- 2. スクリーニング・エンジン (日次データ用：14項目対応版) ---
+# --- 2. スクリーニング・エンジン (日次データ用：12項目対応版) ---
+
 def evaluate_screening_conditions(df, params):
     """
-    1銘柄の日次データに対して、業種・値上がり率を含む全条件に合致するか判定する
+    1銘柄の日次データに対して、12項目の条件に合致するか判定する
+   
     """
     if df.empty or len(df) < 30: return None
     if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
@@ -38,9 +40,6 @@ def evaluate_screening_conditions(df, params):
     p = float(df['Close'].iloc[-1])
     v = float(df['Volume'].iloc[-1])
     prev_p = float(df['Close'].iloc[-2])
-    
-    # 【新規】前日値上がり率の算出
-    day_gain = ((p - prev_p) / prev_p) * 100
     
     # 指標算出
     ma5 = df['Close'].rolling(5).mean(); ma10 = df['Close'].rolling(10).mean(); ma25 = df['Close'].rolling(25).mean()
@@ -55,19 +54,19 @@ def evaluate_screening_conditions(df, params):
     vup_rate = v / df['Volume'].rolling(5).mean().iloc[-2] if df['Volume'].rolling(5).mean().iloc[-2] > 0 else 1.0
     
     # ボリンジャーバンド (25日, 2σ)
+    bb = BollingerBands(df['Close'], 25, 2)
     std = df['Close'].rolling(25).std().iloc[-1]
     bb_sigma = (p - ma25.iloc[-1]) / std if std > 0 else 0
 
     # 条件判定フラグ
     match = True
 
-    # --- A. 基本・前日比判定 ---
-    if params.get('c_gain') and not (params['gain_range'][0] <= day_gain <= params['gain_range'][1]): match = False
+    # 1-3. 基本・ボラ
     if params.get('c_p') and not (params['p_range'][0] <= p <= params['p_range'][1]): match = False
     if params.get('c_v') and val_total < params['v_min']: match = False
     if params.get('c_atrp') and not (params['atrp_range'][0] <= atrp <= params['atrp_range'][1]): match = False
 
-    # --- B. 移動平均・EMAオプション判定 ---
+    # 4. 移動平均オプション判定
     if params.get('c_ma'):
         opt = params['ma_opt']
         if opt == "最強：上昇トレンド":
@@ -80,6 +79,7 @@ def evaluate_screening_conditions(df, params):
         elif opt == "リバウンド：短期MA上抜け":
             if not (p > ma5.iloc[-1] and prev_p <= ma5.iloc[-2]): match = False
 
+    # 5. EMAオプション判定
     if params.get('c_ema'):
         opt = params['ema_opt']
         if opt == "強気：EMAの上で価格維持":
@@ -89,12 +89,12 @@ def evaluate_screening_conditions(df, params):
         elif opt == "レンジ：EMAを上下にまたぐ":
             if not (min(p, prev_p) < ema9.iloc[-1] < max(p, prev_p)): match = False
 
-    # --- C. トレンド・オシレーター判定 ---
+    # 6-8. トレンド・オシレーター
     if params.get('c_adx') and not (params['adx_range'][0] <= adx <= params['adx_range'][1]): match = False
     if params.get('c_rci') and not (params['rci_range'][0] <= rci <= params['rci_range'][1]): match = False
     if params.get('c_rsi') and not (params['rsi_range'][0] <= rsi <= params['rsi_range'][1]): match = False
 
-    # --- D. 出来高・乖離・BB判定 ---
+    # 9-12. 出来高・乖離・BB
     if params.get('c_vol') and (v / 10000) < params['vol_min']: match = False
     if params.get('c_vup') and vup_rate < params['vup_min']: match = False
     if params.get('c_ma25') and not (params['ma25_range'][0] <= ma25_dev <= params['ma25_range'][1]): match = False
@@ -103,15 +103,13 @@ def evaluate_screening_conditions(df, params):
     if match:
         return {
             "株価": int(p),
-            "前日比": day_gain,
+            "前日比": ((p - prev_p) / prev_p) * 100,
             "売買代金": val_total,
             "出来高": int(v),
-            "RSI": round(rsi, 1),           # 追加
-            "25MA乖離": round(ma25_dev, 2),  # 追加
-            "ATR%": round(atrp, 2)          # 追加
+            "ATR%": atrp
         }
     return None
-    
+
 # --- 3. バックテスト・エンジン (5分足データ用) ---
 # (fetch_daily_stats_maps 以降のコードは変更不要のため、そのまま維持してください)
 
@@ -229,73 +227,4 @@ def fetch_market_info(market_indices):
                 data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
         except: data[name] = {"val": None, "pct": None}
     return data
-
-# --- 5. AI予測 ---
-
-def analyze_market_environment():
-    """
-    主要指数から今日の相場環境を診断し、戦略を提案する
-    """
-    indices = {
-        "N225": "^N225",   # 日経平均
-        "VIX": "^VIX",     # 恐怖指数
-        "DJI": "^DJI",     # NYダウ
-        "SOX": "^SOX",     # 半導体指数
-        "WTI": "CL=F",     # 原油先物
-        "CME": "NIY=F"     # 日経先物(CME)
-    }
-    
-    data = {}
-    for k, ticker in indices.items():
-        try:
-            df = yf.download(ticker, period="5d", interval="1d", progress=False)
-            if not df.empty:
-                data[k] = df
-        except:
-            continue
-
-    # --- 判定用変数の算出 ---
-    res = {"comment": "", "strategy": 0, "alert_level": "正常", "tips": []}
-    
-    # 1. 日経平均の乖離率と警戒レベル
-    if "N225" in data:
-        n225_close = data["N225"]['Close'].iloc[-1]
-        n225_ma25 = data["N225"]['Close'].rolling(25).mean().iloc[-1]
-        dev_rate = ((n225_close - n225_ma25) / n225_ma25) * 100
-        
-        if dev_rate > 5:
-            res["alert_level"] = "⚠️ 高値警戒（過熱）"
-            res["comment"] += f"日経平均が25日線から{dev_rate:.1f}%乖離しており、過熱感があります。利益確定を検討してください。 "
-        elif dev_rate < -5:
-            res["alert_level"] = "📢 底打ち警戒（売られすぎ）"
-            res["comment"] += f"25日線から{dev_rate:.1f}%乖離し売られすぎています。リバウンド狙いの好機かもしれません。 "
-    
-    # 2. VIXによる戦略決定
-    vix = data["VIX"]['Close'].iloc[-1] if "VIX" in data else 20
-    if vix > 25:
-        res["strategy"] = 1 # ディフェンシブ
-        res["comment"] += "VIX指数が高騰しており、市場は不安定です。守備重視の『ディフェンシブ』戦略が推奨されます。 "
-    elif 15 <= vix <= 25:
-        res["strategy"] = 2 # 横ばい
-    else:
-        res["strategy"] = 0 # 通常
-
-    # 3. CME先物から予測
-    if "CME" in data and "N225" in data:
-        cme_close = data["CME"]['Close'].iloc[-1]
-        n225_close = data["N225"]['Close'].iloc[-1]
-        diff = cme_close - n225_close
-        move = "ギャップアップ" if diff > 100 else "ギャップダウン" if diff < -100 else "小幅な動き"
-        res["comment"] += f"CME先物は前日比{diff:+.0f}円となっており、今日は{move}での開始が予想されます。 "
-
-    # 4. セクターヒント
-    if "SOX" in data:
-        sox_gain = ((data["SOX"]['Close'].iloc[-1] / data["SOX"]['Close'].iloc[-2]) - 1) * 100
-        if sox_gain > 1.5: res["tips"].append("🚀 SOX指数が好調です。業種『AI・半導体』に強い追い風が期待できます。")
-    
-    if "WTI" in data:
-        wti_gain = ((data["WTI"]['Close'].iloc[-1] / data["WTI"]['Close'].iloc[-2]) - 1) * 100
-        if wti_gain > 2.0: res["tips"].append("🛢️ 原油価格が上昇。業種『石油』セクターの動向に注目です。")
-
-    return res
     
