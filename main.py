@@ -389,19 +389,33 @@ with tab_screen:
                     'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'], 'c_bb': p['c_bb'], 'bb_range': p['bb_rng']
                 }
 
+# main.py の「スクリーニング実行」ループ部分
+
                 results = []
                 with st.status(f"🔍 {scan_label} をスキャン中...", expanded=True) as status:
                     pb = st.progress(0)
                     for idx, t in enumerate(target_tickers):
                         pb.progress((idx+1)/len(target_tickers))
+                        
                         df_d = yf.download(t, period="3mo", interval="1d", progress=False)
+                        
                         if not df_d.empty:
-                            if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
-                            res = core.evaluate_screening_conditions(df_d, s_logic_params)
-                            if res:
-                                res['コード'] = t
-                                res['銘柄名'] = TICKER_DETAILS[t][0]
-                                results.append(res)
+                            # 1. カラムの平坦化（MultiIndex対策）
+                            if isinstance(df_d.columns, pd.MultiIndex): 
+                                df_d.columns = df_d.columns.get_level_values(0)
+                            
+                            # 2. 【修正】17時台の空行(NaN)を削除
+                            # これにより、データの入っていない「今日」の行を捨て、確定済みの最新日を参照します
+                            df_d = df_d.dropna(subset=['Close', 'Volume'])
+                            
+                            # 3. 【修正】削除後にデータが残っている場合のみ判定へ進む
+                            if not df_d.empty:
+                                res = core.evaluate_screening_conditions(df_d, s_logic_params)
+                                if res:
+                                    res['コード'] = t
+                                    res['銘柄名'] = TICKER_DETAILS[t][0]
+                                    results.append(res)
+
                     status.update(label=f"✅ {len(results)} 銘柄発見", state="complete")
                 
                 st.session_state[f"sc_res_df_{i}"] = pd.DataFrame(results) if results else None
