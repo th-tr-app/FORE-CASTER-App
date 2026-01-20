@@ -282,30 +282,43 @@ def analyze_market_environment():
         if dji_pct > 0.5: res["comment"] += "米国株の上昇が日本市場の支えとなっています。 "
         elif dji_pct < -0.5: res["comment"] += "米国株の軟調さが重荷となる可能性があります。 "
 
-    # 3. Gold（金先物）：リスク回避ヒント
-    if "GOLD" in data:
-        gold_now = float(data["GOLD"]['Close'].values[-1])
-        gold_prev = float(data["GOLD"]['Close'].values[-2])
-        gold_pct = ((gold_now / gold_prev) - 1) * 100
-        # しきい値を1.0%に緩和
-        if gold_pct > 1.0:
-            res["tips"].append(f"金先物が上昇中({gold_pct:+.1f}%)。安全資産への関心が高まっています。業種『8:金属』セクターに注目。")
-            if res["strategy"] == 0: res["strategy"] = 1
-
-    # 4. 為替：輸出・内需ヒント（しきい値を0.3%に緩和）
+    # 3. 為替（ドル円）：輸出・内需ヒント
     if "USDJPY" in data:
-        jpy_now = float(data["USDJPY"]['Close'].values[-1])
-        jpy_prev = float(data["USDJPY"]['Close'].values[-2])
-        jpy_change = ((jpy_now / jpy_prev) - 1) * 100
-        if jpy_change > 0.3:
-            res["tips"].append(f"円安進行({jpy_change:+.2f}%)。輸出関連の『11:輸送』『10:電機』に追い風。")
-        elif jpy_change < -0.3:
-            res["tips"].append(f"円高推移({jpy_change:+.2f}%)。為替影響の少ない『2:水産・食品』『14:金融』に注目。")
+        df_jpy = data["USDJPY"]
+        # .values.ravel()[-1] を使うことで、多重階層データでも確実に最後の数値1つを取得します
+        try:
+            jpy_now = float(df_jpy['Close'].values.ravel()[-1])
+            jpy_prev = float(df_jpy['Close'].values.ravel()[-2])
+            jpy_change = ((jpy_now / jpy_prev) - 1) * 100
+            
+            if jpy_change > 0.3:
+                res["tips"].append(f"円安進行({jpy_change:+.2f}%)。輸出関連の『11:輸送』『10:電機』に追い風。")
+            elif jpy_change < -0.3:
+                res["tips"].append(f"円高推移({jpy_change:+.2f}%)。為替影響の少ない『2:水産・食品』『14:金融』に注目。")
+        except:
+            pass # データに不備がある場合はスキップ
 
-    # 5. SOX：半導体ヒント（しきい値を1.0%に緩和）
+    # 4. Gold（金先物）
+    if "GOLD" in data:
+        try:
+            gold_now = float(data["GOLD"]['Close'].values.ravel()[-1])
+            gold_prev = float(data["GOLD"]['Close'].values.ravel()[-2])
+            gold_pct = ((gold_now / gold_prev) - 1) * 100
+            if gold_pct > 1.0:
+                res["tips"].append(f"金先物が上昇中({gold_pct:+.1f}%)。安全資産への関心が高まっています。業種『8:金属』セクターに注目。")
+                if res["strategy"] == 0: res["strategy"] = 1
+        except:
+            pass
+
+    # 5. SOX：半導体ヒント
     if "SOX" in data:
-        sox_gain = ((float(data["SOX"]['Close'].values[-1]) / float(data["SOX"]['Close'].values[-2])) - 1) * 100
-        if sox_gain > 1.0: 
-            res["tips"].append(f"SOX指数好調({sox_gain:+.1f}%)。業種『1:AI・半導体』セクターへの波及が期待されます。")
+        try:
+            sox_now = float(data["SOX"]['Close'].values.ravel()[-1])
+            sox_prev = float(data["SOX"]['Close'].values.ravel()[-2])
+            sox_gain = ((sox_now / sox_prev) - 1) * 100
+            if sox_gain > 1.0: 
+                res["tips"].append(f"SOX指数好調({sox_gain:+.1f}%)。業種『1:AI・半導体』セクターへの波及が期待されます。")
+        except:
+            pass
 
     return res
