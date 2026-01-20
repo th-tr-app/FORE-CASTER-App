@@ -146,23 +146,35 @@ tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 �
 # --- タブ1: ワンタッチ (トップ5リスト表示版) ---
 
 with tab_top:
-    # main.py の「市場指標ウォッチ」セクション
 
     # 1. 日本時間 (JST) の定義
     JST = timezone(timedelta(hours=9))
 
-    # 2. 最後に更新した時刻の初期化（日本時間を指定）
+    # 2. ボタンを「左揃え」にするためのカスタムCSS
+    # 特定のボタン（stButton）のスタイルを上書きします
+    st.markdown("""
+        <style>
+        /* ボタン内のテキストを左揃えにする設定 */
+        div.stButton > button {
+            justify-content: flex-start !important; /* 左揃え */
+            text-align: left !important;            /* 左揃え */
+            padding-left: 18px !important;         /* 左側の余白調整 */
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+    # 3. 更新時刻の初期化（日本時間）
     if 'last_updated' not in st.session_state:
         st.session_state['last_updated'] = datetime.now(JST).strftime("%Y/%m/%d %H:%M")
 
-    with st.expander("🕒 指標ウォッチ (タップで開閉)", expanded=True):
+    with st.expander("🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
     
-        # 時刻表示付きボタン
-        btn_label = f"🔄 リアルタイム更新　 ({st.session_state['last_updated']})"
+        # 時刻表示付きボタンのラベル
+        btn_label = f"🔄 リアルタイム更新 ({st.session_state['last_updated']})"
     
-        if st.button(btn_label, key="refresh_market_all", use_container_width=True):
+        # type="primary" を指定することで、テーマに応じたアクセントカラー（赤や青）がつきます
+        if st.button(btn_label, key="refresh_market_all", use_container_width=True, type="primary"):
             with st.spinner("最新データを取得中..."):
-                # 更新時も日本時間を取得
                 st.session_state['last_updated'] = datetime.now(JST).strftime("%Y/%m/%d %H:%M")
                 st.cache_data.clear() 
                 st.rerun()
