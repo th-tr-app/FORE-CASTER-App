@@ -154,7 +154,7 @@ with tab_top:
     if 'last_updated' not in st.session_state:
         st.session_state['last_updated'] = datetime.now(JST).strftime("%Y/%m/%d %H:%M")
 
-    with st.expander("🕒 市場指標ウォッチ (タップで開閉)", expanded=False):
+    with st.expander("🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
     
         # 時刻表示付きボタン
         btn_label = f"🔄 更新　({st.session_state['last_updated']})"
@@ -202,14 +202,14 @@ with tab_top:
         """
         st.markdown(diag_html, unsafe_allow_html=True)
     
-    # 判定開始ボタン
+# 判定開始ボタン
     if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
-        # 【修正】current_preset をセッション状態から取得し定義
-        current_preset = st.session_state['preset'] 
+        # 1. セッション状態から現在選択されているプリセットを取得
+        current_preset = st.session_state.get('preset', 'NORMAL') 
         p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
         p = st.session_state['sc_params'][p_idx]
         
-        # 【修正】パラメータのマッピング (KeyError防止のため、sc_paramsに存在する項目のみに修正)
+        # 2. パラメータのマッピング（KeyError防止策を適用）
         s_logic_params = {
             'c_gain': p.get('c_gain'), 'gain_range': p.get('gain_rng'),
             'c_p': p.get('c_p'), 'p_range': p.get('p_rng'), 
@@ -225,33 +225,43 @@ with tab_top:
             'c_bb': p.get('c_bb'), 'bb_range': p.get('bb_rng')
         }
         
-        # 【修正】TICKER_NAME_MAP を 正しい定数名 TICKER_DETAILS に変更
+        # 3. 定数名 TICKER_DETAILS を使用して全銘柄リストを作成
         all_tickers = list(TICKER_DETAILS.keys())
         ot_results = []
         
-        # 【修正】current_preset を使用してステータスを表示
+        # 4. 分析実行（ステータス表示付き）
         with st.status(f"🔍 {current_preset} 戦略で全銘柄をフル分析中...", expanded=True) as status:
             pb_ot = st.progress(0)
             for idx, t in enumerate(all_tickers):
-                pb_ot.progress((idx+1)/len(all_tickers))
-                status.update(label=f"分析中 ({idx+1}/{len(all_tickers)}): {t}")
+                pb_ot.progress((idx + 1) / len(all_tickers))
+                status.update(label=f"分析中 ({idx + 1}/{len(all_tickers)}): {t}")
                 
+                # スクリーニング条件の判定
                 df_d = yf.download(t, period="3mo", interval="1d", progress=False)
                 if not df_d.empty and core.evaluate_screening_conditions(df_d, s_logic_params):
-                    end_date = datetime.now(); start_date = end_date - timedelta(days=days_back)
+                    end_date = datetime.now()
+                    start_date = end_date - timedelta(days=days_back)
                     df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
+                    
                     if not df_5m.empty:
-                        if isinstance(df_5m.columns, pd.MultiIndex): df_5m.columns = df_5m.columns.get_level_values(0)
+                        if isinstance(df_5m.columns, pd.MultiIndex): 
+                            df_5m.columns = df_5m.columns.get_level_values(0)
+                        
                         p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
+                        # params は別途定義されているシミュレーション用パラメータ
                         trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
+                        
                         if trades:
+                            # 【解決】AIの strategy は渡さず、trades のみでスコアリングを実行
                             score_data = core.get_one_touch_score(trades)
+                            
                             ot_results.append({
                                 'コード': t, 
-                                # 【修正】TICKER_DETAILS から銘柄名を取得
                                 '銘柄名': TICKER_DETAILS.get(t, [t])[0],
-                                '勝率': score_data['win_rate'], 'PF': score_data['pf'], 
-                                '期待値': score_data['ev'], '総合スコア': score_data['score']
+                                '勝率': score_data['win_rate'], 
+                                'PF': score_data['pf'], 
+                                '期待値': score_data['ev'], 
+                                '総合スコア': score_data['score']
                             })
             status.update(label="✅ 分析完了！", state="complete")
 
