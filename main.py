@@ -150,19 +150,6 @@ with tab_top:
     # 1. 日本時間 (JST) の定義
     JST = timezone(timedelta(hours=9))
 
-    # 2. ボタンを「左揃え」にするためのカスタムCSS
-    # 特定のボタン（stButton）のスタイルを上書きします
-    st.markdown("""
-        <style>
-        /* ボタン内のテキストを左揃えにする設定 */
-        div.stButton > button {
-            justify-content: flex-start !important; /* 左揃え */
-            text-align: left !important;            /* 左揃え */
-            padding-left: 18px !important;         /* 左側の余白調整 */
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
     # 3. 更新時刻の初期化（日本時間）
     if 'last_updated' not in st.session_state:
         st.session_state['last_updated'] = datetime.now(JST).strftime("%Y/%m/%d %H:%M")
