@@ -189,7 +189,7 @@ with tab_top:
         tips_str = "".join(diag["tips"]) if diag["tips"] else "特になし"
         
         diag_html = f"""
-        <div style="background-color: #121826; border-radius: 6px; padding: 18px; margin-top: 5px; margin-bottom: 15px;">
+        <div style="background-color: #121826; border-radius: 6px; padding: 18px; margin-top: 15px; margin-bottom: 15px;">
             <h4 style="margin-top: 0; margin-bottom: -10px; color: #3498db; font-size: 1.0em;">📀 今日のマーケットAI診断</h4>
             <div style="margin-bottom: 5px; font-size: 0.8em;"><b>バランス：</b> {diag['alert_level']}</div>
             <div style="margin-bottom: 5px; font-size: 0.8em;"><b>推奨戦略：</b> {rec_strat}</div>
