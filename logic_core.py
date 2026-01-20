@@ -129,7 +129,6 @@ def evaluate_screening_conditions(df, params):
         return None
 
 # --- 3. バックテスト・エンジン (5分足データ用) ---
-# (fetch_daily_stats_maps 以降のコードは変更不要のため、そのまま維持してください)
 
 def fetch_daily_stats_maps(ticker, start):
     """前日終値・当日始値・ATRのマップ作成"""
@@ -137,10 +136,23 @@ def fetch_daily_stats_maps(ticker, start):
     try:
         d_start = start - timedelta(days=60)
         df = yf.download(ticker, start=d_start, end=datetime.now(), interval="1d", progress=False, multi_level_index=False, auto_adjust=False)
-        if df.empty: return p_map, o_map, a_map
-        if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-        df.index = df.index.tz_localize('UTC').tz_convert('Asia/Tokyo') if df.index.tzinfo is None else df.index.tz_convert('Asia/Tokyo')
         
+        if df.empty: return p_map, o_map, a_map
+        
+        # 1. カラムの平坦化（MultiIndex対策）
+        if isinstance(df.columns, pd.MultiIndex): 
+            df.columns = df.columns.get_level_values(0)
+
+        # 2. 【重要】夜間に発生する空データ（NaN）を削除
+        # これを入れないと、最新日がNaNになり、シミュレーションの計算がすべて0になります
+        df = df.dropna(subset=['Close', 'Open', 'High', 'Low'])
+        
+        # 削除後にデータが残っているか再チェック
+        if df.empty: return p_map, o_map, a_map
+
+        # 3. タイムゾーン変換
+        df.index = df.index.tz_localize('UTC').tz_convert('Asia/Tokyo') if df.index.tzinfo is None else df.index.tz_convert('Asia/Tokyo')
+                
         tr = pd.concat([df['High']-df['Low'], abs(df['High']-df['Close'].shift(1)), abs(df['Low']-df['Close'].shift(1))], axis=1).max(axis=1)
         atr_prev = tr.rolling(window=14).mean().shift(1)
         p_map = {d.strftime('%Y-%m-%d'): c for d, c in zip(df.index, df['Close'].shift(1)) if pd.notna(c)}
