@@ -149,12 +149,12 @@ tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 �
 with tab_top:
     m_data = core.fetch_market_info(MARKET_INDICES)
     
-    # 1. AI市場環境診断の結果を取得
+    # AI診断の実行
     diag = core.analyze_market_environment()
     strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
     rec_strat = strat_names[diag["strategy"]]
     
-    # 2. 「市場指標ウォッチ」ボックスの中にAI診断も入れる
+    # 市場指標ウォッチの開閉ボックス
     with st.expander("🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
         # A. 指標カードの表示
         cards_html = '<div class="metric-grid">'
@@ -166,26 +166,30 @@ with tab_top:
                 cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
         
-        st.divider() # 区切り線
+        st.divider()
 
-        # B. カスタムHTML診断表示 (タグが見える問題を解消し、デザインを統一)
+        # B. 今日のマーケットAI診断 (注目セクターも統合し、下部余白を確保)
         tips_str = "".join(diag["tips"]) if diag["tips"] else "特になし"
         
+        # すべてを一つのHTMLブロックにまとめ、最後に margin-bottom を追加
         diag_html = f"""
-        <div style="background-color: #1e2a3a; padding: 18px; border-radius: 4px; border-left: 5px solid #3498db;">
-            <h4 style="margin-top: 0; margin-bottom: 12px; color: #3498db; font-size: 1.1em;">📝 今日のマーケットAI診断</h4>
-            <div style="margin-bottom: 5px;"><b>バランス</b> {diag['alert_level']}</div>
-            <div style="margin-bottom: 5px;"><b>推奨戦略</b> {rec_strat}</div>
-            <div style="margin-bottom: 5px;"><b>寄付予測</b> {diag['opening_forecast']}</div>
-            <div style="margin-bottom: 5px;"><b>相場展望</b> {diag['phase_comment']}</div>
-            <div style="margin-bottom: 15px;"><b>米国株の影響</b> {diag['us_impact']}</div>
+        <div style="background-color: #1e2a3a; padding: 18px; border-radius: 4px; border-left: 5px solid #3498db; margin-bottom: 15px;">
+            <h4 style="margin-top: 0; margin-bottom: 12px; color: #3498db; font-size: 1.1em;">今日のマーケットAI診断</h4>
+            <div style="margin-bottom: 5px; font-size: 1.0em;"><b>バランス</b> {diag['alert_level']}</div>
+            <div style="margin-bottom: 5px; font-size: 1.0em;"><b>推奨戦略</b> {rec_strat}</div>
+            <div style="margin-bottom: 5px; font-size: 1.0em;"><b>寄付予測</b> {diag['opening_forecast']}</div>
+            <div style="margin-bottom: 5px; font-size: 1.0em;"><b>相場展望</b> {diag['phase_comment']}</div>
+            <div style="margin-bottom: 15px; font-size: 1.0em;"><b>米国株の影響</b> {diag['us_impact']}</div>
             
             <h4 style="margin-top: 15px; margin-bottom: 10px; color: #3498db; font-size: 1.1em;">指標から推測できる注目セクター</h4>
             <div style="font-size: 1.0em; color: #ffffff;">{tips_str}</div>
         </div>
+        <div style="height: 10px;"></div>
         """
+        # 全体を確実にHTMLとして出力
         st.markdown(diag_html, unsafe_allow_html=True)
 
+    # 判定ボタンへ続く...
     # 以降、判定ボタンなどの処理...
 
     # 判定開始ボタン
