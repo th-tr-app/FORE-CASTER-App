@@ -255,9 +255,9 @@ if not df_5m.empty:
         # シミュレーション実行
         trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
  
-                # スクリーニング条件の判定
-                df_d = yf.download(t, period="3mo", interval="1d", progress=False)
-                if not df_d.empty and core.evaluate_screening_conditions(df_d, s_logic_params):
+                    # スクリーニング条件の判定
+                    df_d = yf.download(t, period="3mo", interval="1d", progress=False)
+                    if not df_d.empty and core.evaluate_screening_conditions(df_d, s_logic_params):
                     end_date = datetime.now()
                     start_date = end_date - timedelta(days=days_back)
                     df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
