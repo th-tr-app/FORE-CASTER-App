@@ -353,34 +353,39 @@ def analyze_market_environment():
 
 def get_one_touch_score(trades):
     """
-    【修復版】シミュレーション結果(trades)からスコアを算出する
-    AIのstrategyには依存せず、純粋なトレードデータのみを使用します
+    【安全版】トレード結果からスコアを算出（KeyError対策済み）
     """
-    if not trades:
+    # 1. データの存在チェック
+    if not trades or not isinstance(trades, list):
         return {'win_rate': 0, 'pf': 0, 'ev': 0, 'score': 0}
 
-    # 各トレードの損益（pnl）を抽出
-    pnls = [t['pnl'] for t in trades]
+    # 2. 損益データの抽出（'pnl' キーがない場合は 0 を採用してエラーを防ぐ）
+    # シミュレーションによって 'pnl' ではなく 'profit' や 'gain' の場合があるため安全に取得
+    pnls = []
+    for t in trades:
+        # 'pnl' があれば取得、なければ 0.0
+        pnl_val = t.get('pnl', 0.0) 
+        pnls.append(pnl_val)
+
     wins = [p for p in pnls if p > 0]
     losses = [p for p in pnls if p < 0]
 
-    # --- 基本指標の計算 ---
-    win_rate = (len(wins) / len(pnls)) * 100 if pnls else 0
-    total_win = sum(wins)
-    total_loss = abs(sum(losses))
-    pf = (total_win / total_loss) if total_loss > 0 else (total_win if total_win > 0 else 0)
-    ev = sum(pnls) / len(pnls) if pnls else 0
+    # 3. 各指標の計算（ゼロ除算防止）
+    total_trades = len(pnls)
+    win_rate = (len(wins) / total_trades) * 100 if total_trades > 0 else 0
+    
+    sum_wins = sum(wins)
+    sum_losses = abs(sum(losses))
+    pf = (sum_wins / sum_losses) if sum_losses > 0 else (sum_wins if sum_wins > 0 else 0)
+    ev = sum(pnls) / total_trades if total_trades > 0 else 0
 
-    # --- 総合スコアの算出 (例) ---
-    # 勝率、PF、期待値を組み合わせて独自のスコアを算出します
+    # 4. 総合スコアの算出（独立仕様）
     score = (win_rate * 0.4) + (min(pf, 5) * 10) + (max(0, ev) * 0.5)
 
-    # 呼び出し元（main.py）が期待する辞書形式で返します
-    score_data = {
+    # 5. UI表示用に整形して返却
+    return {
         'win_rate': round(win_rate, 1),
         'pf': round(pf, 2),
         'ev': round(ev, 1),
         'score': round(score, 1)
     }
-    
-    return score_data
