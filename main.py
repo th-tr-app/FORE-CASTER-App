@@ -145,18 +145,25 @@ tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 �
 
 # --- タブ1: ワンタッチ (トップ5リスト表示版) ---
 
-# main.py タブ1: ワンタッチ の中身
-# main.py タブ1: ワンタッチ の修正
-
 with tab_top:
+    # 1. 最後に更新した時刻の初期化（セッション状態の最初の方に追記してもOKです）
+    if 'last_updated' not in st.session_state:
+        st.session_state['last_updated'] = datetime.now().strftime("%Y/%m/%d %H:%M")
+
     # 市場指標ウォッチの開閉ボックス
-    with st.expander("🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
-        
-        # --- 1. リアルタイム更新ボタンの設置 ---
-        # ボタンを押すとスクリプトが再実行され、最新のデータが取得されます
-        if st.button("🔄 リアルタイム更新", key="refresh_market_all", use_container_width=True):
-            st.cache_data.clear() # キャッシュを完全にクリアして再取得させる
-            st.rerun()
+    with st.expander("🕒 指標ウォッチ (タップで開閉)", expanded=True):
+    
+        # --- 2. 時刻表示付きリアルタイム更新ボタン ---
+        # ラベルにセッション状態の時刻を組み込みます
+        btn_label = f"🔄 リアルタイム更新　 ({st.session_state['last_updated']})"
+    
+        if st.button(btn_label, key="refresh_market_all", use_container_width=True):
+            with st.spinner("最新データを取得中..."):
+                # ボタンが押された瞬間の時刻を保存
+                st.session_state['last_updated'] = datetime.now().strftime("%Y/%m/%d %H:%M")
+                # キャッシュをクリアして再実行
+                st.cache_data.clear() 
+                st.rerun()
         
         # --- 2. データの取得とAI診断の実行 ---
         # fetch_market_info と analyze_market_environment が最新データを読み込みます
