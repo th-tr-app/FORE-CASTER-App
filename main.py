@@ -146,22 +146,24 @@ tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 �
 # --- タブ1: ワンタッチ (トップ5リスト表示版) ---
 
 with tab_top:
-    # 1. 最後に更新した時刻の初期化（セッション状態の最初の方に追記してもOKです）
-    if 'last_updated' not in st.session_state:
-        st.session_state['last_updated'] = datetime.now().strftime("%Y/%m/%d %H:%M")
+    # main.py の「市場指標ウォッチ」セクション
 
-    # 市場指標ウォッチの開閉ボックス
+    # 1. 日本時間 (JST) の定義
+    JST = timezone(timedelta(hours=9))
+
+    # 2. 最後に更新した時刻の初期化（日本時間を指定）
+    if 'last_updated' not in st.session_state:
+        st.session_state['last_updated'] = datetime.now(JST).strftime("%Y/%m/%d %H:%M")
+
     with st.expander("🕒 指標ウォッチ (タップで開閉)", expanded=True):
     
-        # --- 2. 時刻表示付きリアルタイム更新ボタン ---
-        # ラベルにセッション状態の時刻を組み込みます
-        btn_label = f"🔄 リアルタイム更新　 ({st.session_state['last_updated']})"
+        # 時刻表示付きボタン
+        btn_label = f"🔄 更新　 ({st.session_state['last_updated']})"
     
         if st.button(btn_label, key="refresh_market_all", use_container_width=True):
             with st.spinner("最新データを取得中..."):
-                # ボタンが押された瞬間の時刻を保存
-                st.session_state['last_updated'] = datetime.now().strftime("%Y/%m/%d %H:%M")
-                # キャッシュをクリアして再実行
+                # 更新時も日本時間を取得
+                st.session_state['last_updated'] = datetime.now(JST).strftime("%Y/%m/%d %H:%M")
                 st.cache_data.clear() 
                 st.rerun()
         
