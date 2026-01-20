@@ -204,10 +204,10 @@ with tab_top:
     
 # 判定開始ボタン
     if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
-        # 1. 【解決：NameError】ループの外で日付を1回だけ定義する
-        # これにより、どの銘柄の分析時でも start_date が確実に存在し、エラーを防ぎます
+        # 1. 【重要】日付を「オブジェクト」として定義（文字列にしない）
+        # logic_core.py 内での計算（timedelta）に必要です
         end_date = datetime.now()
-        start_date = (end_date - timedelta(days=days_back)).strftime('%Y-%m-%d')
+        start_date_obj = end_date - timedelta(days=days_back)
         
         current_preset = st.session_state.get('preset', 'NORMAL') 
         p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
@@ -242,37 +242,40 @@ with tab_top:
                 # スクリーニング用の日足取得
                 df_d = yf.download(t, period="3mo", interval="1d", progress=False)
                 
-                # 【解決：0件問題】日足の空データ削除
                 if not df_d.empty:
                     if isinstance(df_d.columns, pd.MultiIndex): 
                         df_d.columns = df_d.columns.get_level_values(0)
+                    
+                    # 夜間・引け後の空データを削除
                     df_d = df_d.dropna(subset=['Close'])
 
                     if not df_d.empty and core.evaluate_screening_conditions(df_d, s_logic_params):
-                        # 5分足データの取得（定義済みの start_date を使用）
-                        df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
+                        # 5分足データの取得
+                        df_5m = yf.download(t, start=start_date_obj, interval="5m", progress=False, auto_adjust=False)
                         
                         if not df_5m.empty:
                             if isinstance(df_5m.columns, pd.MultiIndex): 
                                 df_5m.columns = df_5m.columns.get_level_values(0)
                             
-                            # 【解決：0件問題】夜間の空データを削除
+                            # 夜間の空データを削除
                             df_5m = df_5m.dropna(subset=['Close', 'Open', 'High', 'Low'])
                             
-                            if len(df_5m) > 10:
-                                p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
+                            if len(df_5m) > 5: # 夜間はデータが少ない場合があるため閾値を緩和
+                                p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date_obj)
                                 trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
                                 
                                 if trades:
                                     score_data = core.get_one_touch_score(trades)
-                                    ot_results.append({
-                                        'コード': t, 
-                                        '銘柄名': TICKER_DETAILS.get(t, [t])[0],
-                                        '勝率': score_data['win_rate'], 
-                                        'PF': score_data['pf'], 
-                                        '期待値': score_data['ev'], 
-                                        '総合スコア': score_data['score']
-                                    })
+                                    # スコアが0より大きい場合のみ結果に追加
+                                    if score_data['score'] > 0:
+                                        ot_results.append({
+                                            'コード': t, 
+                                            '銘柄名': TICKER_DETAILS.get(t, [t])[0],
+                                            '勝率': score_data['win_rate'], 
+                                            'PF': score_data['pf'], 
+                                            '期待値': score_data['ev'], 
+                                            '総合スコア': score_data['score']
+                                        })
 
             status.update(label="✅ 分析完了！", state="complete")
             
