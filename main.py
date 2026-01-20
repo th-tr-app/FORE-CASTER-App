@@ -166,33 +166,32 @@ with tab_top:
     strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
     rec_strat = strat_names[diag["strategy"]]
     
-# main.py の AI市場診断表示セクション
+# main.py の診断表示セクション
 
-    # 2. 推奨戦略名の定義
+    # 戦略名マッピング
     strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
     rec_strat = strat_names[diag["strategy"]]
+    
+    # 注目セクターを横並びの文字列にする
+    tips_str = "".join(diag["tips"]) if diag["tips"] else "特になし"
 
-    # 3. 表示用テキストの組み立て
-    # 注目セクターの箇条書き部分にだけ小さいフォントを適用します
-    forecast_md = f"""
-    ### AI市場診断報告
-    ---
-    **警戒レベル:** {diag['alert_level']}  
-    **推奨戦略:** 「**{rec_strat}**」が最も有効と予測されます。
-    **相場展望:** {diag['comment']}
+    # カスタムHTML構築 (青い枠を維持・テキストサイズ統一)
+    diag_html = f"""
+    <div style="background-color: #1e2a3a; padding: 18px; border-radius: 4px; border-left: 5px solid #3498db; margin-bottom: 20px;">
+        <h4 style="margin-top: 0; margin-bottom: 12px; color: #3498db; font-size: 1.1em;">今日のマーケットAI診断</h4>
+        <div style="margin-bottom: 4px;"><b>バランス</b> {diag['alert_level']}</div>
+        <div style="margin-bottom: 4px;"><b>推奨戦略</b> {rec_strat}</div>
+        <div style="margin-bottom: 4px;"><b>寄付予測</b> {diag['opening_forecast']}</div>
+        <div style="margin-bottom: 4px;"><b>相場展望</b> {diag['phase_comment']}</div>
+        <div style="margin-bottom: 15px;"><b>米国株の影響</b> {diag['us_impact']}</div>
+        
+        <h4 style="margin-bottom: 10px; color: #3498db; font-size: 1.1em;">指標から推測できる注目セクター</h4>
+        <div style="font-size: 1.0em;">{tips_str}</div>
+    </div>
     """
     
-    if diag["tips"]:
-        # ヘッダーからも絵文字を消し、少し小さめに設定
-        forecast_md += "\n\n**注目セクターへのヒント:**\n"
-        for tip in diag["tips"]:
-            # <small>タグ、または <span> でフォントサイズを 0.85倍程度に下げます
-            forecast_md += f"<div style='font-size: 0.85em; color: #cccccc; margin-bottom: 4px;'>・ {tip}</div>\n"
-            
-    # 4. 青い枠（st.info）の中に表示
-    st.info(forecast_md)
+    st.markdown(diag_html, unsafe_allow_html=True)
 
-    
     # 判定開始ボタン
     if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
         # 【修正】current_preset をセッション状態から取得し定義
