@@ -201,6 +201,16 @@ with tab_top:
         <div style="height: 10px;"></div>
         """
         st.markdown(diag_html, unsafe_allow_html=True)
+        
+        # 時刻表示付きボタン
+        btn_label = f"🔄 更新　({st.session_state['last_updated']})"
+    
+        if st.button(btn_label, key="refresh_market_all", use_container_width=True):
+            with st.spinner("最新データを取得中..."):
+                # 更新時も日本時間を取得
+                st.session_state['last_updated'] = datetime.now(JST).strftime("%Y/%m/%d %H:%M")
+                st.cache_data.clear() 
+                st.rerun()
 
     # 判定開始ボタン
     if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
