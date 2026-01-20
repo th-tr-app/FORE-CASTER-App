@@ -150,30 +150,6 @@ with tab_top:
     # 1. 日本時間 (JST) の定義
     JST = timezone(timedelta(hours=9))
 
-    # 2. ボタンの「色・左揃え・余白」を制御するカスタムCSS
-    # AI診断と同じ青色 (#3498db) を背景に指定します
-    st.markdown("""
-        <style>
-        div.stButton > button {
-            background-color: #3498db !important; /* ボタン背景を青に固定 */
-            color: #ffffff !important;            /* 文字色を白に固定 */
-            justify-content: flex-start !important; /* テキストを左揃え */
-            text-align: left !important;            /* テキストを左揃え */
-            padding-left: 18px !important;         /* 左側に余白を追加 */
-            border: none !important;               /* 枠線を消去 */
-            border-radius: 4px !important;         /* 角の丸みを調整 */
-            height: 3em !important;                /* ボタンの高さを調整 */
-            transition: 0.3s !important;           /* ホバー時のアニメーション */
-        }
-    
-        /* マウスを乗せた（ホバー）時の色調整 */
-        div.stButton > button:hover {
-            background-color: #2980b9 !important; /* 少し濃い青にして反応を出す */
-            color: #ffffff !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
     # 3. 更新時刻の初期化（日本時間）
     if 'last_updated' not in st.session_state:
         st.session_state['last_updated'] = datetime.now(JST).strftime("%Y/%m/%d %H:%M")
