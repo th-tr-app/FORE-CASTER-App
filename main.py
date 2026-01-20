@@ -158,7 +158,7 @@ with tab_top:
     with st.expander("🕒 指標ウォッチ (タップで開閉)", expanded=True):
     
         # 時刻表示付きボタン
-        btn_label = f"🔄 更新　 ({st.session_state['last_updated']})"
+        btn_label = f"🔄 リアルタイム更新　 ({st.session_state['last_updated']})"
     
         if st.button(btn_label, key="refresh_market_all", use_container_width=True):
             with st.spinner("最新データを取得中..."):
