@@ -154,7 +154,7 @@ with tab_top:
     if 'last_updated' not in st.session_state:
         st.session_state['last_updated'] = datetime.now(JST).strftime("%Y/%m/%d %H:%M")
 
-    with st.expander("🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
+    with st.expander("🕒 市場指標ウォッチ (タップで開閉)", expanded=False):
     
         # 時刻表示付きボタン
         btn_label = f"🔄 更新　({st.session_state['last_updated']})"
