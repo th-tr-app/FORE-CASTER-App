@@ -146,17 +146,28 @@ tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 �
 # --- タブ1: ワンタッチ (トップ5リスト表示版) ---
 
 # main.py タブ1: ワンタッチ の中身
+# main.py タブ1: ワンタッチ の修正
+
 with tab_top:
-    m_data = core.fetch_market_info(MARKET_INDICES)
-    
-    # AI診断の実行
-    diag = core.analyze_market_environment()
-    strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
-    rec_strat = strat_names[diag["strategy"]]
-    
     # 市場指標ウォッチの開閉ボックス
     with st.expander("🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
-        # A. 指標カードの表示
+        
+        # --- 1. リアルタイム更新ボタンの設置 ---
+        # ボタンを押すとスクリプトが再実行され、最新のデータが取得されます
+        if st.button("🔄 リアルタイム更新", key="refresh_market_all", use_container_width=True):
+            with st.spinner("最新データを取得中..."):
+                # yfinanceのキャッシュを回避し、最新情報を取得するために再実行を促します
+                st.rerun()
+
+        # --- 2. データの取得とAI診断の実行 ---
+        # fetch_market_info と analyze_market_environment が最新データを読み込みます
+        m_data = core.fetch_market_info(MARKET_INDICES)
+        diag = core.analyze_market_environment()
+        
+        strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
+        rec_strat = strat_names[diag["strategy"]]
+
+        # --- 3. 指標カードの表示 ---
         cards_html = '<div class="metric-grid">'
         for n, t in MARKET_INDICES.items():
             i = m_data.get(n, {})
@@ -165,13 +176,12 @@ with tab_top:
                 cls = "plus" if i['pct'] >= 0 else "minus"
                 cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
-
-        st.divider()
         
-        # B. 今日のマーケットAI診断 (注目セクターも統合し、下部余白を確保)
+        st.divider()
+
+        # --- 4. 今日のマーケットAI診断 (デザイン調整済み版) ---
         tips_str = "".join(diag["tips"]) if diag["tips"] else "特になし"
         
-        # すべてを一つのHTMLブロックにまとめ、最後に margin-bottom を追加
         diag_html = f"""
         <div style="background-color: #1d2d41; border-radius: 6px; padding: 18px; margin-bottom: 15px;">
             <h4 style="margin-top: 0; margin-bottom: -10px; color: #3498db; font-size: 1.0em;">📀 今日のマーケットAI診断</h4>
@@ -185,11 +195,7 @@ with tab_top:
         </div>
         <div style="height: 10px;"></div>
         """
-        # 全体を確実にHTMLとして出力
         st.markdown(diag_html, unsafe_allow_html=True)
-
-    # 判定ボタンへ続く...
-    # 以降、判定ボタンなどの処理...
 
     # 判定開始ボタン
     if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
