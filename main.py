@@ -252,7 +252,7 @@ with tab_top:
                         trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
                         
                         if trades:
-                            # 【解決】AIの strategy は渡さず、trades のみでスコアリングを実行
+                            # AIの診断(diag)とは無関係に、シミュレーション結果のみを渡します
                             score_data = core.get_one_touch_score(trades)
                             
                             ot_results.append({
@@ -263,6 +263,7 @@ with tab_top:
                                 '期待値': score_data['ev'], 
                                 '総合スコア': score_data['score']
                             })
+
             status.update(label="✅ 分析完了！", state="complete")
 
         if ot_results:
