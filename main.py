@@ -185,13 +185,11 @@ with tab_top:
                 cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
         
-        st.divider()
-
         # --- 4. 今日のマーケットAI診断 (デザイン調整済み版) ---
         tips_str = "".join(diag["tips"]) if diag["tips"] else "特になし"
         
         diag_html = f"""
-        <div style="background-color: #1d2d41; border-radius: 6px; padding: 18px; margin-bottom: 15px;">
+        <div style="background-color: #121826; border-radius: 6px; padding: 18px; margin-top: 5px; margin-bottom: 15px;">
             <h4 style="margin-top: 0; margin-bottom: -10px; color: #3498db; font-size: 1.0em;">📀 今日のマーケットAI診断</h4>
             <div style="margin-bottom: 5px; font-size: 0.8em;"><b>バランス：</b> {diag['alert_level']}</div>
             <div style="margin-bottom: 5px; font-size: 0.8em;"><b>推奨戦略：</b> {rec_strat}</div>
