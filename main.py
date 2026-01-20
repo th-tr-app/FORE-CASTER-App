@@ -155,10 +155,9 @@ with tab_top:
         # --- 1. リアルタイム更新ボタンの設置 ---
         # ボタンを押すとスクリプトが再実行され、最新のデータが取得されます
         if st.button("🔄 リアルタイム更新", key="refresh_market_all", use_container_width=True):
-            with st.spinner("最新データを取得中..."):
-                # yfinanceのキャッシュを回避し、最新情報を取得するために再実行を促します
-                st.rerun()
-
+            st.cache_data.clear() # キャッシュを完全にクリアして再取得させる
+            st.rerun()
+        
         # --- 2. データの取得とAI診断の実行 ---
         # fetch_market_info と analyze_market_environment が最新データを読み込みます
         m_data = core.fetch_market_info(MARKET_INDICES)
