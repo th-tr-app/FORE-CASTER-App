@@ -144,11 +144,19 @@ if ticker_input_val != st.session_state['target_tickers']:
 tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト", "🏆 ランキング"])
 
 # --- タブ1: ワンタッチ (トップ5リスト表示版) ---
+
+# main.py タブ1: ワンタッチ の中身
 with tab_top:
     m_data = core.fetch_market_info(MARKET_INDICES)
     
-    # 指標ウォッチ
-    with st.expander(f"🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
+    # 1. AI市場環境診断の結果を取得
+    diag = core.analyze_market_environment()
+    strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
+    rec_strat = strat_names[diag["strategy"]]
+    
+    # 2. 「市場指標ウォッチ」ボックスの中にAI診断も入れる
+    with st.expander("🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
+        # A. 指標カードの表示
         cards_html = '<div class="metric-grid">'
         for n, t in MARKET_INDICES.items():
             i = m_data.get(n, {})
@@ -157,40 +165,28 @@ with tab_top:
                 cls = "plus" if i['pct'] >= 0 else "minus"
                 cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
+        
+        st.divider() # 区切り線
 
-    # 1. AI市場環境診断を実行
-    # logic_core.py に追加した関数を呼び出します
-    diag = core.analyze_market_environment()
-    
-    # 2. 推奨戦略名の定義
-    strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
-    rec_strat = strat_names[diag["strategy"]]
-    
-# main.py の診断表示セクション
+        # B. カスタムHTML診断表示 (タグが見える問題を解消し、デザインを統一)
+        tips_str = "".join(diag["tips"]) if diag["tips"] else "特になし"
+        
+        diag_html = f"""
+        <div style="background-color: #1e2a3a; padding: 18px; border-radius: 4px; border-left: 5px solid #3498db;">
+            <h4 style="margin-top: 0; margin-bottom: 12px; color: #3498db; font-size: 1.1em;">📝 今日のマーケットAI診断</h4>
+            <div style="margin-bottom: 5px;"><b>バランス</b> {diag['alert_level']}</div>
+            <div style="margin-bottom: 5px;"><b>推奨戦略</b> {rec_strat}</div>
+            <div style="margin-bottom: 5px;"><b>寄付予測</b> {diag['opening_forecast']}</div>
+            <div style="margin-bottom: 5px;"><b>相場展望</b> {diag['phase_comment']}</div>
+            <div style="margin-bottom: 15px;"><b>米国株の影響</b> {diag['us_impact']}</div>
+            
+            <h4 style="margin-top: 15px; margin-bottom: 10px; color: #3498db; font-size: 1.1em;">指標から推測できる注目セクター</h4>
+            <div style="font-size: 1.0em; color: #ffffff;">{tips_str}</div>
+        </div>
+        """
+        st.markdown(diag_html, unsafe_allow_html=True)
 
-    # 戦略名マッピング
-    strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
-    rec_strat = strat_names[diag["strategy"]]
-    
-    # 注目セクターを横並びの文字列にする
-    tips_str = "".join(diag["tips"]) if diag["tips"] else "特になし"
-
-    # カスタムHTML構築 (青い枠を維持・テキストサイズ統一)
-    diag_html = f"""
-    <div style="background-color: #1e2a3a; padding: 18px; margin-bottom: 20px;">
-        <h4 style="margin-top: 0; margin-bottom: 8px; color: #3498db; font-size: 1.0em;">📝 今日のマーケットAI診断</h4>
-        <div style="margin-bottom: 4px; font-size: 0.8em;"><b>バランス：</b> {diag['alert_level']}</div>
-        <div style="margin-bottom: 4px; font-size: 0.8em;"><b>推奨戦略：</b> {rec_strat}</div>
-        <div style="margin-bottom: 4px; font-size: 0.8em;"><b>寄付予測：</b> {diag['opening_forecast']}</div>
-        <div style="margin-bottom: 4px; font-size: 0.8em;"><b>相場展望：</b> {diag['phase_comment']}</div>
-        <div style="margin-bottom: 15px; font-size: 0.8em;"><b>米国株の影響：</b> {diag['us_impact']}</div>
-
-        <h4 style="margin-top: 0; margin-bottom: 8px; color: #3498db; font-size: 1.0em;">指標から推測できる注目セクター</h4>
-        <div style="font-size: 0.8em;">{tips_str}</div>
-    </div>
-    """
-    
-    st.markdown(diag_html, unsafe_allow_html=True)
+    # 以降、判定ボタンなどの処理...
 
     # 判定開始ボタン
     if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
