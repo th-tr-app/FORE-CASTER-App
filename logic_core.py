@@ -349,14 +349,38 @@ def analyze_market_environment():
     res["tips"] = list(dict.fromkeys(res["tips"]))
     return res
 
+# logic_core.py の該当箇所
+
 def get_one_touch_score(trades):
     """
-    【独立仕様】AIのstrategyを引数に取らず、tradesのみで銘柄判定を行う
+    【修復版】シミュレーション結果(trades)からスコアを算出する
+    AIのstrategyには依存せず、純粋なトレードデータのみを使用します
     """
     if not trades:
-        return {"win_rate": 0, "pf": 0, "ev": 0, "score": 0}
+        return {'win_rate': 0, 'pf': 0, 'ev': 0, 'score': 0}
+
+    # 各トレードの損益（pnl）を抽出
+    pnls = [t['pnl'] for t in trades]
+    wins = [p for p in pnls if p > 0]
+    losses = [p for p in pnls if p < 0]
+
+    # --- 基本指標の計算 ---
+    win_rate = (len(wins) / len(pnls)) * 100 if pnls else 0
+    total_win = sum(wins)
+    total_loss = abs(sum(losses))
+    pf = (total_win / total_loss) if total_loss > 0 else (total_win if total_win > 0 else 0)
+    ev = sum(pnls) / len(pnls) if pnls else 0
+
+    # --- 総合スコアの算出 (例) ---
+    # 勝率、PF、期待値を組み合わせて独自のスコアを算出します
+    score = (win_rate * 0.4) + (min(pf, 5) * 10) + (max(0, ev) * 0.5)
+
+    # 呼び出し元（main.py）が期待する辞書形式で返します
+    score_data = {
+        'win_rate': round(win_rate, 1),
+        'pf': round(pf, 2),
+        'ev': round(ev, 1),
+        'score': round(score, 1)
+    }
     
-    # 銘柄判定のスコアリングロジック (現状維持)
-    # ... (既存の計算処理) ...
     return score_data
-    
