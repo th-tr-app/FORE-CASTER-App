@@ -204,7 +204,6 @@ with tab_top:
     
     # 判定開始ボタン
     if st.button("🚀 ワンタッチ判定：全自動スキャン開始", use_container_width=True):
-        with st.spinner("市場環境と銘柄を照合中..."):
         current_preset = st.session_state['preset'] 
         p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
         p = st.session_state['sc_params'][p_idx]
