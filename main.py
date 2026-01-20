@@ -178,7 +178,7 @@ with tab_top:
     # カスタムHTML構築 (青い枠を維持・テキストサイズ統一)
     diag_html = f"""
     <div style="background-color: #1e2a3a; padding: 18px; border-radius: 4px; border-left: 5px solid #3498db; margin-bottom: 20px;">
-        <h4 style="margin-top: 0; margin-bottom: 8px; color: #3498db; font-size: 1.0em;">今日のマーケットAI診断</h4>
+        <h4 style="margin-top: 0; margin-bottom: 4px; color: #3498db; font-size: 1.0em;">今日のマーケットAI診断</h4>
         <div style="margin-bottom: 4px; font-size: 0.8em;"><b>バランス：</b> {diag['alert_level']}</div>
         <div style="margin-bottom: 4px; font-size: 0.8em;"><b>推奨戦略：</b> {rec_strat}</div>
         <div style="margin-bottom: 4px; font-size: 0.8em;"><b>寄付予測：</b> {diag['opening_forecast']}</div>
