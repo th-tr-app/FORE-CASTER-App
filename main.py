@@ -175,13 +175,13 @@ with tab_top:
         diag_html = f"""
         <div style="background-color: #1d2d41; border-radius: 6px; padding: 18px; margin-bottom: 15px;">
             <h4 style="margin-top: 0; margin-bottom: -10px; color: #3498db; font-size: 1.0em;">📝 今日のマーケットAI診断</h4>
-            <div style="margin-bottom: 5px; color: #87c8f3; font-size: 0.8em;"><b>バランス：</b> {diag['alert_level']}</div>
-            <div style="margin-bottom: 5px; color: #87c8f3; font-size: 0.8em;"><b>推奨戦略：</b> {rec_strat}</div>
-            <div style="margin-bottom: 5px; color: #87c8f3; font-size: 0.8em;"><b>寄付予測：</b> {diag['opening_forecast']}</div>
-            <div style="margin-bottom: 5px; color: #87c8f3; font-size: 0.8em;"><b>相場展望：</b> {diag['phase_comment']}</div>
-            <div style="margin-bottom: 15px; color: #87c8f3; font-size: 0.8em;"><b>米国株の影響：</b> {diag['us_impact']}</div>
+            <div style="margin-bottom: 5px; font-size: 0.8em;"><b>バランス：</b> {diag['alert_level']}</div>
+            <div style="margin-bottom: 5px; font-size: 0.8em;"><b>推奨戦略：</b> {rec_strat}</div>
+            <div style="margin-bottom: 5px; font-size: 0.8em;"><b>寄付予測：</b> {diag['opening_forecast']}</div>
+            <div style="margin-bottom: 5px; font-size: 0.8em;"><b>相場展望：</b> {diag['phase_comment']}</div>
+            <div style="margin-bottom: 15px; font-size: 0.8em;"><b>米国株の影響：</b> {diag['us_impact']}</div>
             <h4 style="margin-top: 0; margin-bottom: -10px; color: #3498db; font-size: 1.0em;">👀 指標から推測できる注目セクター</h4>
-            <div style="margin-bottom: 15px; color: #87c8f3; font-size: 0.8em;">{tips_str}</div>
+            <div style="margin-bottom: 15px; font-size: 0.9em;">{tips_str}</div>
         </div>
         <div style="height: 10px;"></div>
         """
