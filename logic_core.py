@@ -247,50 +247,66 @@ def fetch_market_info(indices_dict):
     
 # --- 5. AI予測 ---
 
+import yfinance as yf
+import pandas as pd
+import numpy as np
+
 def analyze_market_environment():
     """
-    今日の相場環境を診断（場中/引け後自動切り替え・前日比固定版）
+    主要指数を一括取得して高速化し、場中/引け後を自動判定して診断する
     """
     indices = {
         "N225": "^N225", "VIX": "^VIX", "DJI": "^DJI", "SOX": "^SOX",
         "WTI": "CL=F", "CME": "NIY=F", "USDJPY": "JPY=X", "GOLD": "GC=F", "JPY_F": "6J=F"
     }
+    tickers = list(indices.values())
     
-    # 内部計算用の結果格納
+    # --- 1. 高速化：全指標を一括ダウンロード ---
+    try:
+        # 通信回数を減らすため、全銘柄の「日足」と「1分足」をまとめて取得
+        d_all = yf.download(tickers, period="7d", interval="1d", progress=False)
+        m_all = yf.download(tickers, period="1d", interval="1m", progress=False)
+        
+        # マルチインデックスの整形（Closeなどの列を扱いやすくする）
+        if isinstance(d_all.columns, pd.MultiIndex): d_all.columns = d_all.columns.get_level_values(0)
+        if isinstance(m_all.columns, pd.MultiIndex): m_all.columns = m_all.columns.get_level_values(0)
+    except:
+        return {"alert_level": "データ取得エラー", "strategy": 0, "opening_forecast": "不明", 
+                "phase_comment": "データ取得に失敗しました。再試行してください。", "us_impact": "-", "tips": []}
+
+    # 各指標の計算結果格納用
     data_res = {}
-    
+
+    # --- 2. 各指標の価格抽出と前日比算出 ---
     for k, ticker in indices.items():
         try:
-            # 前日終値取得用の日足
-            df_d = yf.download(ticker, period="5d", interval="1d", progress=False)
-            if df_d.empty or len(df_d) < 2: continue
-            if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
+            # 前日終値の特定 (5日分データから最後から2番目の有効な値を採用)
+            d_close = d_all['Close'][ticker].dropna()
+            if len(d_close) < 2: continue
+            prev_val = float(d_close.values.ravel()[-2])
             
-            prev_val = float(df_d['Close'].values.ravel()[-2]) # 前日終値
+            # 最新値の取得 (1分足があれば採用、なければ日足最新値)
+            m_close = m_all['Close'][ticker].dropna() if ticker in m_all['Close'] else pd.Series()
             
-            # 最新値取得用の1分足
-            df_m = yf.download(ticker, period="1d", interval="1m", progress=False)
-            if isinstance(df_m.columns, pd.MultiIndex): df_m.columns = df_m.columns.get_level_values(0)
-            
-            if not df_m.empty:
-                now_val = float(df_m['Close'].values.ravel()[-1])
+            if not m_close.empty:
+                now_val = float(m_close.values.ravel()[-1])
             else:
-                now_val = float(df_d['Close'].values.ravel()[-1])
+                now_val = float(d_close.values.ravel()[-1])
             
-            data_res[k] = {"now": now_val, "prev": prev_val, "pct": ((now_val/prev_val)-1)*100}
+            data_res[k] = {"now": now_val, "prev": prev_val, "pct": ((now_val / prev_val) - 1) * 100}
         except: continue
 
-    # 診断初期値
+    # --- 3. 診断ロジックの構築 ---
     res = {
         "alert_level": "日経25日線との乖離は正常範囲", "strategy": 0, "opening_forecast": "不明",
         "phase_comment": "本日の市場は比較的落ち着いています。", "us_impact": "大きな変動なし", "tips": []
     }
 
-    # 1. 警戒レベル (日経平均乖離)
+    # ① 警戒レベル (日経平均25日乖離)
     if "N225" in data_res:
         try:
-            # 日足データから移動平均を計算する必要があるため別途処理
-            df_n = yf.download("^N225", period="30d", interval="1d", progress=False)
+            # 25日移動平均のため別途取得
+            df_n = yf.download("^N225", period="35d", interval="1d", progress=False)
             if isinstance(df_n.columns, pd.MultiIndex): df_n.columns = df_n.columns.get_level_values(0)
             ma25 = float(df_n['Close'].rolling(25).mean().values.ravel()[-1])
             dev_rate = ((data_res["N225"]["now"] - ma25) / ma25) * 100
@@ -298,13 +314,13 @@ def analyze_market_environment():
             elif dev_rate < -5.0: res["alert_level"] = "売られ過ぎ。"
         except: pass
 
-    # 2. 寄付予測 (CME vs 日経前日終値)
+    # ② 寄付予測 (CME vs 日経前日終値)
     if "CME" in data_res and "N225" in data_res:
         diff = data_res["CME"]["now"] - data_res["N225"]["prev"]
         if diff > 100: res["opening_forecast"] = "ギャップアップ"
         elif diff < -100: res["opening_forecast"] = "ギャップダウン"
 
-    # 3. 戦略 & 展望 (VIX)
+    # ③ 戦略 & 展望 (VIX判定)
     if "VIX" in data_res:
         vix = data_res["VIX"]["now"]
         if vix > 25.0:
@@ -314,13 +330,13 @@ def analyze_market_environment():
             res["strategy"] = 2
             res["phase_comment"] = "市場にやや迷いが見られます。"
 
-    # 4. 米国株の影響 (DJI)
+    # ④ 米国株の影響 (DJI判定)
     if "DJI" in data_res:
         dji_pct = data_res["DJI"]["pct"]
         if dji_pct > 0.5: res["us_impact"] = "米国株の上昇が日本市場の支えとなっています。"
         elif dji_pct < -0.5: res["us_impact"] = "米国株の軟調さが重荷となる可能性があります。"
 
-    # 5. 為替先物バイアス
+    # ⑤ 為替先物バイアス
     if "JPY_F" in data_res:
         f_pct = data_res["JPY_F"]["pct"]
         if f_pct > 0.2:
@@ -330,7 +346,7 @@ def analyze_market_environment():
             res["opening_forecast"] += " (円安バイアス)"
             res["tips"].append("11:輸送　")
 
-    # 6. セクターヒント
+    # ⑥ 注目セクターヒント
     if "GOLD" in data_res and data_res["GOLD"]["pct"] > 1.0: res["tips"].append("8:金属　")
     if "USDJPY" in data_res:
         j_pct = data_res["USDJPY"]["pct"]
@@ -339,5 +355,7 @@ def analyze_market_environment():
     if "SOX" in data_res and data_res["SOX"]["pct"] > 1.0: res["tips"].append("1:AI・半導体　")
     if "WTI" in data_res and data_res["WTI"]["pct"] > 1.5: res["tips"].append("6:石油　")
 
+    # 重複削除
     res["tips"] = list(dict.fromkeys(res["tips"]))
     return res
+    
