@@ -308,23 +308,23 @@ def analyze_market_environment():
     if "GOLD" in data:
         try:
             g_pct = ((float(data["GOLD"]['Close'].values.ravel()[-1]) / float(data["GOLD"]['Close'].values.ravel()[-2])) - 1) * 100
-            if g_pct > 1.0: res["tips"].append("『8:金属』")
+            if g_pct > 1.0: res["tips"].append("8:金属　")
         except: pass
     if "USDJPY" in data:
         try:
             j_pct = ((float(data["USDJPY"]['Close'].values.ravel()[-1]) / float(data["USDJPY"]['Close'].values.ravel()[-2])) - 1) * 100
-            if j_pct > 0.3: res["tips"].extend(["『11:輸送』", "『10:電機』"])
-            elif j_pct < -0.3: res["tips"].extend(["『2:水産・食品』", "『14:金融』"])
+            if j_pct > 0.3: res["tips"].extend(["11:輸送　", "10:電機　"])
+            elif j_pct < -0.3: res["tips"].extend(["2:水産・食品　", "14:金融　"])
         except: pass
     if "SOX" in data:
         try:
             s_pct = ((float(data["SOX"]['Close'].values.ravel()[-1]) / float(data["SOX"]['Close'].values.ravel()[-2])) - 1) * 100
-            if s_pct > 1.0: res["tips"].append("『1:AI・半導体』")
+            if s_pct > 1.0: res["tips"].append("1:AI・半導体　")
         except: pass
     if "WTI" in data:
         try:
             w_pct = ((float(data["WTI"]['Close'].values.ravel()[-1]) / float(data["WTI"]['Close'].values.ravel()[-2])) - 1) * 100
-            if w_pct > 1.5: res["tips"].append("『6:石油』")
+            if w_pct > 1.5: res["tips"].append("6:石油　")
         except: pass
 
     return res
