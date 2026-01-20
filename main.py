@@ -203,7 +203,8 @@ with tab_top:
         st.markdown(diag_html, unsafe_allow_html=True)
     
     # 判定開始ボタン
-    if st.button("🚀 ワンタッチ判定：全自動スキャン開始", use_container_width=True):
+    if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
+        # 【修正】current_preset をセッション状態から取得し定義
         current_preset = st.session_state['preset'] 
         p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
         p = st.session_state['sc_params'][p_idx]
