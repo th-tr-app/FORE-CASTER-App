@@ -235,21 +235,47 @@ with tab_top:
             for idx, t in enumerate(all_tickers):
                 pb_ot.progress((idx + 1) / len(all_tickers))
                 status.update(label=f"分析中 ({idx + 1}/{len(all_tickers)}): {t}")
-                
+
+
+# 5分足データの取得
+df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
+
+if not df_5m.empty:
+    # 1. カラムの平坦化（MultiIndex対策）
+    if isinstance(df_5m.columns, pd.MultiIndex): 
+        df_5m.columns = df_5m.columns.get_level_values(0)
+    
+    # 2. 【追加】夜間の空データ(NaN)を徹底排除
+    # これにより、データの入っていない「最新の行」を捨て、確定済みのデータのみで分析します
+    df_5m = df_5m.dropna(subset=['Close', 'Open', 'High', 'Low'])
+    
+    # 3. 【追加】有効なデータ件数がシミュレーションに十分かチェック
+    if len(df_5m) > 10:
+        p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
+        # シミュレーション実行
+        trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
+ 
                 # スクリーニング条件の判定
                 df_d = yf.download(t, period="3mo", interval="1d", progress=False)
                 if not df_d.empty and core.evaluate_screening_conditions(df_d, s_logic_params):
                     end_date = datetime.now()
                     start_date = end_date - timedelta(days=days_back)
                     df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
-                    
+
                     if not df_5m.empty:
+                        # 1. カラムの平坦化（MultiIndex対策）
                         if isinstance(df_5m.columns, pd.MultiIndex): 
                             df_5m.columns = df_5m.columns.get_level_values(0)
-                        
-                        p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
-                        # params は別途定義されているシミュレーション用パラメータ
-                        trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
+    
+                        # 2. 【追加】夜間の空データ(NaN)を徹底排除
+                        # これにより、データの入っていない「最新の行」を捨て、確定済みのデータのみで分析します
+                        df_5m = df_5m.dropna(subset=['Close', 'Open', 'High', 'Low'])
+    
+                        # 3. 【追加】有効なデータ件数がシミュレーションに十分かチェック
+                        if len(df_5m) > 10:
+                            p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
+                            # シミュレーション実行
+                            trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
                         
                         if trades:
                             # AIの診断(diag)とは無関係に、シミュレーション結果のみを渡します
