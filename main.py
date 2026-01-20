@@ -146,22 +146,22 @@ tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 �
 # --- タブ1: ワンタッチ (トップ5リスト表示版) ---
 
 with tab_top:
-
+    # --- 市場指標ウォッチ --- 
     # 1. 日本時間 (JST) の定義
     JST = timezone(timedelta(hours=9))
 
-    # 3. 更新時刻の初期化（日本時間）
+    # 2. 最後に更新した時刻の初期化（日本時間を指定）
     if 'last_updated' not in st.session_state:
         st.session_state['last_updated'] = datetime.now(JST).strftime("%Y/%m/%d %H:%M")
 
     with st.expander("🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
     
-        # 時刻表示付きボタンのラベル
+        # 時刻表示付きボタン
         btn_label = f"🔄 リアルタイム更新 ({st.session_state['last_updated']})"
     
-        # type="primary" を指定することで、テーマに応じたアクセントカラー（赤や青）がつきます
-        if st.button(btn_label, key="refresh_market_all", use_container_width=True, type="primary"):
+        if st.button(btn_label, key="refresh_market_all", use_container_width=True):
             with st.spinner("最新データを取得中..."):
+                # 更新時も日本時間を取得
                 st.session_state['last_updated'] = datetime.now(JST).strftime("%Y/%m/%d %H:%M")
                 st.cache_data.clear() 
                 st.rerun()
