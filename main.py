@@ -166,8 +166,6 @@ with tab_top:
                 cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
         
-        st.divider()
-
         # B. 今日のマーケットAI診断 (注目セクターも統合し、下部余白を確保)
         tips_str = "".join(diag["tips"]) if diag["tips"] else "特になし"
         
@@ -180,8 +178,8 @@ with tab_top:
             <div style="margin-bottom: 5px; font-size: 0.8em;"><b>寄付予測：</b> {diag['opening_forecast']}</div>
             <div style="margin-bottom: 5px; font-size: 0.8em;"><b>相場展望：</b> {diag['phase_comment']}</div>
             <div style="margin-bottom: 15px; font-size: 0.8em;"><b>米国株の影響：</b> {diag['us_impact']}</div>
-            <h4 style="margin-top: 0; margin-bottom: 0px; color: #3498db; font-size: 1.0em;">👀 指標から推測できる注目セクター</h4>
-            <div style="margin-bottom: 15px; font-size: 0.8em;">{tips_str}</div>
+            <h4 style="margin-top: 0; margin-bottom: -10px; color: #3498db; font-size: 1.0em;">👀 指標から推測できる注目セクター</h4>
+            <div style="margin-bottom: 15px; font-size: 1.0em;">{tips_str}</div>
         </div>
         <div style="height: 10px;"></div>
         """
