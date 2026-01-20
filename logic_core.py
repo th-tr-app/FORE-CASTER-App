@@ -27,91 +27,107 @@ def get_trade_pattern(row, gap_pct):
     return "E：他タイプ"
 
 # --- 2. スクリーニング・エンジン (日次データ用：14項目対応版) ---
+
 def evaluate_screening_conditions(df, params):
     """
     1銘柄の日次データに対して、業種・値上がり率を含む全条件に合致するか判定する
     """
+    # 1. カラムの平坦化（MultiIndex対策）
+    if isinstance(df.columns, pd.MultiIndex): 
+        df.columns = df.columns.get_level_values(0)
+
+    # 2. 【最重要】引け後の空データ（NaN）を削除
+    # これにより、17時台に発生する「値のない今日の行」を無視し、昨日の確定値（または確定済みの今日）を参照します
+    df = df.dropna(subset=['Close', 'Volume'])
+
+    # 3. データの存在チェック（dropna後の件数で判定）
     if df.empty or len(df) < 30: return None
-    if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
 
-    # 基礎数値
-    p = float(df['Close'].iloc[-1])
-    v = float(df['Volume'].iloc[-1])
-    prev_p = float(df['Close'].iloc[-2])
+    try:
+        # 4. 基礎数値の安全な抽出
+        # .values.ravel()[-1] を使うことで、Series型が返るのを防ぎ、確実に「数値」を取得します
+        p = float(df['Close'].values.ravel()[-1])
+        v = float(df['Volume'].values.ravel()[-1])
+        prev_p = float(df['Close'].values.ravel()[-2])
+        
+        # 【新規】前日値上がり率の算出
+        day_gain = ((p - prev_p) / prev_p) * 100
+        
+        # 指標算出（dfがクレンジング済みなので、iloc[-1]が常に「有効な最新行」を指します）
+        ma5 = df['Close'].rolling(5).mean(); ma10 = df['Close'].rolling(10).mean(); ma25 = df['Close'].rolling(25).mean()
+        # ...（以下、ご提示いただいた指標計算と条件判定ロジックが続く）...
+        ema9 = EMAIndicator(df['Close'], 9).ema_indicator(); ema21 = EMAIndicator(df['Close'], 21).ema_indicator()
+        atr = AverageTrueRange(df['High'], df['Low'], df['Close'], 14).average_true_range().iloc[-1]
+        atrp = (atr / p) * 100
+        adx = ADXIndicator(df['High'], df['Low'], df['Close'], 14).adx().iloc[-1]
+        rsi = RSIIndicator(df['Close'], 14).rsi().iloc[-1]
+        rci = calculate_rci(df['Close'], 9).iloc[-1]
+        ma25_dev = ((p - ma25.iloc[-1]) / ma25.iloc[-1]) * 100
+        val_total = (p * v) / 100000000 # 億円
+        vup_rate = v / df['Volume'].rolling(5).mean().iloc[-2] if df['Volume'].rolling(5).mean().iloc[-2] > 0 else 1.0
     
-    # 【新規】前日値上がり率の算出
-    day_gain = ((p - prev_p) / prev_p) * 100
-    
-    # 指標算出
-    ma5 = df['Close'].rolling(5).mean(); ma10 = df['Close'].rolling(10).mean(); ma25 = df['Close'].rolling(25).mean()
-    ema9 = EMAIndicator(df['Close'], 9).ema_indicator(); ema21 = EMAIndicator(df['Close'], 21).ema_indicator()
-    atr = AverageTrueRange(df['High'], df['Low'], df['Close'], 14).average_true_range().iloc[-1]
-    atrp = (atr / p) * 100
-    adx = ADXIndicator(df['High'], df['Low'], df['Close'], 14).adx().iloc[-1]
-    rsi = RSIIndicator(df['Close'], 14).rsi().iloc[-1]
-    rci = calculate_rci(df['Close'], 9).iloc[-1]
-    ma25_dev = ((p - ma25.iloc[-1]) / ma25.iloc[-1]) * 100
-    val_total = (p * v) / 100000000 # 億円
-    vup_rate = v / df['Volume'].rolling(5).mean().iloc[-2] if df['Volume'].rolling(5).mean().iloc[-2] > 0 else 1.0
-    
-    # ボリンジャーバンド (25日, 2σ)
-    std = df['Close'].rolling(25).std().iloc[-1]
-    bb_sigma = (p - ma25.iloc[-1]) / std if std > 0 else 0
+        # ボリンジャーバンド (25日, 2σ)
+        std = df['Close'].rolling(25).std().iloc[-1]
+        bb_sigma = (p - ma25.iloc[-1]) / std if std > 0 else 0
 
-    # 条件判定フラグ
-    match = True
+        # 条件判定フラグ
+        match = True
 
-    # --- A. 基本・前日比判定 ---
-    if params.get('c_gain') and not (params['gain_range'][0] <= day_gain <= params['gain_range'][1]): match = False
-    if params.get('c_p') and not (params['p_range'][0] <= p <= params['p_range'][1]): match = False
-    if params.get('c_v') and val_total < params['v_min']: match = False
-    if params.get('c_atrp') and not (params['atrp_range'][0] <= atrp <= params['atrp_range'][1]): match = False
+        # --- A. 基本・前日比判定 ---
+        if params.get('c_gain') and not (params['gain_range'][0] <= day_gain <= params['gain_range'][1]): match = False
+        if params.get('c_p') and not (params['p_range'][0] <= p <= params['p_range'][1]): match = False
+        if params.get('c_v') and val_total < params['v_min']: match = False
+        if params.get('c_atrp') and not (params['atrp_range'][0] <= atrp <= params['atrp_range'][1]): match = False
 
-    # --- B. 移動平均・EMAオプション判定 ---
-    if params.get('c_ma'):
-        opt = params['ma_opt']
-        if opt == "最強：上昇トレンド":
-            if not (ma5.iloc[-1] > ma10.iloc[-1] > ma25.iloc[-1]): match = False
-        elif opt == "転換：GC直後":
-            if not (ma5.iloc[-1] > ma25.iloc[-1] and ma5.iloc[-2] <= ma25.iloc[-2]): match = False
-        elif opt == "収束：嵐の前の静けさ":
-            spread = max(ma5.iloc[-1], ma10.iloc[-1], ma25.iloc[-1]) / min(ma5.iloc[-1], ma10.iloc[-1], ma25.iloc[-1]) - 1
-            if spread > 0.02: match = False
-        elif opt == "リバウンド：短期MA上抜け":
-            if not (p > ma5.iloc[-1] and prev_p <= ma5.iloc[-2]): match = False
+        # --- B. 移動平均・EMAオプション判定 ---
+        if params.get('c_ma'):
+            opt = params['ma_opt']
+            if opt == "最強：上昇トレンド":
+                if not (ma5.iloc[-1] > ma10.iloc[-1] > ma25.iloc[-1]): match = False
+            elif opt == "転換：GC直後":
+                if not (ma5.iloc[-1] > ma25.iloc[-1] and ma5.iloc[-2] <= ma25.iloc[-2]): match = False
+            elif opt == "収束：嵐の前の静けさ":
+                spread = max(ma5.iloc[-1], ma10.iloc[-1], ma25.iloc[-1]) / min(ma5.iloc[-1], ma10.iloc[-1], ma25.iloc[-1]) - 1
+                if spread > 0.02: match = False
+            elif opt == "リバウンド：短期MA上抜け":
+                if not (p > ma5.iloc[-1] and prev_p <= ma5.iloc[-2]): match = False
 
-    if params.get('c_ema'):
-        opt = params['ema_opt']
-        if opt == "強気：EMAの上で価格維持":
-            if not (p > ema9.iloc[-1] > ema21.iloc[-1]): match = False
-        elif opt == "安定：EMA付近での推移":
-            if not (abs(p / ema9.iloc[-1] - 1) < 0.01): match = False
-        elif opt == "レンジ：EMAを上下にまたぐ":
-            if not (min(p, prev_p) < ema9.iloc[-1] < max(p, prev_p)): match = False
+        if params.get('c_ema'):
+            opt = params['ema_opt']
+            if opt == "強気：EMAの上で価格維持":
+                if not (p > ema9.iloc[-1] > ema21.iloc[-1]): match = False
+            elif opt == "安定：EMA付近での推移":
+                if not (abs(p / ema9.iloc[-1] - 1) < 0.01): match = False
+            elif opt == "レンジ：EMAを上下にまたぐ":
+                if not (min(p, prev_p) < ema9.iloc[-1] < max(p, prev_p)): match = False
 
-    # --- C. トレンド・オシレーター判定 ---
-    if params.get('c_adx') and not (params['adx_range'][0] <= adx <= params['adx_range'][1]): match = False
-    if params.get('c_rci') and not (params['rci_range'][0] <= rci <= params['rci_range'][1]): match = False
-    if params.get('c_rsi') and not (params['rsi_range'][0] <= rsi <= params['rsi_range'][1]): match = False
+        # --- C. トレンド・オシレーター判定 ---
+        if params.get('c_adx') and not (params['adx_range'][0] <= adx <= params['adx_range'][1]): match = False
+        if params.get('c_rci') and not (params['rci_range'][0] <= rci <= params['rci_range'][1]): match = False
+        if params.get('c_rsi') and not (params['rsi_range'][0] <= rsi <= params['rsi_range'][1]): match = False
 
-    # --- D. 出来高・乖離・BB判定 ---
-    if params.get('c_vol') and (v / 10000) < params['vol_min']: match = False
-    if params.get('c_vup') and vup_rate < params['vup_min']: match = False
-    if params.get('c_ma25') and not (params['ma25_range'][0] <= ma25_dev <= params['ma25_range'][1]): match = False
-    if params.get('c_bb') and not (params['bb_range'][0] <= bb_sigma <= params['bb_range'][1]): match = False
+        # --- D. 出来高・乖離・BB判定 ---
+        if params.get('c_vol') and (v / 10000) < params['vol_min']: match = False
+        if params.get('c_vup') and vup_rate < params['vup_min']: match = False
+        if params.get('c_ma25') and not (params['ma25_range'][0] <= ma25_dev <= params['ma25_range'][1]): match = False
+        if params.get('c_bb') and not (params['bb_range'][0] <= bb_sigma <= params['bb_range'][1]): match = False
 
-    if match:
-        return {
-            "株価": int(p),
-            "前日比": day_gain,
-            "売買代金": val_total,
-            "出来高": int(v),
-            "RSI": round(rsi, 1),           # 追加
-            "25MA乖離": round(ma25_dev, 2),  # 追加
-            "ATR%": round(atrp, 2)          # 追加
-        }
-    return None
-    
+        if match:
+            return {
+                "株価": int(p),
+                "前日比": day_gain,
+                "売買代金": val_total,
+                "出来高": int(v),
+                "RSI": round(rsi, 1),           # 追加
+                "25MA乖離": round(ma25_dev, 2),  # 追加
+                "ATR%": round(atrp, 2)          # 追加
+            }
+        return None
+
+    except Exception as e:
+        # 計算中に予期せぬエラーが出た場合はNoneを返してスキップ
+        return None
+
 # --- 3. バックテスト・エンジン (5分足データ用) ---
 # (fetch_daily_stats_maps 以降のコードは変更不要のため、そのまま維持してください)
 
