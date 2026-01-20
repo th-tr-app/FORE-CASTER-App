@@ -234,7 +234,7 @@ def fetch_market_info(market_indices):
 
 def analyze_market_environment():
     """
-    主要指数から今日の相場環境を診断する（エラー防止・高感度版）
+    主要指数から今日の相場環境を診断する（エラー回避・テキスト簡略化・寄付予測版）
     """
     indices = {
         "N225": "^N225", "VIX": "^VIX", "DJI": "^DJI",
@@ -245,80 +245,101 @@ def analyze_market_environment():
     data = {}
     for k, ticker in indices.items():
         try:
-            # 余裕を持って期間を7日に設定
             df = yf.download(ticker, period="7d", interval="1d", progress=False)
             if not df.empty and len(df) >= 2:
-                if isinstance(df.columns, pd.MultiIndex):
+                # マルチインデックス対策
+                if isinstance(df.columns, pd.MultiIndex): 
                     df.columns = df.columns.get_level_values(0)
                 data[k] = df
-        except:
-            continue
+        except: continue
 
     # 初期値の設定
     res = {
-        "comment": "本日の市場は比較的落ち着いた動きを見せています。 ", 
-        "strategy": 0, 
-        "alert_level": "正常", 
+        "alert_level": "日経25日線との乖離は正常範囲",
+        "strategy": 0,
+        "opening_forecast": "不明",
+        "phase_comment": "本日の市場は比較的落ち着いています。",
+        "us_impact": "大きな変動なし",
         "tips": []
     }
-    
-    # --- 各指標の判定（データが存在し、かつ2行以上ある場合のみ実行） ---
 
-    # 1. VIX：戦略のベース決定
-    if "VIX" in data:
-        vix = float(data["VIX"]['Close'].values[-1])
-        if vix > 25.0:
-            res["strategy"] = 1
-            res["comment"] = "VIXが高騰しており市場は不安定です。守備重視の『ディフェンシブ』を推奨します。 "
-        elif 15.0 <= vix <= 25.0:
-            res["strategy"] = 2
-            res["comment"] = "市場にやや迷いが見られます。レンジ内での『横ばい相場』戦略が有効です。 "
+    n225_close = 0
 
-    # 2. NYダウ：相場展望への反映
-    if "DJI" in data:
-        dji_now = float(data["DJI"]['Close'].values[-1])
-        dji_prev = float(data["DJI"]['Close'].values[-2])
-        dji_pct = ((dji_now / dji_prev) - 1) * 100
-        if dji_pct > 0.5: res["comment"] += "米国株の上昇が日本市場の支えとなっています。 "
-        elif dji_pct < -0.5: res["comment"] += "米国株の軟調さが重荷となる可能性があります。 "
-
-    # 3. 為替（ドル円）：輸出・内需ヒント
-    if "USDJPY" in data:
-        df_jpy = data["USDJPY"]
-        # .values.ravel()[-1] を使うことで、多重階層データでも確実に最後の数値1つを取得します
+    # 1. 警戒レベル (日経平均乖離)
+    if "N225" in data:
         try:
-            jpy_now = float(df_jpy['Close'].values.ravel()[-1])
-            jpy_prev = float(df_jpy['Close'].values.ravel()[-2])
-            jpy_change = ((jpy_now / jpy_prev) - 1) * 100
-            
-            if jpy_change > 0.3:
-                res["tips"].append(f"円安進行({jpy_change:+.2f}%)。輸出関連の『11:輸送』『10:電機』に追い風。")
-            elif jpy_change < -0.3:
-                res["tips"].append(f"円高推移({jpy_change:+.2f}%)。為替影響の少ない『2:水産・食品』『14:金融』に注目。")
-        except:
-            pass # データに不備がある場合はスキップ
+            df_n = data["N225"]
+            # .values.ravel()[-1] で単一の数値を確実に抽出
+            n225_close = float(df_n['Close'].values.ravel()[-1])
+            n225_ma25 = float(df_n['Close'].rolling(25).mean().values.ravel()[-1])
+            dev_rate = ((n225_close - n225_ma25) / n225_ma25) * 100
+            if dev_rate > 5.0: res["alert_level"] = "買われ過ぎ。"
+            elif dev_rate < -5.0: res["alert_level"] = "売られ過ぎ。"
+        except: pass
 
-    # 4. Gold（金先物）
+    # 2. 寄付予測 (CME先物)
+    if "CME" in data and n225_close > 0:
+        try:
+            cme_val = float(data["CME"]['Close'].values.ravel()[-1])
+            diff = cme_val - n225_close
+            if diff > 100: res["opening_forecast"] = "ギャップアップ"
+            elif diff < -100: res["opening_forecast"] = "ギャップダウン"
+        except: pass
+
+    # 3. 戦略 & 相場展望
+    if "VIX" in data:
+        try:
+            vix = float(data["VIX"]['Close'].values.ravel()[-1])
+            if vix > 25.0:
+                res["strategy"] = 1 # ディフェンシブ
+                res["phase_comment"] = "VIXが高騰しており市場は不安定です。"
+            elif 15.0 <= vix <= 25.0:
+                res["strategy"] = 2 # 横ばい
+                res["phase_comment"] = "市場にやや迷いが見られます。"
+        except: pass
+
+    # 4. 米国株の影響
+    if "DJI" in data:
+        try:
+            dji_now = float(data["DJI"]['Close'].values.ravel()[-1])
+            dji_prev = float(data["DJI"]['Close'].values.ravel()[-2])
+            dji_pct = ((dji_now / dji_prev) - 1) * 100
+            if dji_pct > 0.5: res["us_impact"] = "米国株の上昇が日本市場の支えとなっています。"
+            elif dji_pct < -0.5: res["us_impact"] = "米国株の軟調さが重荷となる可能性があります。"
+        except: pass
+
+    # 5. 注目セクター (キーワードのみ抽出)
     if "GOLD" in data:
         try:
-            gold_now = float(data["GOLD"]['Close'].values.ravel()[-1])
-            gold_prev = float(data["GOLD"]['Close'].values.ravel()[-2])
-            gold_pct = ((gold_now / gold_prev) - 1) * 100
-            if gold_pct > 1.0:
-                res["tips"].append(f"金先物が上昇中({gold_pct:+.1f}%)。安全資産への関心が高まっています。業種『8:金属』セクターに注目。")
-                if res["strategy"] == 0: res["strategy"] = 1
-        except:
-            pass
+            g_now = float(data["GOLD"]['Close'].values.ravel()[-1])
+            g_prev = float(data["GOLD"]['Close'].values.ravel()[-2])
+            g_pct = ((g_now / g_prev) - 1) * 100
+            if g_pct > 1.0: res["tips"].append("『8:金属』")
+        except: pass
+    
+    if "USDJPY" in data:
+        try:
+            j_now = float(data["USDJPY"]['Close'].values.ravel()[-1])
+            j_prev = float(data["USDJPY"]['Close'].values.ravel()[-2])
+            j_pct = ((j_now / j_prev) - 1) * 100
+            if j_pct > 0.3: res["tips"].extend(["『11:輸送』", "『10:電機』"])
+            elif j_pct < -0.3: res["tips"].extend(["『2:水産・食品』", "『14:金融』"])
+        except: pass
 
-    # 5. SOX：半導体ヒント
     if "SOX" in data:
         try:
-            sox_now = float(data["SOX"]['Close'].values.ravel()[-1])
-            sox_prev = float(data["SOX"]['Close'].values.ravel()[-2])
-            sox_gain = ((sox_now / sox_prev) - 1) * 100
-            if sox_gain > 1.0: 
-                res["tips"].append(f"SOX指数好調({sox_gain:+.1f}%)。業種『1:AI・半導体』セクターへの波及が期待されます。")
-        except:
-            pass
+            s_now = float(data["SOX"]['Close'].values.ravel()[-1])
+            s_prev = float(data["SOX"]['Close'].values.ravel()[-2])
+            s_pct = ((s_now / s_prev) - 1) * 100
+            if s_pct > 1.0: res["tips"].append("『1:AI・半導体』")
+        except: pass
+
+    if "WTI" in data:
+        try:
+            w_now = float(data["WTI"]['Close'].values.ravel()[-1])
+            w_prev = float(data["WTI"]['Close'].values.ravel()[-2])
+            w_pct = ((w_now / w_prev) - 1) * 100
+            if w_pct > 1.5: res["tips"].append("『6:石油』")
+        except: pass
 
     return res
