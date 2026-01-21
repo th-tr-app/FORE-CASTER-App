@@ -161,7 +161,7 @@ with tab_top:
     # タイトルからは時刻を削除し、スッキリさせます
     with st.expander("🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
         # 【修正】ボタンのラベル内に日時を表示します
-        btn_label = f"🔄 更新　 ({now_jst})"
+        btn_label = f"🔄 リアルタイム更新　({now_jst})"
         if st.button(btn_label, use_container_width=True, key="refresh_top_btn"):
             st.cache_data.clear()
             st.rerun()
