@@ -142,26 +142,19 @@ if ticker_input_val != st.session_state['target_tickers']:
 # --- 5. メインタブ構成 ---
 tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト", "🏆 ランキング"])
 
-# --- タブ1: ワンタッチ (FC 3.1：リアルタイム更新ボタン実装版) ---
+# --- タブ1: ワンタッチ (トップ5リスト表示版) ---
+
+# main.py タブ1: ワンタッチ の中身
 with tab_top:
-    # 1. 日本時間の定義と取得
-    jst = timezone(timedelta(hours=9))
-    now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
-    
-    # 2. データの取得 (logic_core でキャッシュ済み)
     m_data = core.fetch_market_info(MARKET_INDICES)
-    diag = core.analyze_market_environment()
     
+    # AI診断の実行
+    diag = core.analyze_market_environment()
     strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
     rec_strat = strat_names[diag["strategy"]]
     
-    # 3. 市場指標ウォッチ (Ver 2.01 の成功パターンを反映)
-    with st.expander(f"🕒 市場指標ウォッチ ▶︎ ({now_jst})", expanded=True):
-        # 更新ボタン：キャッシュをクリアしてリランする
-        if st.button("🔄 リアルタイム更新", use_container_width=True):
-            st.cache_data.clear()
-            st.rerun()
-            
+    # 市場指標ウォッチの開閉ボックス
+    with st.expander("🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
         # A. 指標カードの表示
         cards_html = '<div class="metric-grid">'
         for n, t in MARKET_INDICES.items():
@@ -172,10 +165,12 @@ with tab_top:
                 cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
         
-        # B. AI診断表示
+        # B. 今日のマーケットAI診断 (注目セクターも統合し、下部余白を確保)
         tips_str = "".join(diag["tips"]) if diag["tips"] else "特になし"
+        
+        # すべてを一つのHTMLブロックにまとめ、最後に margin-bottom を追加
         diag_html = f"""
-        <div style="background-color: #121826; border: 1px solid #3d414b; border-radius: 6px; padding: 18px; margin-top: 15px;">
+        <div style="background-color: #121826; border: 1px solid #3d414b; border-radius: 6px; padding: 18px; margin-top: 15px; margin-bottom: 15px;">
             <h4 style="margin-top: 0; margin-bottom: -10px; color: #3498db; font-size: 1.0em;">📀 今日のマーケットAI診断</h4>
             <div style="margin-bottom: 5px; font-size: 0.8em;"><b>バランス：</b> {diag['alert_level']}</div>
             <div style="margin-bottom: 5px; font-size: 0.8em;"><b>推奨戦略：</b> {rec_strat}</div>
@@ -185,9 +180,13 @@ with tab_top:
             <h4 style="margin-top: 0; margin-bottom: -10px; color: #3498db; font-size: 1.0em;">👀 指標から推測できる注目セクター</h4>
             <div style="margin-bottom: 15px; font-size: 0.85em;">{tips_str}</div>
         </div>
-        <div style="height: 15px;"></div>
+        <div style="height: 10px;"></div>
         """
+        # 全体を確実にHTMLとして出力
         st.markdown(diag_html, unsafe_allow_html=True)
+
+    # 判定ボタンへ続く...
+    # 以降、判定ボタンなどの処理...
 
     # 判定開始ボタン
     if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
