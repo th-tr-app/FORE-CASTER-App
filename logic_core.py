@@ -27,108 +27,93 @@ def get_trade_pattern(row, gap_pct):
     return "E：他タイプ"
 
 # --- 2. スクリーニング・エンジン (日次データ用：14項目対応版) ---
-
 def evaluate_screening_conditions(df, params):
     """
     1銘柄の日次データに対して、業種・値上がり率を含む全条件に合致するか判定する
     """
-    # 1. カラムの平坦化（MultiIndex対策）
-    if isinstance(df.columns, pd.MultiIndex): 
-        df.columns = df.columns.get_level_values(0)
-
-    # 2. 【最重要】引け後の空データ（NaN）を削除
-    # これにより、17時台に発生する「値のない今日の行」を無視し、昨日の確定値（または確定済みの今日）を参照します
-    df = df.dropna(subset=['Close', 'Volume'])
-
-    # 3. データの存在チェック（dropna後の件数で判定）
     if df.empty or len(df) < 30: return None
+    if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
 
-    try:
-        # 4. 基礎数値の安全な抽出
-        # .values.ravel()[-1] を使うことで、Series型が返るのを防ぎ、確実に「数値」を取得します
-        p = float(df['Close'].values.ravel()[-1])
-        v = float(df['Volume'].values.ravel()[-1])
-        prev_p = float(df['Close'].values.ravel()[-2])
-        
-        # 【新規】前日値上がり率の算出
-        day_gain = ((p - prev_p) / prev_p) * 100
-        
-        # 指標算出（dfがクレンジング済みなので、iloc[-1]が常に「有効な最新行」を指します）
-        ma5 = df['Close'].rolling(5).mean(); ma10 = df['Close'].rolling(10).mean(); ma25 = df['Close'].rolling(25).mean()
-        # ...（以下、ご提示いただいた指標計算と条件判定ロジックが続く）...
-        ema9 = EMAIndicator(df['Close'], 9).ema_indicator(); ema21 = EMAIndicator(df['Close'], 21).ema_indicator()
-        atr = AverageTrueRange(df['High'], df['Low'], df['Close'], 14).average_true_range().iloc[-1]
-        atrp = (atr / p) * 100
-        adx = ADXIndicator(df['High'], df['Low'], df['Close'], 14).adx().iloc[-1]
-        rsi = RSIIndicator(df['Close'], 14).rsi().iloc[-1]
-        rci = calculate_rci(df['Close'], 9).iloc[-1]
-        ma25_dev = ((p - ma25.iloc[-1]) / ma25.iloc[-1]) * 100
-        val_total = (p * v) / 100000000 # 億円
-        vup_rate = v / df['Volume'].rolling(5).mean().iloc[-2] if df['Volume'].rolling(5).mean().iloc[-2] > 0 else 1.0
+    # 基礎数値
+    p = float(df['Close'].iloc[-1])
+    v = float(df['Volume'].iloc[-1])
+    prev_p = float(df['Close'].iloc[-2])
     
-        # ボリンジャーバンド (25日, 2σ)
-        std = df['Close'].rolling(25).std().iloc[-1]
-        bb_sigma = (p - ma25.iloc[-1]) / std if std > 0 else 0
+    # 【新規】前日値上がり率の算出
+    day_gain = ((p - prev_p) / prev_p) * 100
+    
+    # 指標算出
+    ma5 = df['Close'].rolling(5).mean(); ma10 = df['Close'].rolling(10).mean(); ma25 = df['Close'].rolling(25).mean()
+    ema9 = EMAIndicator(df['Close'], 9).ema_indicator(); ema21 = EMAIndicator(df['Close'], 21).ema_indicator()
+    atr = AverageTrueRange(df['High'], df['Low'], df['Close'], 14).average_true_range().iloc[-1]
+    atrp = (atr / p) * 100
+    adx = ADXIndicator(df['High'], df['Low'], df['Close'], 14).adx().iloc[-1]
+    rsi = RSIIndicator(df['Close'], 14).rsi().iloc[-1]
+    rci = calculate_rci(df['Close'], 9).iloc[-1]
+    ma25_dev = ((p - ma25.iloc[-1]) / ma25.iloc[-1]) * 100
+    val_total = (p * v) / 100000000 # 億円
+    vup_rate = v / df['Volume'].rolling(5).mean().iloc[-2] if df['Volume'].rolling(5).mean().iloc[-2] > 0 else 1.0
+    
+    # ボリンジャーバンド (25日, 2σ)
+    std = df['Close'].rolling(25).std().iloc[-1]
+    bb_sigma = (p - ma25.iloc[-1]) / std if std > 0 else 0
 
-        # 条件判定フラグ
-        match = True
+    # 条件判定フラグ
+    match = True
 
-        # --- A. 基本・前日比判定 ---
-        if params.get('c_gain') and not (params['gain_range'][0] <= day_gain <= params['gain_range'][1]): match = False
-        if params.get('c_p') and not (params['p_range'][0] <= p <= params['p_range'][1]): match = False
-        if params.get('c_v') and val_total < params['v_min']: match = False
-        if params.get('c_atrp') and not (params['atrp_range'][0] <= atrp <= params['atrp_range'][1]): match = False
+    # --- A. 基本・前日比判定 ---
+    if params.get('c_gain') and not (params['gain_range'][0] <= day_gain <= params['gain_range'][1]): match = False
+    if params.get('c_p') and not (params['p_range'][0] <= p <= params['p_range'][1]): match = False
+    if params.get('c_v') and val_total < params['v_min']: match = False
+    if params.get('c_atrp') and not (params['atrp_range'][0] <= atrp <= params['atrp_range'][1]): match = False
 
-        # --- B. 移動平均・EMAオプション判定 ---
-        if params.get('c_ma'):
-            opt = params['ma_opt']
-            if opt == "最強：上昇トレンド":
-                if not (ma5.iloc[-1] > ma10.iloc[-1] > ma25.iloc[-1]): match = False
-            elif opt == "転換：GC直後":
-                if not (ma5.iloc[-1] > ma25.iloc[-1] and ma5.iloc[-2] <= ma25.iloc[-2]): match = False
-            elif opt == "収束：嵐の前の静けさ":
-                spread = max(ma5.iloc[-1], ma10.iloc[-1], ma25.iloc[-1]) / min(ma5.iloc[-1], ma10.iloc[-1], ma25.iloc[-1]) - 1
-                if spread > 0.02: match = False
-            elif opt == "リバウンド：短期MA上抜け":
-                if not (p > ma5.iloc[-1] and prev_p <= ma5.iloc[-2]): match = False
+    # --- B. 移動平均・EMAオプション判定 ---
+    if params.get('c_ma'):
+        opt = params['ma_opt']
+        if opt == "最強：上昇トレンド":
+            if not (ma5.iloc[-1] > ma10.iloc[-1] > ma25.iloc[-1]): match = False
+        elif opt == "転換：GC直後":
+            if not (ma5.iloc[-1] > ma25.iloc[-1] and ma5.iloc[-2] <= ma25.iloc[-2]): match = False
+        elif opt == "収束：嵐の前の静けさ":
+            spread = max(ma5.iloc[-1], ma10.iloc[-1], ma25.iloc[-1]) / min(ma5.iloc[-1], ma10.iloc[-1], ma25.iloc[-1]) - 1
+            if spread > 0.02: match = False
+        elif opt == "リバウンド：短期MA上抜け":
+            if not (p > ma5.iloc[-1] and prev_p <= ma5.iloc[-2]): match = False
 
-        if params.get('c_ema'):
-            opt = params['ema_opt']
-            if opt == "強気：EMAの上で価格維持":
-                if not (p > ema9.iloc[-1] > ema21.iloc[-1]): match = False
-            elif opt == "安定：EMA付近での推移":
-                if not (abs(p / ema9.iloc[-1] - 1) < 0.01): match = False
-            elif opt == "レンジ：EMAを上下にまたぐ":
-                if not (min(p, prev_p) < ema9.iloc[-1] < max(p, prev_p)): match = False
+    if params.get('c_ema'):
+        opt = params['ema_opt']
+        if opt == "強気：EMAの上で価格維持":
+            if not (p > ema9.iloc[-1] > ema21.iloc[-1]): match = False
+        elif opt == "安定：EMA付近での推移":
+            if not (abs(p / ema9.iloc[-1] - 1) < 0.01): match = False
+        elif opt == "レンジ：EMAを上下にまたぐ":
+            if not (min(p, prev_p) < ema9.iloc[-1] < max(p, prev_p)): match = False
 
-        # --- C. トレンド・オシレーター判定 ---
-        if params.get('c_adx') and not (params['adx_range'][0] <= adx <= params['adx_range'][1]): match = False
-        if params.get('c_rci') and not (params['rci_range'][0] <= rci <= params['rci_range'][1]): match = False
-        if params.get('c_rsi') and not (params['rsi_range'][0] <= rsi <= params['rsi_range'][1]): match = False
+    # --- C. トレンド・オシレーター判定 ---
+    if params.get('c_adx') and not (params['adx_range'][0] <= adx <= params['adx_range'][1]): match = False
+    if params.get('c_rci') and not (params['rci_range'][0] <= rci <= params['rci_range'][1]): match = False
+    if params.get('c_rsi') and not (params['rsi_range'][0] <= rsi <= params['rsi_range'][1]): match = False
 
-        # --- D. 出来高・乖離・BB判定 ---
-        if params.get('c_vol') and (v / 10000) < params['vol_min']: match = False
-        if params.get('c_vup') and vup_rate < params['vup_min']: match = False
-        if params.get('c_ma25') and not (params['ma25_range'][0] <= ma25_dev <= params['ma25_range'][1]): match = False
-        if params.get('c_bb') and not (params['bb_range'][0] <= bb_sigma <= params['bb_range'][1]): match = False
+    # --- D. 出来高・乖離・BB判定 ---
+    if params.get('c_vol') and (v / 10000) < params['vol_min']: match = False
+    if params.get('c_vup') and vup_rate < params['vup_min']: match = False
+    if params.get('c_ma25') and not (params['ma25_range'][0] <= ma25_dev <= params['ma25_range'][1]): match = False
+    if params.get('c_bb') and not (params['bb_range'][0] <= bb_sigma <= params['bb_range'][1]): match = False
 
-        if match:
-            return {
-                "株価": int(p),
-                "前日比": day_gain,
-                "売買代金": val_total,
-                "出来高": int(v),
-                "RSI": round(rsi, 1),           # 追加
-                "25MA乖離": round(ma25_dev, 2),  # 追加
-                "ATR%": round(atrp, 2)          # 追加
-            }
-        return None
-
-    except Exception as e:
-        # 計算中に予期せぬエラーが出た場合はNoneを返してスキップ
-        return None
-
+    if match:
+        return {
+            "株価": int(p),
+            "前日比": day_gain,
+            "売買代金": val_total,
+            "出来高": int(v),
+            "RSI": round(rsi, 1),           # 追加
+            "25MA乖離": round(ma25_dev, 2),  # 追加
+            "ATR%": round(atrp, 2)          # 追加
+        }
+    return None
+    
 # --- 3. バックテスト・エンジン (5分足データ用) ---
+# (fetch_daily_stats_maps 以降のコードは変更不要のため、そのまま維持してください)
 
 def fetch_daily_stats_maps(ticker, start):
     """前日終値・当日始値・ATRのマップ作成"""
@@ -136,23 +121,10 @@ def fetch_daily_stats_maps(ticker, start):
     try:
         d_start = start - timedelta(days=60)
         df = yf.download(ticker, start=d_start, end=datetime.now(), interval="1d", progress=False, multi_level_index=False, auto_adjust=False)
-        
         if df.empty: return p_map, o_map, a_map
-        
-        # 1. カラムの平坦化（MultiIndex対策）
-        if isinstance(df.columns, pd.MultiIndex): 
-            df.columns = df.columns.get_level_values(0)
-
-        # 2. 【重要】夜間に発生する空データ（NaN）を削除
-        # これを入れないと、最新日がNaNになり、シミュレーションの計算がすべて0になります
-        df = df.dropna(subset=['Close', 'Open', 'High', 'Low'])
-        
-        # 削除後にデータが残っているか再チェック
-        if df.empty: return p_map, o_map, a_map
-
-        # 3. タイムゾーン変換
+        if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
         df.index = df.index.tz_localize('UTC').tz_convert('Asia/Tokyo') if df.index.tzinfo is None else df.index.tz_convert('Asia/Tokyo')
-                
+        
         tr = pd.concat([df['High']-df['Low'], abs(df['High']-df['Close'].shift(1)), abs(df['Low']-df['Close'].shift(1))], axis=1).max(axis=1)
         atr_prev = tr.rolling(window=14).mean().shift(1)
         p_map = {d.strftime('%Y-%m-%d'): c for d, c in zip(df.index, df['Close'].shift(1)) if pd.notna(c)}
@@ -236,184 +208,123 @@ def run_ticker_simulation(ticker, df, pc_map, co_map, a_map, params):
 
 # --- 4. ワンタッチ機能：スコアリング・ランキング ---
 
-import yfinance as yf
-import pandas as pd
-import numpy as np
+def get_one_touch_score(trades):
+    if not trades: return None
+    tdf = pd.DataFrame(trades)
+    wins = tdf[tdf['PnL'] > 0]; losses = tdf[tdf['PnL'] <= 0]
+    win_rate = len(wins) / len(tdf)
+    pf = wins['PnL'].sum() / abs(losses['PnL'].sum()) if not losses.empty and losses['PnL'].sum() != 0 else 9.99
+    ev = tdf['PnL'].mean()
+    score = ev * win_rate * pf
+    return {"win_rate": win_rate, "pf": pf, "ev": ev, "score": score}
 
-def fetch_market_info(indices_dict):
-    """
-    市場指標カード用のデータを取得（場中1分足/引け後日足 自動切り替え）
-    """
-    res = {}
-    for name, ticker in indices_dict.items():
+@st.cache_data(ttl=300)
+def fetch_market_info(market_indices):
+    data = {}
+    for name, ticker in market_indices.items():
         try:
-            # 1. 前日終値を確定させるために日足(1d)を取得
-            df_d = yf.download(ticker, period="5d", interval="1d", progress=False)
-            if df_d.empty or len(df_d) < 2: continue
-            if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
+            df = yf.download(ticker, period="5d", progress=False)
+            if not df.empty:
+                latest = float(df['Close'].iloc[-1]); prev = float(df['Close'].iloc[-2])
+                data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
+        except: data[name] = {"val": None, "pct": None}
+    return data
 
-            # 常に「前日（最新の1日前）の終値」を基準にする
-            prev_close = float(df_d['Close'].values.ravel()[-2])
-
-            # 2. 最新価格を取得（1分足）
-            df_m = yf.download(ticker, period="1d", interval="1m", progress=False)
-            if isinstance(df_m.columns, pd.MultiIndex): df_m.columns = df_m.columns.get_level_values(0)
-
-            if not df_m.empty:
-                # 【場中】最新1分足の終値
-                current_p = float(df_m['Close'].values.ravel()[-1])
-            else:
-                # 【引け後】日足の最新（今日）の終値
-                current_p = float(df_d['Close'].values.ravel()[-1])
-
-            # 前日比の算出
-            pct = ((current_p / prev_close) - 1) * 100
-            res[name] = {"val": current_p, "pct": pct}
-        except:
-            res[name] = {"val": 0, "pct": 0}
-    return res
-    
 # --- 5. AI予測 ---
-
-import yfinance as yf
-import pandas as pd
-import numpy as np
 
 def analyze_market_environment():
     """
-    今日の相場環境を診断（個別取得・安定重視版）
-    ※場中/引け後自動切り替え・前日比固定ロジックを維持
+    主要指数から今日の相場環境を診断する（高精度・エラー回避版）
     """
     indices = {
-        "N225": "^N225", "VIX": "^VIX", "DJI": "^DJI", "SOX": "^SOX",
-        "WTI": "CL=F", "CME": "NIY=F", "USDJPY": "JPY=X", "GOLD": "GC=F", "JPY_F": "6J=F"
+        "N225": "^N225", "VIX": "^VIX", "DJI": "^DJI",
+        "SOX": "^SOX", "WTI": "CL=F", "CME": "NIY=F",
+        "USDJPY": "JPY=X", "GOLD": "GC=F"
     }
     
-    # 内部計算用の結果格納
-    data_res = {}
-    
+    data = {}
     for k, ticker in indices.items():
         try:
-            # 1. 前日終値取得用の日足
-            df_d = yf.download(ticker, period="5d", interval="1d", progress=False)
-            if df_d.empty or len(df_d) < 2: continue
-            if isinstance(df_d.columns, pd.MultiIndex): 
-                df_d.columns = df_d.columns.get_level_values(0)
-            
-            # 安定的な数値抽出
-            prev_val = float(df_d['Close'].values.ravel()[-2]) # 前日終値
-            
-            # 2. 最新値取得用の1分足
-            df_m = yf.download(ticker, period="1d", interval="1m", progress=False)
-            if isinstance(df_m.columns, pd.MultiIndex): 
-                df_m.columns = df_m.columns.get_level_values(0)
-            
-            if not df_m.empty:
-                now_val = float(df_m['Close'].values.ravel()[-1]) # 場中リアルタイム
-            else:
-                now_val = float(df_d['Close'].values.ravel()[-1]) # 引け後最新
-            
-            data_res[k] = {"now": now_val, "prev": prev_val, "pct": ((now_val/prev_val)-1)*100}
+            df = yf.download(ticker, period="7d", interval="1d", progress=False)
+            if not df.empty and len(df) >= 2:
+                if isinstance(df.columns, pd.MultiIndex): 
+                    df.columns = df.columns.get_level_values(0)
+                data[k] = df
         except: continue
 
-    # 診断初期値
     res = {
-        "alert_level": "日経平均25日線との乖離は正常範囲", "strategy": 0, "opening_forecast": "不明",
-        "phase_comment": "本日の市場は比較的落ち着いています。", "us_impact": "大きな変動なし", "tips": []
+        "alert_level": "日経平均25日線との乖離は正常範囲",
+        "strategy": 0,
+        "opening_forecast": "不明",
+        "phase_comment": "本日の市場は比較的落ち着いています。",
+        "us_impact": "大きな変動なし",
+        "tips": []
     }
+    n225_close = 0
 
-    # 1. 警戒レベル (日経平均25日乖離)
-    if "N225" in data_res:
+    # 1. 警戒レベル (日経平均乖離)
+    if "N225" in data:
         try:
-            df_n = yf.download("^N225", period="30d", interval="1d", progress=False)
-            if isinstance(df_n.columns, pd.MultiIndex): df_n.columns = df_n.columns.get_level_values(0)
-            ma25 = float(df_n['Close'].rolling(25).mean().values.ravel()[-1])
-            dev_rate = ((data_res["N225"]["now"] - ma25) / ma25) * 100
+            df_n = data["N225"]
+            n225_close = float(df_n['Close'].values.ravel()[-1])
+            n225_ma25 = float(df_n['Close'].rolling(25).mean().values.ravel()[-1])
+            dev_rate = ((n225_close - n225_ma25) / n225_ma25) * 100
             if dev_rate > 5.0: res["alert_level"] = "買われ過ぎ。"
             elif dev_rate < -5.0: res["alert_level"] = "売られ過ぎ。"
         except: pass
 
-    # 2. 寄付予測 (CME vs 日経前日終値)
-    if "CME" in data_res and "N225" in data_res:
-        diff = data_res["CME"]["now"] - data_res["N225"]["prev"]
-        if diff > 100: res["opening_forecast"] = "ギャップアップ"
-        elif diff < -100: res["opening_forecast"] = "ギャップダウン"
+    # 2. 寄付予測 (CME先物)
+    if "CME" in data and n225_close > 0:
+        try:
+            cme_val = float(data["CME"]['Close'].values.ravel()[-1])
+            diff = cme_val - n225_close
+            if diff > 100: res["opening_forecast"] = "ギャップアップ"
+            elif diff < -100: res["opening_forecast"] = "ギャップダウン"
+        except: pass
 
-    # 3. 戦略 & 展望 (VIX判定：表示用のみ)
-    if "VIX" in data_res:
-        vix = data_res["VIX"]["now"]
-        if vix > 25.0:
-            res["strategy"] = 1 # ディフェンシブ
-            res["phase_comment"] = "VIXが高騰しており市場は不安定です。"
-        elif 15.0 <= vix <= 25.0:
-            res["strategy"] = 2 # 横ばい相場
-            res["phase_comment"] = "市場にやや迷いが見られます。"
+    # 3. 戦略 & 相場展望
+    if "VIX" in data:
+        try:
+            vix = float(data["VIX"]['Close'].values.ravel()[-1])
+            if vix > 25.0:
+                res["strategy"] = 1
+                res["phase_comment"] = "VIXが高騰しており市場は不安定です。"
+            elif 15.0 <= vix <= 25.0:
+                res["strategy"] = 2
+                res["phase_comment"] = "市場にやや迷いが見られます。"
+        except: pass
 
-    # 4. 米国株の影響 (DJI)
-    if "DJI" in data_res:
-        dji_pct = data_res["DJI"]["pct"]
-        if dji_pct > 0.5: res["us_impact"] = "米国株の上昇が日本市場の支えとなっています。"
-        elif dji_pct < -0.5: res["us_impact"] = "米国株の軟調さが重荷となる可能性があります。"
+    # 4. 米国株の影響
+    if "DJI" in data:
+        try:
+            dji_now = float(data["DJI"]['Close'].values.ravel()[-1])
+            dji_prev = float(data["DJI"]['Close'].values.ravel()[-2])
+            dji_pct = ((dji_now / dji_prev) - 1) * 100
+            if dji_pct > 0.5: res["us_impact"] = "米国株の上昇が日本市場の支えとなっています。"
+            elif dji_pct < -0.5: res["us_impact"] = "米国株の軟調さが重荷となる可能性があります。"
+        except: pass
 
-    # 5. 為替先物バイアス
-    if "JPY_F" in data_res:
-        f_pct = data_res["JPY_F"]["pct"]
-        if f_pct > 0.2:
-            res["opening_forecast"] += " (円高バイアス)"
-            res["tips"].append("14:金融　")
-        elif f_pct < -0.2:
-            res["opening_forecast"] += " (円安バイアス)"
-            res["tips"].append("11:輸送　")
+    # 5. 注目セクター
+    if "GOLD" in data:
+        try:
+            g_pct = ((float(data["GOLD"]['Close'].values.ravel()[-1]) / float(data["GOLD"]['Close'].values.ravel()[-2])) - 1) * 100
+            if g_pct > 1.0: res["tips"].append("8:金属　")
+        except: pass
+    if "USDJPY" in data:
+        try:
+            j_pct = ((float(data["USDJPY"]['Close'].values.ravel()[-1]) / float(data["USDJPY"]['Close'].values.ravel()[-2])) - 1) * 100
+            if j_pct > 0.3: res["tips"].extend(["11:輸送　", "10:電機　"])
+            elif j_pct < -0.3: res["tips"].extend(["2:水産・食品　", "14:金融　"])
+        except: pass
+    if "SOX" in data:
+        try:
+            s_pct = ((float(data["SOX"]['Close'].values.ravel()[-1]) / float(data["SOX"]['Close'].values.ravel()[-2])) - 1) * 100
+            if s_pct > 1.0: res["tips"].append("1:AI・半導体　")
+        except: pass
+    if "WTI" in data:
+        try:
+            w_pct = ((float(data["WTI"]['Close'].values.ravel()[-1]) / float(data["WTI"]['Close'].values.ravel()[-2])) - 1) * 100
+            if w_pct > 1.5: res["tips"].append("6:石油　")
+        except: pass
 
-    # 6. セクターヒント
-    if "GOLD" in data_res and data_res["GOLD"]["pct"] > 1.0: res["tips"].append("8:金属　")
-    if "USDJPY" in data_res:
-        j_pct = data_res["USDJPY"]["pct"]
-        if j_pct > 0.3: res["tips"].extend(["11:輸送　", "10:電機　"])
-        elif j_pct < -0.3: res["tips"].extend(["2:水産・食品　", "14:金融　"])
-    if "SOX" in data_res and data_res["SOX"]["pct"] > 1.0: res["tips"].append("1:AI・半導体　")
-    if "WTI" in data_res and data_res["WTI"]["pct"] > 1.5: res["tips"].append("6:石油　")
-
-    res["tips"] = list(dict.fromkeys(res["tips"]))
     return res
-
-# logic_core.py の該当箇所
-
-def get_one_touch_score(trades):
-    """
-    【安全版】トレード結果からスコアを算出（KeyError対策済み）
-    """
-    # 1. データの存在チェック
-    if not trades or not isinstance(trades, list):
-        return {'win_rate': 0, 'pf': 0, 'ev': 0, 'score': 0}
-
-    # 2. 損益データの抽出（'pnl' キーがない場合は 0 を採用してエラーを防ぐ）
-    # シミュレーションによって 'pnl' ではなく 'profit' や 'gain' の場合があるため安全に取得
-    pnls = []
-    for t in trades:
-        # 'pnl' があれば取得、なければ 0.0
-        pnl_val = t.get('pnl', 0.0) 
-        pnls.append(pnl_val)
-
-    wins = [p for p in pnls if p > 0]
-    losses = [p for p in pnls if p < 0]
-
-    # 3. 各指標の計算（ゼロ除算防止）
-    total_trades = len(pnls)
-    win_rate = (len(wins) / total_trades) * 100 if total_trades > 0 else 0
-    
-    sum_wins = sum(wins)
-    sum_losses = abs(sum(losses))
-    pf = (sum_wins / sum_losses) if sum_losses > 0 else (sum_wins if sum_wins > 0 else 0)
-    ev = sum(pnls) / total_trades if total_trades > 0 else 0
-
-    # 4. 総合スコアの算出（独立仕様）
-    score = (win_rate * 0.4) + (min(pf, 5) * 10) + (max(0, ev) * 0.5)
-
-    # 5. UI表示用に整形して返却
-    return {
-        'win_rate': round(win_rate, 1),
-        'pf': round(pf, 2),
-        'ev': round(ev, 1),
-        'score': round(score, 1)
-    }
