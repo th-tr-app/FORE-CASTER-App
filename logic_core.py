@@ -27,10 +27,6 @@ def fetch_market_info(indices_dict):
     return data
 
 @st.cache_data(ttl=300)
-def analyze_market_environment():
-    """
-    主要指数から今日の相場環境を診断する
-    """
     
 def analyze_market_environment():
     """
