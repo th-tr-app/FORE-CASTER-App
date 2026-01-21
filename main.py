@@ -142,13 +142,14 @@ if ticker_input_val != st.session_state['target_tickers']:
 # --- 5. メインタブ構成 ---
 tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト", "🏆 ランキング"])
 
-# --- タブ1: ワンタッチ (FC 3.1：3.2_logic_core.py 連携版) ---
+# --- タブ1: ワンタッチ (FC 3.3：時刻表示位置の修正) ---
 with tab_top:
-    # 1. 日本時間の定義と取得
+    # 1. 日本時間の定義と取得 (ユーザー指定のフォーマット: YYYY/MM/DD/HH:MM)
     jst = timezone(timedelta(hours=9))
-    now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
+    # スラッシュ区切りの指定形式に合わせます
+    now_jst = datetime.now(jst).strftime('%Y/%m/%d/%H:%M')
     
-    # 2. データの取得 (3.2_logic_core の関数を呼び出し)
+    # 2. データの取得 (logic_core の関数を呼び出し)
     m_data = core.fetch_market_info(MARKET_INDICES)
     diag = core.analyze_market_environment()
     
@@ -157,9 +158,11 @@ with tab_top:
     rec_strat = strat_names[diag["strategy"]]
     
     # 3. 市場指標ウォッチの表示
-    with st.expander(f"🕒 市場指標ウォッチ ▶︎ ({now_jst})", expanded=True):
-        # リアルタイム更新ボタン
-        if st.button("🔄 リアルタイム更新", use_container_width=True, key="refresh_top_btn"):
+    # タイトルからは時刻を削除し、スッキリさせます
+    with st.expander("🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
+        # 【修正】ボタンのラベル内に日時を表示します
+        btn_label = f"🔄 リアルタイム更新 ({now_jst})"
+        if st.button(btn_label, use_container_width=True, key="refresh_top_btn"):
             st.cache_data.clear()
             st.rerun()
             
