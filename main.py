@@ -273,12 +273,19 @@ with tab_top:
     if 'ot_last_top5' in st.session_state:
         st.markdown("#### 🏆 本日の厳選トップ5銘柄")
         rdf_ot = st.session_state['ot_last_top5']
+        
+        # 【修正】項目の追加と％表記（総合スコアを *100）
         st.dataframe(
             rdf_ot.style.format({
-                '勝率': '{:.1%}', '期待値': '{:+.2%}', 'PF': '{:.2f}', '総合スコア': '{:.4f}'
+                '前日比': '{:+.2f}%', '勝率': '{:.1%}', '期待値': '{:+.2%}', 
+                '利益平均': '{:+.2%}', '損失平均': '{:+.2%}', 'PF': '{:.2f}', 
+                '総合スコア': '{:.2%}' # 0.0190 → 1.90% 表記
             }),
             use_container_width=True, hide_index=True, selection_mode=None
         )
+    # 【追加】結果が0件だった時の通知
+    elif 'ot_full_scan_btn' in st.session_state:
+        st.warning("⚠️ スキャン条件に合致する銘柄が見つかりませんでした。")
         
         if st.button("♻️ ワンタッチ結果をクリア", key="ot_clear_res_btn"):
             del st.session_state['ot_last_top5']
@@ -829,15 +836,21 @@ with tab_rank:
     # --- 結果の表示と転送機能 ---
     if 'last_rank_df' in st.session_state:
         rdf = st.session_state['last_rank_df']
-        st.caption("👇 銘柄をチェックすると監視リストに反映されます。")
+        
+        # 【修正】スマホでの縦スクロールしにくさを解消（全20件が見える高さに固定）
+        # 20銘柄 + ヘッダー分で約750px程度に固定します
+        df_height = 750 
         
         event = st.dataframe(
-            rdf[['コード', '銘柄名', '勝率', 'PF', '期待値', '総合スコア']].style.format({
-                '勝率': '{:.1%}', '期待値': '{:+.2%}', 'PF': '{:.2f}', '総合スコア': '{:.4f}'
+            rdf[['コード', '銘柄名', '前日比', '回数', '勝率', '利益平均', '損失平均', 'PF', '期待値', '総合スコア']].style.format({
+                '前日比': '{:+.2f}%', '勝率': '{:.1%}', '期待値': '{:+.2%}', 
+                '利益平均': '{:+.2%}', '損失平均': '{:+.2%}', 'PF': '{:.2f}', 
+                '総合スコア': '{:.2%}'
             }),
             use_container_width=True, hide_index=True, 
             on_select="rerun", selection_mode="multi-row", 
-            key="rank_df_view_final" 
+            key="rank_df_view_final",
+            height=df_height # 高さを固定
         )
         
         # 選択行の監視リスト反映
