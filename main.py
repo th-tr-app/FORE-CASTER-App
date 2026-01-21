@@ -80,7 +80,7 @@ for i in range(3):
 st.markdown("""
     <style>
     .main-title { font-weight: 400 !important; font-size: 38px !important; margin: 0 !important; }
-    .sub-title { font-weight: 300 !important; font-size: 16px !important; color: #aaaaaa !important; }
+    .sub-title { font-weight: 300 !important; font-size: 18px !important; color: #aaaaaa !important; }
     div[data-testid="stTextInput"] { margin-top: -10px; margin-bottom: 10px; }
     .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
     @media (max-width: 640px) { .metric-grid { grid-template-columns: repeat(2, 1fr) !important; } }
@@ -127,7 +127,7 @@ params = {
 }
 
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
-st.markdown(f"<div><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>ver 3.0 | AI Screening & Backtest</h3></div>", unsafe_allow_html=True)
+st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 3.1</h3></div>", unsafe_allow_html=True)
 
 # 【修正ポイント】key="target_tickers" を削除し、value= を使用します
 ticker_input_val = st.text_input(
