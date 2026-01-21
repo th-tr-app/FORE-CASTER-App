@@ -64,7 +64,7 @@ def analyze_market_environment():
         except: continue
 
     res = {"alert_level": "日経25日線との乖離は正常範囲", "strategy": 0, "opening_forecast": "不明",
-           "phase_comment": "本日の市場は比較的落ち着いています。", "us_impact": "大きな変動なし", "tips": []}
+           "phase_comment": "市場は比較的落ち着いています。", "us_impact": "大きな変動なし", "tips": []}
     
     n225_close = 0
     if "N225" in data_map:
