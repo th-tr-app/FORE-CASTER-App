@@ -185,6 +185,7 @@ with tab_top:
             <h4 style="margin-top: 0; margin-bottom: -10px; color: #3498db; font-size: 1.0em;">👀 指標から推測できる注目セクター</h4>
             <div style="margin-bottom: 15px; font-size: 0.85em;">{tips_str}</div>
         </div>
+        <div style="height: 10px;"></div>
         """
         st.markdown(diag_html, unsafe_allow_html=True)
 
