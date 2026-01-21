@@ -79,8 +79,8 @@ for i in range(3):
 # --- 2. デザインCSS (全画面共通) ---
 st.markdown("""
     <style>
-    .main-title { font-weight: 400 !important; font-size: 38px !important; margin: 0 !important; }
-    .sub-title { font-weight: 300 !important; font-size: 18px !important; color: #aaaaaa !important; }
+    .main-title { font-weight: 400 !important; font-size: 46px !important; margin: 0 !important; padding: 0 !important; line-height: 1.1; }
+    .sub-title { font-weight: 300 !important; font-size: 20px !important; margin: 0 !important; padding: 0 !important; color: #aaaaaa !important; line-height: 1.1; }
     div[data-testid="stTextInput"] { margin-top: -10px; margin-bottom: 10px; }
     .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
     @media (max-width: 640px) { .metric-grid { grid-template-columns: repeat(2, 1fr) !important; } }
