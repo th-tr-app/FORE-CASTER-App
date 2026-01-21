@@ -269,6 +269,7 @@ with tab_top:
         if ot_results:
             top_5_df = pd.DataFrame(ot_results).sort_values('総合スコア', ascending=False).head(5)
             st.session_state['ot_last_top5'] = top_5_df
+            st.session_state['ot_no_results'] = False # 結果ありフラグ
             
             # 監視リストへの自動追加
             current_str = st.session_state.get('target_tickers', "")
@@ -278,7 +279,15 @@ with tab_top:
             
             st.toast("🎯 期待値トップ5を監視リストに追加しました！")
             st.rerun()
+    else:
+            st.session_state['ot_no_results'] = True # 結果なしフラグ
+            st.session_state.pop('ot_last_top5', None) # 以前の結果があれば削除
+            st.rerun()
 
+    # --- ボタンの下に結果表示または警告を表示 ---
+    if st.session_state.get('ot_no_results'):
+        st.warning("⚠️ 条件に合致する銘柄が見つかりませんでした。")
+        
     # --- 厳選トップ5のリスト表示 ---
     if 'ot_last_top5' in st.session_state:
         st.markdown("#### 🏆 本日の厳選トップ5銘柄")
@@ -292,8 +301,9 @@ with tab_top:
         
         if st.button("♻️ ワンタッチ結果をクリア", key="ot_clear_res_btn"):
             del st.session_state['ot_last_top5']
+            st.session_state['ot_no_results'] = False # フラグをリセット
             st.rerun()
-
+            
 # --- タブ2: スクリーニングの実装 (12パラメーター対応版) ---
 with tab_screen:
     st.markdown("<br>", unsafe_allow_html=True)
