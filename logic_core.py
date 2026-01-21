@@ -1,6 +1,36 @@
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import streamlit as st  # キャッシュ機能のために追加
+
+# --- 指標取得エンジン (Ver 2.01のロジックを3.1用に最適化) ---
+@st.cache_data(ttl=300) # 5分間キャッシュ
+def fetch_market_info(indices_dict):
+    """
+    市場指標の値を一括取得する
+    """
+    data = {}
+    for name, ticker in indices_dict.items():
+        try:
+            # 5日分取得して最新と前日比を算出
+            df = yf.download(ticker, period="5d", progress=False)
+            if not df.empty:
+                # マルチインデックス対策
+                if isinstance(df.columns, pd.MultiIndex): 
+                    df.columns = df.columns.get_level_values(0)
+                
+                latest = float(df['Close'].values.ravel()[-1])
+                prev = float(df['Close'].values.ravel()[-2])
+                data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
+        except: 
+            data[name] = {"val": None, "pct": None}
+    return data
+
+@st.cache_data(ttl=300)
+def analyze_market_environment():
+    """
+    主要指数から今日の相場環境を診断する
+    """
 
 def analyze_market_environment():
     """
@@ -130,3 +160,4 @@ def analyze_market_environment():
     res["tips"] = list(dict.fromkeys(res["tips"]))
     
     return res
+    
