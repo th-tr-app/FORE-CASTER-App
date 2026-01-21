@@ -140,6 +140,7 @@ if ticker_input_val != st.session_state['target_tickers']:
     st.rerun()
     
 # --- 5. メインタブ構成 ---
+print() # 空行
 tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト", "🏆 ランキング"])
 
 # --- タブ1: ワンタッチ (トップ5リスト表示版) ---
