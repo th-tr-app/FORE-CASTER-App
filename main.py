@@ -835,9 +835,10 @@ with tab_rank:
             rdf[['コード', '銘柄名', '勝率', 'PF', '期待値', '総合スコア']].style.format({
                 '勝率': '{:.1%}', '期待値': '{:+.2%}', 'PF': '{:.2f}', '総合スコア': '{:.4f}'
             }),
-            use_container_width=True, hide_index=True,
+            use_container_width=True, hide_index=True, 
             on_select="rerun", selection_mode="multi-row", 
-            key="rank_df_view_final" 
+            key="rank_df_view_final",
+            height=800 
         )
         
         # 選択行の監視リスト反映
