@@ -185,9 +185,6 @@ with tab_top:
         # 全体を確実にHTMLとして出力
         st.markdown(diag_html, unsafe_allow_html=True)
 
-    # 判定ボタンへ続く...
-    # 以降、判定ボタンなどの処理...
-
     # 判定開始ボタン
     if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
         # 【修正】current_preset をセッション状態から取得し定義
