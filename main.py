@@ -146,10 +146,9 @@ tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 �
 with tab_top:
     # 1. 日本時間の定義と取得
     jst = timezone(timedelta(hours=9))
-    # ボタン表示用に「時刻のみ」の変数も作成します
-    now_time = datetime.now(jst).strftime('%H:%M')
+    now_jst = datetime.now(jst).strftime('%Y/%m/%d %H:%M')
     
-    # 2. データの取得 (3.3_logic_core の関数を呼び出し)
+    # 2. データの取得 (3.2_logic_core の関数を呼び出し)
     m_data = core.fetch_market_info(MARKET_INDICES)
     diag = core.analyze_market_environment()
     
@@ -158,14 +157,12 @@ with tab_top:
     rec_strat = strat_names[diag["strategy"]]
     
     # 3. 市場指標ウォッチの表示
-    # 【修正】タイトルから時刻を削除してスッキリさせました
-    with st.expander("🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
-        # 【修正】リアルタイム更新ボタンのラベル内に現在の時刻を表示します
-        btn_label = f"🔄 リアルタイム更新 (最終：{now_time})"
-        if st.button(btn_label, use_container_width=True, key="refresh_top_btn"):
+    with st.expander(f"🕒 市場指標ウォッチ ▶︎ ({now_jst})", expanded=True):
+        # リアルタイム更新ボタン
+        if st.button("🔄 リアルタイム更新", use_container_width=True, key="refresh_top_btn"):
             st.cache_data.clear()
             st.rerun()
-                        
+            
         # A. 指標カードの表示
         cards_html = '<div class="metric-grid">'
         for n, t in MARKET_INDICES.items():
@@ -237,27 +234,25 @@ with tab_top:
                         end_date = datetime.now()
                         start_date = end_date - timedelta(days=days_back)
                         df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
-
+                        
                         if not df_5m.empty:
-                            # (MultiIndex/dropna処理)
+                            if isinstance(df_5m.columns, pd.MultiIndex): 
+                                df_5m.columns = df_5m.columns.get_level_values(0)
+                            
                             p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
                             trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
-                    
+                            
+                            # C. スコアデータの取得と null チェック
                             score_data = core.get_one_touch_score(trades)
                             if score_data:
-                                # 【修正】リスト項目の追加
                                 ot_results.append({
-                                    'コード': t, '銘柄名': TICKER_DETAILS.get(t, [t])[0],
-                                    '前日比': scr_res.get('前日比', 0), # evaluate_screening_conditions から取得
-                                    '回数': score_data['count'],
-                                    '勝率': score_data['win_rate'],
-                                    '利益平均': score_data['avg_win'],
-                                    '損失平均': score_data['avg_loss'],
-                                    'PF': score_data['pf'],
-                                    '期待値': score_data['ev'],
+                                    'コード': t, 
+                                    '銘柄名': TICKER_DETAILS.get(t, [t])[0],
+                                    '勝率': score_data['win_rate'], 
+                                    'PF': score_data['pf'], 
+                                    '期待値': score_data['ev'], 
                                     '総合スコア': score_data['score']
                                 })
-
             status.update(label="✅ 分析完了！", state="complete")
 
         # 5. 結果の保存と画面更新
@@ -278,19 +273,12 @@ with tab_top:
     if 'ot_last_top5' in st.session_state:
         st.markdown("#### 🏆 本日の厳選トップ5銘柄")
         rdf_ot = st.session_state['ot_last_top5']
-        
-        # 【修正】項目の追加と％表記（総合スコアを *100）
         st.dataframe(
             rdf_ot.style.format({
-                '前日比': '{:+.2f}%', '勝率': '{:.1%}', '期待値': '{:+.2%}', 
-                '利益平均': '{:+.2%}', '損失平均': '{:+.2%}', 'PF': '{:.2f}', 
-                '総合スコア': '{:.2%}' # 0.0190 → 1.90% 表記
+                '勝率': '{:.1%}', '期待値': '{:+.2%}', 'PF': '{:.2f}', '総合スコア': '{:.4f}'
             }),
             use_container_width=True, hide_index=True, selection_mode=None
         )
-    # 【追加】結果が0件だった時の通知
-    elif 'ot_full_scan_btn' in st.session_state:
-        st.warning("⚠️ スキャン条件に合致する銘柄が見つかりませんでした。")
         
         if st.button("♻️ ワンタッチ結果をクリア", key="ot_clear_res_btn"):
             del st.session_state['ot_last_top5']
@@ -841,21 +829,15 @@ with tab_rank:
     # --- 結果の表示と転送機能 ---
     if 'last_rank_df' in st.session_state:
         rdf = st.session_state['last_rank_df']
-        
-        # 【修正】スマホでの縦スクロールしにくさを解消（全20件が見える高さに固定）
-        # 20銘柄 + ヘッダー分で約750px程度に固定します
-        df_height = 750 
+        st.caption("👇 銘柄をチェックすると監視リストに反映されます。")
         
         event = st.dataframe(
-            rdf[['コード', '銘柄名', '前日比', '回数', '勝率', '利益平均', '損失平均', 'PF', '期待値', '総合スコア']].style.format({
-                '前日比': '{:+.2f}%', '勝率': '{:.1%}', '期待値': '{:+.2%}', 
-                '利益平均': '{:+.2%}', '損失平均': '{:+.2%}', 'PF': '{:.2f}', 
-                '総合スコア': '{:.2%}'
+            rdf[['コード', '銘柄名', '勝率', 'PF', '期待値', '総合スコア']].style.format({
+                '勝率': '{:.1%}', '期待値': '{:+.2%}', 'PF': '{:.2f}', '総合スコア': '{:.4f}'
             }),
             use_container_width=True, hide_index=True, 
             on_select="rerun", selection_mode="multi-row", 
-            key="rank_df_view_final",
-            height=df_height # 高さを固定
+            key="rank_df_view_final" 
         )
         
         # 選択行の監視リスト反映
