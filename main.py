@@ -838,7 +838,7 @@ with tab_rank:
             use_container_width=True, hide_index=True, 
             on_select="rerun", selection_mode="multi-row", 
             key="rank_df_view_final",
-            height=800 
+            height=735 
         )
         
         # 選択行の監視リスト反映
