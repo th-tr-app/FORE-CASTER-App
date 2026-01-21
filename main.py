@@ -215,7 +215,14 @@ with tab_top:
             'c_bb': p.get('c_bb'), 'bb_range': p.get('bb_rng')
         }
         
-        all_tickers = list(TICKER_DETAILS.keys())
+        # --- 業種フィルターの適用 (全銘柄リストの作成部分を書き換え) ---
+        selected_sids = p.get('sector', [0])
+        if 0 in selected_sids or not selected_sids:
+            all_tickers = list(TICKER_DETAILS.keys())
+        else:
+            # TICKER_DETAILS の業種ID(d[1])が選択リストに含まれる銘柄のみ抽出
+            all_tickers = [t for t, d in TICKER_DETAILS.items() if d[1] in selected_sids]
+            
         ot_results = []
         
         with st.status(f"🔍 {current_preset} 戦略で全銘柄をフル分析中...", expanded=True) as status:
