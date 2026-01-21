@@ -80,7 +80,7 @@ for i in range(3):
 st.markdown("""
     <style>
     .main-title { font-weight: 400 !important; font-size: 42px !important; margin: 0 !important; padding: 0 !important; line-height: 1.1; }
-    .sub-title { font-weight: 300 !important; font-size: 18px !important; margin-bottom: 100px !important; padding: 0 !important; color: #aaaaaa !important; line-height: 1.1; }
+    .sub-title { font-weight: 300 !important; font-size: 18px !important; margin-bottom: 60px !important; padding: 0 !important; color: #aaaaaa !important; line-height: 1.1; }
     .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
     @media (max-width: 640px) { .metric-grid { grid-template-columns: repeat(2, 1fr) !important; } }
     .metric-card { border: 1px solid #3d414b; border-radius: 6px; padding: 8px 5px; text-align: center; }
