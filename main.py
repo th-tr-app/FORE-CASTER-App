@@ -145,36 +145,18 @@ tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 �
 
 # --- タブ1: ワンタッチ (トップ5リスト表示版) ---
 
+# main.py タブ1: ワンタッチ の中身
 with tab_top:
-    # --- 市場指標ウォッチ --- 
-    # 1. 日本時間 (JST) の定義
-    JST = timezone(timedelta(hours=9))
-
-    # 2. 最後に更新した時刻の初期化（日本時間を指定）
-    if 'last_updated' not in st.session_state:
-        st.session_state['last_updated'] = datetime.now(JST).strftime("%Y/%m/%d %H:%M")
-
+    m_data = core.fetch_market_info(MARKET_INDICES)
+    
+    # AI診断の実行
+    diag = core.analyze_market_environment()
+    strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
+    rec_strat = strat_names[diag["strategy"]]
+    
+    # 市場指標ウォッチの開閉ボックス
     with st.expander("🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
-    
-        # 時刻表示付きボタン
-        btn_label = f"🔄 更新　({st.session_state['last_updated']})"
-    
-        if st.button(btn_label, key="refresh_market_all", use_container_width=True):
-            with st.spinner("最新データを取得中..."):
-                # 更新時も日本時間を取得
-                st.session_state['last_updated'] = datetime.now(JST).strftime("%Y/%m/%d %H:%M")
-                st.cache_data.clear() 
-                st.rerun()
-        
-        # --- 2. データの取得とAI診断の実行 ---
-        # fetch_market_info と analyze_market_environment が最新データを読み込みます
-        m_data = core.fetch_market_info(MARKET_INDICES)
-        diag = core.analyze_market_environment()
-        
-        strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
-        rec_strat = strat_names[diag["strategy"]]
-
-        # --- 3. 指標カードの表示 ---
+        # A. 指標カードの表示
         cards_html = '<div class="metric-grid">'
         for n, t in MARKET_INDICES.items():
             i = m_data.get(n, {})
@@ -183,12 +165,15 @@ with tab_top:
                 cls = "plus" if i['pct'] >= 0 else "minus"
                 cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
+
+        st.divider()
         
-        # --- 4. 今日のマーケットAI診断 (デザイン調整済み版) ---
+        # B. 今日のマーケットAI診断 (注目セクターも統合し、下部余白を確保)
         tips_str = "".join(diag["tips"]) if diag["tips"] else "特になし"
         
+        # すべてを一つのHTMLブロックにまとめ、最後に margin-bottom を追加
         diag_html = f"""
-        <div style="background-color: #121826; border-radius: 6px; padding: 18px; margin-top: 15px; margin-bottom: 15px;">
+        <div style="background-color: #1d2d41; border-radius: 6px; padding: 18px; margin-bottom: 15px;">
             <h4 style="margin-top: 0; margin-bottom: -10px; color: #3498db; font-size: 1.0em;">📀 今日のマーケットAI診断</h4>
             <div style="margin-bottom: 5px; font-size: 0.8em;"><b>バランス：</b> {diag['alert_level']}</div>
             <div style="margin-bottom: 5px; font-size: 0.8em;"><b>推奨戦略：</b> {rec_strat}</div>
@@ -200,20 +185,20 @@ with tab_top:
         </div>
         <div style="height: 10px;"></div>
         """
+        # 全体を確実にHTMLとして出力
         st.markdown(diag_html, unsafe_allow_html=True)
-    
-# 判定開始ボタン
+
+    # 判定ボタンへ続く...
+    # 以降、判定ボタンなどの処理...
+
+    # 判定開始ボタン
     if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
-        # 1. 【重要】日付を「オブジェクト」として定義（文字列にしない）
-        # logic_core.py 内での計算（timedelta）に必要です
-        end_date = datetime.now()
-        start_date_obj = end_date - timedelta(days=days_back)
-        
-        current_preset = st.session_state.get('preset', 'NORMAL') 
+        # 【修正】current_preset をセッション状態から取得し定義
+        current_preset = st.session_state['preset'] 
         p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
         p = st.session_state['sc_params'][p_idx]
         
-        # パラメータのマッピング
+        # 【修正】パラメータのマッピング (KeyError防止のため、sc_paramsに存在する項目のみに修正)
         s_logic_params = {
             'c_gain': p.get('c_gain'), 'gain_range': p.get('gain_rng'),
             'c_p': p.get('c_p'), 'p_range': p.get('p_rng'), 
@@ -229,56 +214,36 @@ with tab_top:
             'c_bb': p.get('c_bb'), 'bb_range': p.get('bb_rng')
         }
         
+        # 【修正】TICKER_NAME_MAP を 正しい定数名 TICKER_DETAILS に変更
         all_tickers = list(TICKER_DETAILS.keys())
         ot_results = []
         
-        # 分析実行
+        # 【修正】current_preset を使用してステータスを表示
         with st.status(f"🔍 {current_preset} 戦略で全銘柄をフル分析中...", expanded=True) as status:
             pb_ot = st.progress(0)
             for idx, t in enumerate(all_tickers):
-                pb_ot.progress((idx + 1) / len(all_tickers))
-                status.update(label=f"分析中 ({idx + 1}/{len(all_tickers)}): {t}")
+                pb_ot.progress((idx+1)/len(all_tickers))
+                status.update(label=f"分析中 ({idx+1}/{len(all_tickers)}): {t}")
                 
-                # スクリーニング用の日足取得
                 df_d = yf.download(t, period="3mo", interval="1d", progress=False)
-                
-                if not df_d.empty:
-                    if isinstance(df_d.columns, pd.MultiIndex): 
-                        df_d.columns = df_d.columns.get_level_values(0)
-                    
-                    # 夜間・引け後の空データを削除
-                    df_d = df_d.dropna(subset=['Close'])
-
-                    if not df_d.empty and core.evaluate_screening_conditions(df_d, s_logic_params):
-                        # 5分足データの取得
-                        df_5m = yf.download(t, start=start_date_obj, interval="5m", progress=False, auto_adjust=False)
-                        
-                        if not df_5m.empty:
-                            if isinstance(df_5m.columns, pd.MultiIndex): 
-                                df_5m.columns = df_5m.columns.get_level_values(0)
-                            
-                            # 夜間の空データを削除
-                            df_5m = df_5m.dropna(subset=['Close', 'Open', 'High', 'Low'])
-                            
-                            if len(df_5m) > 5: # 夜間はデータが少ない場合があるため閾値を緩和
-                                p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date_obj)
-                                trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
-                                
-                                if trades:
-                                    score_data = core.get_one_touch_score(trades)
-                                    # スコアが0より大きい場合のみ結果に追加
-                                    if score_data['score'] > 0:
-                                        ot_results.append({
-                                            'コード': t, 
-                                            '銘柄名': TICKER_DETAILS.get(t, [t])[0],
-                                            '勝率': score_data['win_rate'], 
-                                            'PF': score_data['pf'], 
-                                            '期待値': score_data['ev'], 
-                                            '総合スコア': score_data['score']
-                                        })
-
+                if not df_d.empty and core.evaluate_screening_conditions(df_d, s_logic_params):
+                    end_date = datetime.now(); start_date = end_date - timedelta(days=days_back)
+                    df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
+                    if not df_5m.empty:
+                        if isinstance(df_5m.columns, pd.MultiIndex): df_5m.columns = df_5m.columns.get_level_values(0)
+                        p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
+                        trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
+                        if trades:
+                            score_data = core.get_one_touch_score(trades)
+                            ot_results.append({
+                                'コード': t, 
+                                # 【修正】TICKER_DETAILS から銘柄名を取得
+                                '銘柄名': TICKER_DETAILS.get(t, [t])[0],
+                                '勝率': score_data['win_rate'], 'PF': score_data['pf'], 
+                                '期待値': score_data['ev'], '総合スコア': score_data['score']
+                            })
             status.update(label="✅ 分析完了！", state="complete")
-            
+
         if ot_results:
             # スコア順にソートしてトップ5を抽出
             top_5_df = pd.DataFrame(ot_results).sort_values('総合スコア', ascending=False).head(5)
@@ -402,33 +367,19 @@ with tab_screen:
                     'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'], 'c_bb': p['c_bb'], 'bb_range': p['bb_rng']
                 }
 
-# main.py の「スクリーニング実行」ループ部分
-
                 results = []
                 with st.status(f"🔍 {scan_label} をスキャン中...", expanded=True) as status:
                     pb = st.progress(0)
                     for idx, t in enumerate(target_tickers):
                         pb.progress((idx+1)/len(target_tickers))
-                        
                         df_d = yf.download(t, period="3mo", interval="1d", progress=False)
-                        
                         if not df_d.empty:
-                            # 1. カラムの平坦化（MultiIndex対策）
-                            if isinstance(df_d.columns, pd.MultiIndex): 
-                                df_d.columns = df_d.columns.get_level_values(0)
-                            
-                            # 2. 【修正】17時台の空行(NaN)を削除
-                            # これにより、データの入っていない「今日」の行を捨て、確定済みの最新日を参照します
-                            df_d = df_d.dropna(subset=['Close', 'Volume'])
-                            
-                            # 3. 【修正】削除後にデータが残っている場合のみ判定へ進む
-                            if not df_d.empty:
-                                res = core.evaluate_screening_conditions(df_d, s_logic_params)
-                                if res:
-                                    res['コード'] = t
-                                    res['銘柄名'] = TICKER_DETAILS[t][0]
-                                    results.append(res)
-
+                            if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
+                            res = core.evaluate_screening_conditions(df_d, s_logic_params)
+                            if res:
+                                res['コード'] = t
+                                res['銘柄名'] = TICKER_DETAILS[t][0]
+                                results.append(res)
                     status.update(label=f"✅ {len(results)} 銘柄発見", state="complete")
                 
                 st.session_state[f"sc_res_df_{i}"] = pd.DataFrame(results) if results else None
