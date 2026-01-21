@@ -228,33 +228,14 @@ def run_ticker_simulation(ticker, df, pc_map, co_map, a_map, params):
                     in_pos = False; break
     return trades
 
-# logic_core.py の末尾：get_one_touch_score 関数を差し替え
-
 def get_one_touch_score(trades):
-    """
-    【修正】詳細指標（回数、利益平均、損失平均）を追加したスコアリング
-    """
+    """判定結果から総合スコアを算出する"""
     if not trades: return None
     tdf = pd.DataFrame(trades)
     pnls = tdf['PnL'].values
-    
-    wins = pnls[pnls > 0]
-    losses = pnls[pnls <= 0]
-    
+    wins = pnls[pnls > 0]; losses = pnls[pnls <= 0]
     win_rate = len(wins) / len(pnls)
-    # PFの計算（損失0の場合は9.99固定）
     pf = wins.sum() / abs(losses.sum()) if len(losses) > 0 and losses.sum() != 0 else 9.99
     ev = pnls.mean()
-    
-    # 総合スコア（期待値 × 勝率 × PF）
     score = ev * win_rate * pf
-    
-    return {
-        "win_rate": win_rate, 
-        "pf": pf, 
-        "ev": ev, 
-        "score": score,
-        "count": len(pnls),                # 追加：トレード回数
-        "avg_win": wins.mean() if len(wins) > 0 else 0,   # 追加：利益平均
-        "avg_loss": losses.mean() if len(losses) > 0 else 0 # 追加：損失平均
-    }
+    return {"win_rate": win_rate, "pf": pf, "ev": ev, "score": score}
