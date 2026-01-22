@@ -2,8 +2,8 @@
 
 /* --- アプリメインタイトル (.main-title) の統合設定 --- */
 h1, .main-title {
-    font-size: 32px !important;      /* スマホ最適化サイズ */
-    font-weight: 600 !important;      /* 太さを少し強調 */
+    font-size: 42px !important;      /* スマホ最適化だと32 */
+    font-weight: 400 !important;      /* 太さを少し強調 */
     margin: 0 !important;            /* 基本余白をリセット */
     margin-bottom: 5px !important;   /* 下に少しだけ隙間を作る */
     padding: 0 !important;
