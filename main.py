@@ -76,21 +76,13 @@ if 'sc_params' not in st.session_state:
 for i in range(3):
     if f"sc_res_df_{i}" not in st.session_state: st.session_state[f"sc_res_df_{i}"] = None
 
-# --- 2. デザインCSS (全画面共通) ---
-st.markdown("""
-    <style>
-    .main-title { font-weight: 400 !important; font-size: 42px !important; margin: 0 !important; padding: 0 !important; line-height: 1.1; }
-    .sub-title { font-weight: 300 !important; font-size: 18px !important; margin-bottom: 30px !important; padding: 0 !important; color: #aaaaaa !important; line-height: 1.1; }
-    .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-    @media (max-width: 640px) { .metric-grid { grid-template-columns: repeat(2, 1fr) !important; } }
-    .metric-card { border: 1px solid #3d414b; border-radius: 6px; padding: 8px 5px; text-align: center; }
-    .card-label { font-size: 11px; color: #aaaaaa; }
-    .card-value { font-size: 22px; font-weight: 600; }
-    .delta-badge { font-size: 14px; font-weight: 600; }
-    .plus { color: #ff4b4b; } .minus { color: #00f0a8; }
-    .summary-box { background-color: #262730; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #3d414b; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- 2. デザインCSSの読み込み (style.css) ---
+def local_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+# style.css を読み込む
+local_css("style.css")
 
 # --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
 st.sidebar.markdown("### 🎲 戦略プリセット")
@@ -126,7 +118,7 @@ params = {
 }
 
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
-st.markdown(f"<div style='margin-bottom: 20px;'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 3.4</h3></div>", unsafe_allow_html=True)
+st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 3.4</h3></div>", unsafe_allow_html=True)
 
 # 【修正ポイント】key="target_tickers" を削除し、value= を使用します
 ticker_input_val = st.text_input(
@@ -175,18 +167,19 @@ with tab_top:
         # B. 今日のマーケットAI診断
         tips_str = "".join(diag["tips"]) if diag["tips"] else "特になし"
         diag_html = f"""
-        <div style="background-color: #121826; border: 1px solid #3d414b; border-radius: 6px; padding: 18px; margin-top: 15px;">
+        <div class="ai-diagnosis-box">
             <h4 style="margin-top: 0; margin-bottom: -10px; color: #3498db; font-size: 1.0em;">📀 今日のマーケットAI診断</h4>
-            <div style="margin-bottom: 5px; font-size: 0.8em;"><b>バランス：</b> {diag['alert_level']}</div>
-            <div style="margin-bottom: 5px; font-size: 0.8em;"><b>推奨戦略：</b> {rec_strat}</div>
-            <div style="margin-bottom: 5px; font-size: 0.8em;"><b>寄付予測：</b> {diag['opening_forecast']}</div>
-            <div style="margin-bottom: 5px; font-size: 0.8em;"><b>相場展望：</b> {diag['phase_comment']}</div>
-            <div style="margin-bottom: 15px; font-size: 0.8em;"><b>米国株の影響：</b> {diag['us_impact']}</div>
+            <div class="ai-diag-row"><b>バランス：</b> {diag['alert_level']}</div>
+            <div class="ai-diag-row"><b>推奨戦略：</b> {rec_strat}</div>
+            <div class="ai-diag-row"><b>寄付予測：</b> {diag['opening_forecast']}</div>
+            <div class="ai-diag-row"><b>相場展望：</b> {diag['phase_comment']}</div>
+            <div class="ai-diag-row-last"><b>米国株の影響：</b> {diag['us_impact']}</div>
             <h4 style="margin-top: 0; margin-bottom: -10px; color: #3498db; font-size: 1.0em;">👀 指標から推測できる注目セクター</h4>
             <div style="margin-bottom: 15px; font-size: 0.85em;">{tips_str}</div>
         </div>
-        <div style="height: 15px;"></div>
+        <div class="ai-diag-footer"></div>
         """
+        
         st.markdown(diag_html, unsafe_allow_html=True)
 
     # 4. ワンタッチ判定：全自動スキャン開始ボタン
