@@ -148,7 +148,7 @@ with tab_top:
     rec_strat = strat_names[diag["strategy"]]
     
     # 3. 市場指標ウォッチの表示
-    with st.expander("🕒 指標ウォッチ（タップで開閉）", expanded=True):
+    with st.expander("🕒 指標ウォッチ（タップで開閉）", expanded=False):
         # 【修正】指定形式の時刻入り更新ボタン
         if st.button(f"🔄 リアルタイム更新 ▶︎ {now_jst}", use_container_width=True, key="refresh_top_btn"):
             st.cache_data.clear()
