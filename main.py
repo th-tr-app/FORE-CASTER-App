@@ -777,7 +777,7 @@ with tab_bt:
 
                 st.divider()
                 
-# --- タブ4: ランキング (3.3 安定版ロジック適用) ---
+# --- タブ4: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
 with tab_rank:
     st.markdown("### 🏆 登録銘柄期待値ランキング")
     p_range = st.slider("価格帯フィルター (円)", 0, 20000, (500, 5000), 500, key="rank_sld_p")
@@ -785,57 +785,54 @@ with tab_rank:
     if st.button("🚀 ランキング生成開始", type="primary", use_container_width=True, key="rank_run_btn"):
         rank_list = []
         all_tickers = list(TICKER_DETAILS.keys())
-        
-        # 1. 日付定義の統一 (ワンタッチと同じ形式)
         end_date = datetime.now()
-        start_date_obj = end_date - timedelta(days=days_back)
+        start_date = end_date - timedelta(days=days_back)
         
-        with st.status("🔍 全銘柄をフルスキャン中...", expanded=True) as status:
+        with st.status("🔍 全銘柄を分析中...", expanded=True) as status:
             pb_r = st.progress(0)
             for i, t in enumerate(all_tickers):
                 pb_r.progress((i+1)/len(all_tickers))
-                status.update(label=f"分析中 ({i+1}/{len(all_tickers)}): {t}")
+                status.update(label=f"Scanning {i+1}/{len(all_tickers)}: {t}")
                 
-                # 2. 5分足データの取得
-                df_r = yf.download(t, start=start_date_obj, interval="5m", progress=False, auto_adjust=False)
+                # 1. 前日比取得のための日足取得
+                df_d = yf.download(t, period="2d", interval="1d", progress=False)
+                if df_d.empty: continue
+                if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
                 
-                if not df_r.empty:
-                    # カラムの平坦化
-                    if isinstance(df_r.columns, pd.MultiIndex): 
-                        df_r.columns = df_r.columns.get_level_values(0)
+                # 前日比の計算
+                day_gain = ((df_d['Close'].iloc[-1] - df_d['Close'].iloc[-2]) / df_d['Close'].iloc[-2]) * 100
+                current_p = float(df_d['Close'].iloc[-1])
+                
+                # 価格帯フィルター
+                if p_range[0] <= current_p <= p_range[1]:
+                    # 2. シミュレーション用の5分足取得
+                    df_r = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
+                    if df_r.empty: continue
+                    if isinstance(df_r.columns, pd.MultiIndex): df_r.columns = df_r.columns.get_level_values(0)
                     
-                    # 3. 【重要】夜間の空データ(NaN)を排除
-                    df_r = df_r.dropna(subset=['Close'])
+                    p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
+                    t_trades = core.run_ticker_simulation(t, df_r, p_map, o_map, a_map, params)
                     
-                    if not df_r.empty:
-                        try:
-                            # 4. 価格フィルター判定 (安全な数値抽出)
-                            current_p = float(df_r['Close'].values.ravel()[-1])
-                            
-                            if p_range[0] <= current_p <= p_range[1]:
-                                # 統計マップとシミュレーション実行
-                                p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date_obj)
-                                t_trades = core.run_ticker_simulation(t, df_r, p_map, o_map, a_map, params)
-                                
-                                if t_trades:
-                                    score_data = core.get_one_touch_score(t_trades)
-                                    if score_data:
-                                        rank_list.append({
-                                            'コード': t, 
-                                            # 5. 【修正】TICKER_DETAILS を使用して銘柄名を取得
-                                            '銘柄名': TICKER_DETAILS.get(t, [t])[0],
-                                            '勝率': score_data['win_rate'], 
-                                            'PF': score_data['pf'], 
-                                            '期待値': score_data['ev'],
-                                            '総合スコア': score_data['score']
-                                        })
-                        except:
-                            continue
-            
+                    if t_trades:
+                        score_data = core.get_one_touch_score(t_trades)
+                        if score_data:
+                            # 【修正】10項目のデータ収集
+                            rank_list.append({
+                                'コード': t, 
+                                '銘柄名': TICKER_DETAILS.get(t, [t])[0],
+                                '前日比': day_gain,
+                                '回数': score_data['count'],
+                                '勝率': score_data['win_rate'], 
+                                '利益平均': score_data['avg_win'],
+                                '損失平均': score_data['avg_loss'],
+                                'PF': score_data['pf'], 
+                                '期待値': score_data['ev'],
+                                '総合スコア': score_data['score']
+                            })
             status.update(label="✅ スキャン完了！", state="complete")
         
-        # 結果の保存とソート
         if rank_list:
+            # 期待値順にソートして保存
             st.session_state['last_rank_df'] = pd.DataFrame(rank_list).sort_values('期待値', ascending=False).head(20)
             st.rerun()
         else:
@@ -846,9 +843,13 @@ with tab_rank:
         rdf = st.session_state['last_rank_df']
         st.caption("👇 銘柄をチェックすると監視リストに反映されます。")
         
+        # 【修正】10項目の表示設定と％表記
+        # ご自身で設定された高さ height=735 を維持しています。
         event = st.dataframe(
-            rdf[['コード', '銘柄名', '勝率', 'PF', '期待値', '総合スコア']].style.format({
-                '勝率': '{:.1%}', '期待値': '{:+.2%}', 'PF': '{:.2f}', '総合スコア': '{:.4f}'
+            rdf[['コード', '銘柄名', '前日比', '回数', '勝率', '利益平均', '損失平均', 'PF', '期待値', '総合スコア']].style.format({
+                '前日比': '{:+.2f}%', '勝率': '{:.1%}', '期待値': '{:+.2%}', 
+                '利益平均': '{:+.2%}', '損失平均': '{:+.2%}', 'PF': '{:.2f}', 
+                '総合スコア': '{:.2%}' # ％表記に変更
             }),
             use_container_width=True, hide_index=True, 
             on_select="rerun", selection_mode="multi-row", 
@@ -856,12 +857,12 @@ with tab_rank:
             height=735 
         )
         
-        # 選択行の監視リスト反映
-        if event.selection.rows:
-            selected_codes = rdf.iloc[event.selection.rows]['コード'].tolist()
+        # 監視リストへの反映ロジック (既存維持)
+        selected_rows = event.selection.rows
+        if selected_rows:
+            selected_codes = rdf.iloc[selected_rows]['コード'].tolist()
             current_str = st.session_state.get('target_tickers', "")
             current_list = [t.strip() for t in current_str.split(",") if t.strip()]
-            
             new_found = [c for c in selected_codes if c not in current_list]
             if new_found:
                 updated_list = sorted(list(set(current_list + selected_codes)))
