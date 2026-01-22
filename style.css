@@ -18,6 +18,11 @@
     line-height: 1.1;
 }
 
+/* メインヘッダーのコンテナ */
+.header-container {
+    margin-bottom: 20px;
+}
+
 /* 指標カードグリッド */
 .metric-grid {
     display: grid;
@@ -74,4 +79,19 @@
     padding: 18px;
     margin-top: 15px;
     margin-bottom: 15px;
+}
+
+/* AI診断ボックス内の各行 */
+.ai-diag-row {
+    margin-bottom: 5px;
+    font-size: 0.8em;
+}
+
+.ai-diag-row-last {
+    margin-bottom: 15px;
+    font-size: 0.8em;
+}
+
+.ai-diag-footer {
+    height: 15px;
 }
