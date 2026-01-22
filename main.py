@@ -148,7 +148,7 @@ with tab_top:
     rec_strat = strat_names[diag["strategy"]]
     
     # 3. 市場指標ウォッチの表示
-    with st.expander("🕒 指標ウォッチ／マーケット診断", expanded=True):
+    with st.expander("🕒 指標ウォッチ／マーケットAI診断", expanded=True):
         # 【修正】指定形式の時刻入り更新ボタン
         if st.button(f"🔄 リアルタイム更新 ({now_jst})", use_container_width=True, key="refresh_top_btn"):
             st.cache_data.clear()
@@ -168,7 +168,7 @@ with tab_top:
         tips_str = "".join(diag["tips"]) if diag["tips"] else "特になし"
         diag_html = f"""
         <div class="ai-diagnosis-box">
-            <h4 class="ai-diag-title">📀 今日のマーケット診断</h4>
+            <h4 class="ai-diag-title">📀 今日のマーケットAI診断</h4>
             <div class="ai-diag-row"><b>バランス：</b> {diag['alert_level']}</div>
             <div class="ai-diag-row"><b>推奨戦略：</b> {rec_strat}</div>
             <div class="ai-diag-row"><b>寄付予測：</b> {diag['opening_forecast']}</div>
