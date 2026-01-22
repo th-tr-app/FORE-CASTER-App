@@ -1,14 +1,48 @@
 /* FORE CASTER 共通スタイル */
 
-/* タイトルエリア */
-.main-title {
-    font-weight: 400 !important;
-    font-size: 42px !important;
-    margin: 0 !important;
+/* --- アプリメインタイトル (.main-title) の統合設定 --- */
+h1, .main-title {
+    font-size: 32px !important;      /* スマホ最適化サイズ */
+    font-weight: 600 !important;      /* 太さを少し強調 */
+    margin: 0 !important;            /* 基本余白をリセット */
+    margin-bottom: 5px !important;   /* 下に少しだけ隙間を作る */
     padding: 0 !important;
-    line-height: 1.1;
+    line-height: 1.1 !important;     /* 行間を詰めてスッキリさせる */
 }
 
+/* h2: セクション見出し (タブ内の大きな区切り) */
+h2 {
+    font-size: 26px !important;
+    font-weight: 500 !important;
+    margin-top: 20px !important;
+    border-bottom: 1px solid #3d414b;
+    padding-bottom: 10px;
+}
+
+/* h3: サブタイトル (.sub-title) */
+h3, .sub-title {
+    font-size: 18px !important;
+    font-weight: 300 !important;
+    color: #aaaaaa !important;
+}
+
+/* h4: 診断ボックス内の見出し (.ai-diag-title) */
+h4, .ai-diag-title {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    color: #3498db !important; /* 青色を維持 */
+    margin-top: 0 !important;
+    margin-bottom: 8px !important;
+}
+
+/* h5: 小見出し (詳細ログなど) */
+h5 {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: #e0e0e0 !important;
+}
+
+/* サブタイトル(バージョンNo.など) */
 .sub-title {
     font-weight: 300 !important;
     font-size: 18px !important;
