@@ -129,3 +129,13 @@ h5 {
 .ai-diag-footer {
     height: 15px;
 }
+
+/* 見出しの右側に表示されるリンクマーク（アンカー）を非表示にする */
+.header-anchor {
+    display: none !important;
+}
+
+/* リンクマークが表示されていたスペースも詰める設定（念のため） */
+[data-testid="stHeaderActionElements"] {
+    display: none !important;
+}
