@@ -122,7 +122,7 @@ st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</
 
 # 【修正ポイント】key="target_tickers" を削除し、value= を使用します
 ticker_input_val = st.text_input(
-    "🎯 監視銘柄コード (カンマ区切り)", 
+    "銘柄コード (カンマ区切り)", 
     value=st.session_state['target_tickers']
 )
 
@@ -132,7 +132,7 @@ if ticker_input_val != st.session_state['target_tickers']:
     st.rerun()
     
 # --- 5. メインタブ構成 ---
-tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト", "🏆 ランキング"])
+tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スキャン", "📈 バックテスト", "🏆 ランキング"])
 
 # --- タブ1: ワンタッチ (FC 3.3：統合修正版) ---
 with tab_top:
@@ -148,7 +148,7 @@ with tab_top:
     rec_strat = strat_names[diag["strategy"]]
     
     # 3. 市場指標ウォッチの表示
-    with st.expander("🕒 指標ウォッチ (タップで開閉)", expanded=True):
+    with st.expander("🕒 指標ウォッチ", expanded=True):
         # 【修正】指定形式の時刻入り更新ボタン
         if st.button(f"🔄 リアルタイム更新 ({now_jst})", use_container_width=True, key="refresh_top_btn"):
             st.cache_data.clear()
@@ -182,7 +182,7 @@ with tab_top:
         st.markdown(diag_html, unsafe_allow_html=True)
 
     # 4. ワンタッチ判定：全自動スキャン開始ボタン
-    if st.button("🚀 ワンタッチ判定：全自動スキャン開始", type="primary", use_container_width=True, key="ot_full_scan_btn"):
+    if st.button("☝️ ワンタッチ判定", type="primary", use_container_width=True, key="ot_full_scan_btn"):
         current_preset = st.session_state['preset'] 
         p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
         p = st.session_state['sc_params'][p_idx]
