@@ -384,12 +384,20 @@ with tab_screen:
                                 results.append(res)
                     status.update(label=f"✅ {len(results)} 銘柄発見", state="complete")
                 
+                # 【修正】結果の保存と同時に0件フラグを制御
                 st.session_state[f"sc_res_df_{i}"] = pd.DataFrame(results) if results else None
+                # スキャン実行後の0件判定フラグを設定
+                st.session_state[f"sc_no_results_{i}"] = True if not results else False
                 st.rerun()
+
+            # --- 【修正】スキャン実行後に結果が0件だった時の通知 ---
+            if st.session_state.get(f"sc_no_results_{i}"):
+                st.warning("⚠️ 条件に合致する銘柄が見つかりませんでした。")
 
             # --- 結果表示 (並び替え・全件表示・書式設定済み) ---
             current_res = st.session_state.get(f"sc_res_df_{i}")
             if current_res is not None and not current_res.empty:
+                # (以降、st.info や st.dataframe 表示ロジックは維持)
                 st.info("💡 銘柄をチェックすると、監視リストに反映されます。")
                 current_res = current_res.sort_values("売買代金", ascending=False)
                 df_height = (len(current_res) + 1) * 35 + 5 # 縦スクロール防止
@@ -417,9 +425,10 @@ with tab_screen:
                     if new_only:
                         new_combined = sorted(list(set(current_list + new_only)))
                         st.session_state['target_tickers'] = ", ".join(new_combined)
+                        st.session_state[f"sc_no_results_{i}"] = False # 監視リスト追加時は警告を消す
                         st.toast(f"監視リストに {len(new_only)} 銘柄を反映しました")
                         st.rerun()
-
+                        
 # --- タブ3: バックテスト (6.3の全分析機能を復元) ---
 with tab_bt:
     if st.button("📊 個別バックテスト実行", type="primary", use_container_width=True, key="bt_run_main"):
