@@ -182,7 +182,7 @@ with tab_top:
         st.markdown(diag_html, unsafe_allow_html=True)
 
     # 4. ワンタッチ判定：全自動スキャン開始ボタン
-    if st.button("☝️ ワンタッチ判定/おすすめ銘柄トップ５", type="primary", use_container_width=True, key="ot_full_scan_btn"):
+    if st.button("👉 ワンタッチで銘柄判定", type="primary", use_container_width=True, key="ot_full_scan_btn"):
         current_preset = st.session_state['preset'] 
         p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
         p = st.session_state['sc_params'][p_idx]
@@ -260,7 +260,7 @@ with tab_top:
 
     # --- 厳選トップ5のリスト表示（10項目 ＆ ％表記版） ---
     if 'ot_last_top5' in st.session_state:
-        st.markdown("#### 🏆 本日の厳選トップ5銘柄")
+        st.markdown("#### 🏆 本日のおすすめ銘柄トップ５")
         rdf_ot = st.session_state['ot_last_top5']
         
         # 表示する列の順番を指定し、％表記を適用
