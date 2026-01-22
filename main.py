@@ -142,27 +142,23 @@ if ticker_input_val != st.session_state['target_tickers']:
 # --- 5. メインタブ構成 ---
 tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スクリーニング", "📈 バックテスト", "🏆 ランキング"])
 
-# --- タブ1: ワンタッチ (FC 3.3：時刻表示位置の修正) ---
+# --- タブ1: ワンタッチ (FC 3.3：統合修正版) ---
 with tab_top:
-    # 1. 日本時間の定義と取得 (ユーザー指定のフォーマット: YYYY/MM/DD/HH:MM)
+    # 1. 日本時間の定義と取得 (指定フォーマット: YYYY/MM/DD/HH:MM)
     jst = timezone(timedelta(hours=9))
-    # スラッシュ区切りの指定形式に合わせます
     now_jst = datetime.now(jst).strftime('%Y/%m/%d/%H:%M')
     
     # 2. データの取得 (logic_core の関数を呼び出し)
     m_data = core.fetch_market_info(MARKET_INDICES)
     diag = core.analyze_market_environment()
     
-    # 戦略名の定義
     strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
     rec_strat = strat_names[diag["strategy"]]
     
     # 3. 市場指標ウォッチの表示
-    # タイトルからは時刻を削除し、スッキリさせます
-    with st.expander("🕒 市場指標ウォッチ (タップで開閉)", expanded=True):
-        # 【修正】ボタンのラベル内に日時を表示します
-        btn_label = f"🔄 リアルタイム更新 ({now_jst})"
-        if st.button(btn_label, use_container_width=True, key="refresh_top_btn"):
+    with st.expander("🕒 指標ウォッチ (タップで開閉)", expanded=True):
+        # 【修正】指定形式の時刻入り更新ボタン
+        if st.button(f"🔄 リアルタイム更新 ({now_jst})", use_container_width=True, key="refresh_top_btn"):
             st.cache_data.clear()
             st.rerun()
             
@@ -199,28 +195,21 @@ with tab_top:
         p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
         p = st.session_state['sc_params'][p_idx]
         
-        # パラメータのマッピング (KeyError防止)
         s_logic_params = {
             'c_gain': p.get('c_gain'), 'gain_range': p.get('gain_rng'),
-            'c_p': p.get('c_p'), 'p_range': p.get('p_rng'), 
-            'c_v': p.get('c_v'), 'v_min': p.get('v_min'), 
-            'c_atrp': p.get('c_atrp'), 'atrp_range': p.get('atrp_rng'), 
-            'c_ma': p.get('c_ma'), 'ma_opt': p.get('ma_opt'), 
-            'c_ema': p.get('c_ema'), 'ema_opt': p.get('ema_opt'),
-            'c_adx': p.get('c_adx'), 'adx_range': p.get('adx_rng'), 
-            'c_rci': p.get('c_rci'), 'rci_range': p.get('rci_rng'),
-            'c_rsi': p.get('c_rsi'), 'rsi_range': p.get('rsi_rng'),
-            'c_vup': p.get('c_vup'), 'vup_min': p.get('vup_min'), 
-            'c_ma25': p.get('c_ma25'), 'ma25_range': p.get('ma25_rng'),
+            'c_p': p.get('c_p'), 'p_range': p.get('p_rng'), 'c_v': p.get('c_v'), 'v_min': p.get('v_min'), 
+            'c_atrp': p.get('c_atrp'), 'atrp_range': p.get('atrp_rng'), 'c_ma': p.get('c_ma'), 'ma_opt': p.get('ma_opt'), 
+            'c_ema': p.get('c_ema'), 'ema_opt': p.get('ema_opt'), 'c_adx': p.get('c_adx'), 'adx_range': p.get('adx_rng'), 
+            'c_rci': p.get('c_rci'), 'rci_range': p.get('rci_rng'), 'c_rsi': p.get('c_rsi'), 'rsi_range': p.get('rsi_rng'),
+            'c_vup': p.get('c_vup'), 'vup_min': p.get('vup_min'), 'c_ma25': p.get('c_ma25'), 'ma25_range': p.get('ma25_rng'),
             'c_bb': p.get('c_bb'), 'bb_range': p.get('bb_rng')
         }
         
-        # --- 業種フィルターの適用 (全銘柄リストの作成部分を書き換え) ---
+        # 【修正】業種フィルターの適用
         selected_sids = p.get('sector', [0])
         if 0 in selected_sids or not selected_sids:
             all_tickers = list(TICKER_DETAILS.keys())
         else:
-            # TICKER_DETAILS の業種ID(d[1])が選択リストに含まれる銘柄のみ抽出
             all_tickers = [t for t, d in TICKER_DETAILS.items() if d[1] in selected_sids]
             
         ot_results = []
@@ -231,77 +220,67 @@ with tab_top:
                 pb_ot.progress((idx+1)/len(all_tickers))
                 status.update(label=f"分析中 ({idx+1}/{len(all_tickers)}): {t}")
                 
-                # A. 日次データのダウンロードと MultiIndex 対策
                 df_d = yf.download(t, period="3mo", interval="1d", progress=False)
                 if not df_d.empty:
-                    if isinstance(df_d.columns, pd.MultiIndex): 
-                        df_d.columns = df_d.columns.get_level_values(0)
-                    
-                    # B. スクリーニング条件の判定
+                    if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
                     scr_res = core.evaluate_screening_conditions(df_d, s_logic_params)
                     if scr_res:
-                        # 条件合致銘柄のみ 5分足バックテストを実行
-                        end_date = datetime.now()
-                        start_date = end_date - timedelta(days=days_back)
+                        end_date = datetime.now(); start_date = end_date - timedelta(days=days_back)
                         df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
                         
                         if not df_5m.empty:
-                            if isinstance(df_5m.columns, pd.MultiIndex): 
-                                df_5m.columns = df_5m.columns.get_level_values(0)
-                            
+                            if isinstance(df_5m.columns, pd.MultiIndex): df_5m.columns = df_5m.columns.get_level_values(0)
                             p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
                             trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
-                            
-                            # C. スコアデータの取得と null チェック
                             score_data = core.get_one_touch_score(trades)
                             if score_data:
+                                # 【修正】項目の追加
                                 ot_results.append({
-                                    'コード': t, 
-                                    '銘柄名': TICKER_DETAILS.get(t, [t])[0],
-                                    '勝率': score_data['win_rate'], 
-                                    'PF': score_data['pf'], 
-                                    '期待値': score_data['ev'], 
-                                    '総合スコア': score_data['score']
+                                    'コード': t, '銘柄名': TICKER_DETAILS.get(t, [t])[0],
+                                    '前日比': scr_res.get('前日比', 0), '回数': score_data['count'],
+                                    '勝率': score_data['win_rate'], '利益平均': score_data['avg_win'],
+                                    '損失平均': score_data['avg_loss'], 'PF': score_data['pf'],
+                                    '期待値': score_data['ev'], '総合スコア': score_data['score']
                                 })
             status.update(label="✅ 分析完了！", state="complete")
 
-        # 5. 結果の保存と画面更新
+        # 結果の保存と0件フラグ制御
         if ot_results:
             top_5_df = pd.DataFrame(ot_results).sort_values('総合スコア', ascending=False).head(5)
             st.session_state['ot_last_top5'] = top_5_df
-            st.session_state['ot_no_results'] = False # 結果ありフラグ
+            st.session_state['ot_no_results'] = False
             
-            # 監視リストへの自動追加
+            # 監視リスト反映
             current_str = st.session_state.get('target_tickers', "")
             current_list = [t.strip() for t in current_str.split(",") if t.strip()]
             combined_list = sorted(list(set(current_list + top_5_df['コード'].tolist())))
             st.session_state['target_tickers'] = ", ".join(combined_list)
-            
-            st.toast("🎯 期待値トップ5を監視リストに追加しました！")
             st.rerun()
-    else:
-            st.session_state['ot_no_results'] = True # 結果なしフラグ
-            st.session_state.pop('ot_last_top5', None) # 以前の結果があれば削除
+        else:
+            st.session_state['ot_no_results'] = True
+            st.session_state.pop('ot_last_top5', None)
             st.rerun()
 
-    # --- ボタンの下に結果表示または警告を表示 ---
+    # --- 【修正】スキャン実行後に結果が0件だった時の通知 ---
     if st.session_state.get('ot_no_results'):
         st.warning("⚠️ 条件に合致する銘柄が見つかりませんでした。")
-        
+
     # --- 厳選トップ5のリスト表示 ---
     if 'ot_last_top5' in st.session_state:
         st.markdown("#### 🏆 本日の厳選トップ5銘柄")
         rdf_ot = st.session_state['ot_last_top5']
+        # 【修正】全10項目表示と％表記
         st.dataframe(
             rdf_ot.style.format({
-                '勝率': '{:.1%}', '期待値': '{:+.2%}', 'PF': '{:.2f}', '総合スコア': '{:.4f}'
+                '前日比': '{:+.2f}%', '勝率': '{:.1%}', '利益平均': '{:+.2%}', 
+                '損失平均': '{:+.2%}', '期待値': '{:+.2%}', 'PF': '{:.2f}', '総合スコア': '{:.2%}'
             }),
             use_container_width=True, hide_index=True, selection_mode=None
         )
         
         if st.button("♻️ ワンタッチ結果をクリア", key="ot_clear_res_btn"):
             del st.session_state['ot_last_top5']
-            st.session_state['ot_no_results'] = False # フラグをリセット
+            st.session_state['ot_no_results'] = False
             st.rerun()
             
 # --- タブ2: スクリーニングの実装 (12パラメーター対応版) ---
