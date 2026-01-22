@@ -182,7 +182,7 @@ with tab_top:
         st.markdown(diag_html, unsafe_allow_html=True)
 
     # 4. ワンタッチ判定：全自動スキャン開始ボタン
-    if st.button("👉 ワンタッチ／銘柄候補を自動選出", type="primary", use_container_width=True, key="ot_full_scan_btn"):
+    if st.button("👉 ワンタッチ／銘柄候補を自動選出!!", type="primary", use_container_width=True, key="ot_full_scan_btn"):
         current_preset = st.session_state['preset'] 
         p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
         p = st.session_state['sc_params'][p_idx]
