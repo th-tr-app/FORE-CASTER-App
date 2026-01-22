@@ -168,18 +168,17 @@ with tab_top:
         tips_str = "".join(diag["tips"]) if diag["tips"] else "特になし"
         diag_html = f"""
         <div class="ai-diagnosis-box">
-            <h4 style="margin-top: 0; margin-bottom: -10px; color: #3498db; font-size: 1.0em;">📀 今日のマーケットAI診断</h4>
+            <h4 class="ai-diag-title">📀 今日のマーケットAI診断</h4>
             <div class="ai-diag-row"><b>バランス：</b> {diag['alert_level']}</div>
             <div class="ai-diag-row"><b>推奨戦略：</b> {rec_strat}</div>
             <div class="ai-diag-row"><b>寄付予測：</b> {diag['opening_forecast']}</div>
             <div class="ai-diag-row"><b>相場展望：</b> {diag['phase_comment']}</div>
             <div class="ai-diag-row-last"><b>米国株の影響：</b> {diag['us_impact']}</div>
-            <h4 style="margin-top: 0; margin-bottom: -10px; color: #3498db; font-size: 1.0em;">👀 指標から推測できる注目セクター</h4>
-            <div style="margin-bottom: 15px; font-size: 0.85em;">{tips_str}</div>
+            <h4 class="ai-diag-title">👀 指標から推測できる注目セクター</h4>
+            <div class="ai-sector-tips">{tips_str}</div>
         </div>
         <div class="ai-diag-footer"></div>
         """
-        
         st.markdown(diag_html, unsafe_allow_html=True)
 
     # 4. ワンタッチ判定：全自動スキャン開始ボタン
