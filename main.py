@@ -242,6 +242,7 @@ with tab_top:
                                     '損失平均': score_data['avg_loss'], 'PF': score_data['pf'],
                                     '期待値': score_data['ev'], '総合スコア': score_data['score']
                                 })
+                                
             status.update(label="✅ 分析完了！", state="complete")
 
         # 結果の保存と0件フラグ制御
@@ -265,15 +266,21 @@ with tab_top:
     if st.session_state.get('ot_no_results'):
         st.warning("⚠️ 条件に合致する銘柄が見つかりませんでした。")
 
-    # --- 厳選トップ5のリスト表示 ---
+    # --- 厳選トップ5のリスト表示（10項目 ＆ ％表記版） ---
     if 'ot_last_top5' in st.session_state:
         st.markdown("#### 🏆 本日の厳選トップ5銘柄")
         rdf_ot = st.session_state['ot_last_top5']
-        # 【修正】全10項目表示と％表記
+        
+        # 表示する列の順番を指定し、％表記を適用
         st.dataframe(
-            rdf_ot.style.format({
-                '前日比': '{:+.2f}%', '勝率': '{:.1%}', '利益平均': '{:+.2%}', 
-                '損失平均': '{:+.2%}', '期待値': '{:+.2%}', 'PF': '{:.2f}', '総合スコア': '{:.2%}'
+            rdf_ot[['コード', '銘柄名', '前日比', '回数', '勝率', '利益平均', '損失平均', 'PF', '期待値', '総合スコア']].style.format({
+                '前日比': '{:+.2f}%', 
+                '勝率': '{:.1%}', 
+                '利益平均': '{:+.2%}', 
+                '損失平均': '{:+.2%}', 
+                '期待値': '{:+.2%}', 
+                'PF': '{:.2f}', 
+                '総合スコア': '{:.2%}' # 0.0190 → 1.90% に変換
             }),
             use_container_width=True, hide_index=True, selection_mode=None
         )
