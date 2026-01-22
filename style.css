@@ -1,0 +1,77 @@
+/* FORE CASTER 共通スタイル */
+
+/* タイトルエリア */
+.main-title {
+    font-weight: 400 !important;
+    font-size: 42px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.1;
+}
+
+.sub-title {
+    font-weight: 300 !important;
+    font-size: 18px !important;
+    margin-bottom: 30px !important;
+    padding: 0 !important;
+    color: #aaaaaa !important;
+    line-height: 1.1;
+}
+
+/* 指標カードグリッド */
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+@media (max-width: 640px) {
+    .metric-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+/* 各種カード・ボックス */
+.metric-card {
+    border: 1px solid #3d414b;
+    border-radius: 6px;
+    padding: 8px 5px;
+    text-align: center;
+}
+
+.card-label {
+    font-size: 11px;
+    color: #aaaaaa;
+}
+
+.card-value {
+    font-size: 22px;
+    font-weight: 600;
+}
+
+.delta-badge {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.summary-box {
+    background-color: #262730;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid #3d414b;
+}
+
+/* カラー設定 */
+.plus { color: #ff4b4b; }
+.minus { color: #00f0a8; }
+
+/* AI診断ボックス (今後調整しやすいように追加) */
+.ai-diagnosis-box {
+    background-color: #121826;
+    border: 1px solid #3d414b;
+    border-radius: 6px;
+    padding: 18px;
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
