@@ -397,7 +397,7 @@ with tab_screen:
             current_res = st.session_state.get(f"sc_res_df_{i}")
             if current_res is not None and not current_res.empty:
                 # (以降、st.info や st.dataframe 表示ロジックは維持)
-                st.info("✅ チェックすると上の銘柄リストに反映されます。")
+                st.info("✅ チェックして上の銘柄リストに追加。")
                 current_res = current_res.sort_values("売買代金", ascending=False)
                 df_height = (len(current_res) + 1) * 35 + 5 # 縦スクロール防止
                 
