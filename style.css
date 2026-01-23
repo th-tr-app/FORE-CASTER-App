@@ -12,11 +12,10 @@ h1, .main-title {
 
 /* h2: セクション見出し (タブ内の大きな区切り) */
 h2 {
-    font-size: 26px !important;
-    font-weight: 500 !important;
-    margin-top: 20px !important;
-    border-bottom: 1px solid #3d414b;
-    padding-bottom: 10px;
+    font-size: 1.4rem !important;
+    font-weight: 600 !important;
+    margin-top: 10px !important;
+    margin-bottom: -5px !important;
 }
 
 /* h3: サブタイトル (.sub-title) */
