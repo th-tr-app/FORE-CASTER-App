@@ -103,7 +103,7 @@ u_vwap = st.sidebar.checkbox("VWAPより上でエントリー", value=True)
 u_ema = st.sidebar.checkbox("EMA5より上でエントリー", value=True)
 u_rsi = st.sidebar.checkbox("RSIが45以上or上向き", value=True)
 u_macd = st.sidebar.checkbox("MACDが上向き", value=True)
-st.sidebar.write("")
+st.sidebar.divider()
 g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, -3.0, 0.05) / 100
 g_max = st.sidebar.slider("寄付アップ上限 (%)", -5.0, 5.0, 1.0, 0.05) / 100
 st.sidebar.divider()
