@@ -772,11 +772,11 @@ with tab_bt:
                 
 # --- タブ4: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
 with tab_rank:
-    st.markdown("### 🏆 登録銘柄期待値ランキング")
-    st.caption("チャートパターン別の成績分析と、ベストなエントリー条件を言語化して勝ちパターンを抽出します。")
+    st.markdown("### 🏆 登録銘柄ランキング２０")
+    st.caption("日経225＋αの銘柄から、エントリー条件をクリアした期待値の高い20銘柄をランキングで抽出します。")
     p_range = st.slider("価格帯フィルター (円)", 0, 20000, (500, 5000), 500, key="rank_sld_p")
     
-    if st.button("🚀 ランキング生成開始", type="primary", use_container_width=True, key="rank_run_btn"):
+    if st.button("ランキング生成開始", type="primary", use_container_width=True, key="rank_run_btn"):
         rank_list = []
         all_tickers = list(TICKER_DETAILS.keys())
         end_date = datetime.now()
