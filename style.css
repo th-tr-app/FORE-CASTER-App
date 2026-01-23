@@ -65,9 +65,10 @@ h5 {
 }
 
 @media (max-width: 640px) {
-    .metric-grid {
-        grid-template-columns: repeat(2, 1fr) !important;
-    }
+    [data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; gap: 10px !important; }
+    [data-testid="column"] { flex: 0 0 45% !important; max-width: 45% !important; min-width: 45% !important; }
+    [data-testid="stMetricLabel"] { font-size: 12px !important; }
+    [data-testid="stMetricValue"] { font-size: 18px !important; }
 }
 
 /* 各種カード・ボックス */
