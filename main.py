@@ -266,7 +266,7 @@ with tab_top:
 
     # --- 厳選トップ5のリスト表示（10項目 ＆ ％表記版） ---
     if 'ot_last_top5' in st.session_state:
-        st.markdown("### 🏆 本日の厳選銘柄トップ５")
+        st.markdown("### 🏆本日の厳選銘柄トップ５")
         rdf_ot = st.session_state['ot_last_top5']
         
         # 表示する列の順番を指定し、％表記を適用
@@ -871,7 +871,6 @@ with tab_rank:
                 st.toast(f"期待値トップ銘柄を監視リストに追加しました！")
                 st.rerun() 
 
-        if st.button("♻️ ランキングをクリア", key="rank_clear_btn", use_container_width=True):
+        if st.button("♻️ ランキングをクリア", key="rank_clear_btn"):
             del st.session_state['last_rank_df']
             st.rerun()
-            
