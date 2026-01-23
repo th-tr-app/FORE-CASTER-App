@@ -296,7 +296,7 @@ with tab_screen:
     for i, s_tab in enumerate(s_tabs):
         with s_tab:
             p = st.session_state['sc_params'][i]
-            exp_t = f"🔍 スクリーニング設定 ({['通常', 'ディフェンシブ', '横ばい'][i]})"
+            exp_t = f"🔍 スクリーニング設定 ({['通常フィルタ', 'ディフェンシブ', '横ばい相場'][i]})"
             
             # --- 1. パラメーター設定エリア ---
             with st.expander(exp_t, expanded=False):
@@ -354,7 +354,7 @@ with tab_screen:
                     st.divider()
 
             # --- 2. スクリーニング実行 (計算のみ) ---
-            if st.button(f"🚀 {['通常', 'ディフェンシブ', '横ばい'][i]} スキャン開始", key=f"btn_sc_exec_{i}", type="primary", use_container_width=True):
+            if st.button(f"{['通常フィルタ', 'ディフェンシブ', '横ばい相場'][i]} スキャン開始", key=f"btn_sc_exec_{i}", type="primary", use_container_width=True):
                 # (スキャン実行ロジックは変更なし)
                 selected_sids = p['sector']
                 if 0 in selected_sids or not selected_sids:
