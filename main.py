@@ -576,7 +576,8 @@ with tab_bt:
                             g_txt = "ギャップアップ" if best_g['GapRange'].left >= 0 else "ギャップダウン"
                             reliability = "⭐⭐" if best_p['トレード数'] >= 3 else "⭐" # 信頼度アイコン
                             
-                            st.info(f"**🏆 最高勝率パターン {reliability}**\n\n"                                    
+                            st.info(f"**🏆 最高勝率パターン {reliability}**\n\n"     
+                                best_pattern_text = (
                                     f"最も勝率が高かったのは、"
                                     f"**{g_txt} ({best_g['GapRange'].left:.1f}% ～ {best_g['GapRange'].right:.1f}%)** スタートで、"
                                     f"**{best_p['パターン']}** の形になり、"
@@ -585,6 +586,7 @@ with tab_bt:
                                     f"  ---  \n" # 区切り線を入れて視認性アップ
                                     f"💡 **各指標の個別勝率:**\n"
                                     f"（GAP勝率: {best_g['<lambda_0>']:.1%} / VWAP勝率: {best_v['<lambda_0>']:.1%} / 時間勝率: {best_t['<lambda_0>']:.1%})"
+                                )
                         else:
                             st.warning("⚠️ パターンを特定するためのトレードデータが足りません。")
                             
