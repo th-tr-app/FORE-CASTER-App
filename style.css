@@ -70,6 +70,7 @@ h5 {
 }
 
 /* 各種カード・ボックス */
+/* A. 指標ウォッチ専用 (Market Watch) */
 .metric-card {
     border: 1px solid #3d414b;
     border-radius: 6px;
@@ -77,21 +78,27 @@ h5 {
     text-align: center;
 }
 
-.card-label {
+.metric-card ..card-label {
     font-size: 12px;
     color: #aaaaaa;
 }
 
-.card-value {
-    font-size: 24px;
-    font-weight: 700;
+.metric-card .card-value {
+    font-size: 22px !important;
+    font-weight: 600;
+    margin-top: 2px;
 }
 
-.delta-badge {
+.metric-card ..delta-badge {
     font-size: 14px;
     font-weight: 600;
 }
 
+/* 指標・前日比プラスマイナスのカラー設定 */
+.plus { color: #ff4b4b; }
+.minus { color: #00f0a8; }
+
+/* B. バックテスト サマリー専用 (BT Summary) */
 .summary-box {
     background-color: #262730;
     padding: 15px;
@@ -100,9 +107,16 @@ h5 {
     border: 1px solid #3d414b;
 }
 
-/* 指標・前日比プラスマイナスのカラー設定 */
-.plus { color: #ff4b4b; }
-.minus { color: #00f0a8; }
+.summary-box .card-label {
+    font-size: 12px !important; 
+    color: #aaaaaa;
+}
+
+.summary-box .card-value {
+    font-size: 24px !important; 
+    font-weight: 700;
+    color: #ffffff;
+}
 
 /* AI診断ボックス (今後調整しやすいように追加) */
 .ai-diagnosis-box {
