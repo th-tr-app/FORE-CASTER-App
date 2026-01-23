@@ -40,10 +40,11 @@ h1, .main-title {
 
 /* --- 見出し3 (###) の設定：セクションタイトル用 --- */
 [data-testid="stMarkdownContainer"] h3 {
-    font-size: 40px !important;  /* 18pxより少し大きくして変化を確認してください */
+    font-size: 20px !important; 
     font-weight: 600 !important;
-    color: #ffffff !important;   /* 6.3風に白く目立たせる */
-    margin-top: 20px !important;
+    color: #ffffff !important;   
+    margin-top: 10px !important;
+    margin-bottom: -5px !important;
 }
 
 /* h4: 診断ボックス内の見出し (.ai-diag-title) */
