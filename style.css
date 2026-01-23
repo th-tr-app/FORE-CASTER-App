@@ -1,5 +1,17 @@
 /* FORE CASTER 共通スタイル */
 
+/* メインヘッダーのコンテナ */
+.header-container {
+    margin-bottom: 20px;
+}
+
+@media (max-width: 640px) {
+    [data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; gap: 10px !important; }
+    [data-testid="column"] { flex: 0 0 45% !important; max-width: 45% !important; min-width: 45% !important; }
+    [data-testid="stMetricLabel"] { font-size: 12px !important; }
+    [data-testid="stMetricValue"] { font-size: 18px !important; }
+}
+
 /* --- アプリメインタイトル (.main-title) の統合設定 --- */
 h1, .main-title {
     font-size: 42px !important;      /* スマホ最適化だと32 */
@@ -8,6 +20,16 @@ h1, .main-title {
     margin-bottom: 5px !important;   /* 下に少しだけ隙間を作る */
     padding: 0 !important;
     line-height: 1.1 !important;     /* 行間を詰めてスッキリさせる */
+}
+
+/* --- .sub-title の設定：メインタイトルの下のバージョン表記用 --- */
+.sub-title {
+    font-weight: 300 !important;
+    font-size: 18px !important;
+    margin-bottom: 30px !important;
+    padding: 0 !important;
+    color: #aaaaaa !important;
+    line-height: 1.1;
 }
 
 /* h2: セクション見出し (タブ内の大きな区切り) */
@@ -42,33 +64,11 @@ h5 {
     color: #e0e0e0 !important;
 }
 
-/* --- .sub-title の設定：メインタイトルの下のバージョン表記用 --- */
-.sub-title {
-    font-weight: 300 !important;
-    font-size: 18px !important;
-    margin-bottom: 30px !important;
-    padding: 0 !important;
-    color: #aaaaaa !important;
-    line-height: 1.1;
-}
-
-/* メインヘッダーのコンテナ */
-.header-container {
-    margin-bottom: 20px;
-}
-
 /* 指標カードグリッド */
 .metric-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 8px;
-}
-
-@media (max-width: 640px) {
-    [data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; gap: 10px !important; }
-    [data-testid="column"] { flex: 0 0 45% !important; max-width: 45% !important; min-width: 45% !important; }
-    [data-testid="stMetricLabel"] { font-size: 12px !important; }
-    [data-testid="stMetricValue"] { font-size: 18px !important; }
 }
 
 /* 各種カード・ボックス */
