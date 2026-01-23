@@ -97,7 +97,6 @@ st.sidebar.divider()
 st.sidebar.header("⚙️ バックテスト設定")
 days_back = st.sidebar.slider("過去何日分を取得", 10, 59, 59)
 s_t = st.sidebar.time_input("開始時間", time(9, 0), step=300); e_t = st.sidebar.time_input("終了時間", time(9, 15), step=300)
-st.sidebar.write("")
 st.sidebar.header("📉 エントリー条件")
 u_vwap = st.sidebar.checkbox("VWAPより上でエントリー", value=True)
 u_ema = st.sidebar.checkbox("EMA5より上でエントリー", value=True)
@@ -106,7 +105,6 @@ u_macd = st.sidebar.checkbox("MACDが上向き", value=True)
 st.sidebar.divider()
 g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, -3.0, 0.05) / 100
 g_max = st.sidebar.slider("寄付アップ上限 (%)", -5.0, 5.0, 1.0, 0.05) / 100
-st.sidebar.divider()
 st.sidebar.header("💰 決済ルール")
 ts_s = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5, 0.05) / 100
 ts_w = st.sidebar.number_input("トレイリング幅 (%)", 0.1, 5.0, 0.2, 0.05) / 100
