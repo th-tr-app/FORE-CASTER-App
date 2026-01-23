@@ -112,6 +112,7 @@ h5 {
 .summary-box .card-label {
     font-size: 12px !important; 
     color: #aaaaaa;
+    margin-bottom: -5px;
 }
 
 .summary-box .card-value {
