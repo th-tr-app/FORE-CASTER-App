@@ -81,6 +81,7 @@ h5 {
 .metric-card .card-label {
     font-size: 12px !important; 
     color: #aaaaaa;
+    margin-top: 2px;
     margin-bottom: -5px;
 }
 
