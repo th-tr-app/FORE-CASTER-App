@@ -100,7 +100,7 @@ h5 {
     border: 1px solid #3d414b;
 }
 
-/* カラー設定 */
+/* 指標・前日比プラスマイナスのカラー設定 */
 .plus { color: #ff4b4b; }
 .minus { color: #00f0a8; }
 
