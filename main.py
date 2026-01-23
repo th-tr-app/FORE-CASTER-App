@@ -85,7 +85,7 @@ def local_css(file_name):
 local_css("style.css")
 
 # --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
-st.sidebar.markdown("### 🎲 戦略プリセット")
+st.sidebar.markdown("## 🎲 戦略プリセット")
 for p, l in [("NORMAL","通常フィルタ"), ("DEFENSIVE","ディフェンシブ"), ("RANGE","横ばい相場")]:
     is_sel = (st.session_state['preset'] == p)
     # 重複エラーを防ぐためキーを一意にする
