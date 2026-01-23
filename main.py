@@ -582,8 +582,6 @@ with tab_bt:
                                     f"**{best_p['パターン']}** の形になり、"
                                     f"**VWAPから {best_v['VwapRange'].left:.1f}% ～ {best_v['VwapRange'].right:.1f}%** の位置にある時、"
                                     f"**{best_t['TR']}** にエントリーするパターンです。\n\n"
-                                    f"  ---  \n" # 区切り線を入れて視認性アップ
-                                    f"💡 **各指標の個別勝率:**\n"
                                     f"（GAP勝率: {best_g['<lambda_0>']:.1%} / VWAP勝率: {best_v['<lambda_0>']:.1%} / 時間勝率: {best_t['<lambda_0>']:.1%})")
                         else:
                             st.warning("⚠️ パターンを特定するためのトレードデータが足りません。")
