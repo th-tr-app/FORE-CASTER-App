@@ -577,8 +577,8 @@ with tab_bt:
                             reliability = "⭐⭐" if best_p['トレード数'] >= 3 else "⭐" # 信頼度アイコン
                             
                             st.info(f"**🏆 最高勝率パターン {reliability}**\n\n"
-                                    f"最も勝率が高かったのは、**{best_p['パターン']}** で、"
-                                    f"**{g_txt} ({best_g['GapRange'].left:.1f}% ～ {best_g['GapRange'].right:.1f}%)** スタートで、"
+                                    f"最も勝率が高かったのは、f"**{g_txt} ({best_g['GapRange'].left:.1f}% ～ {best_g['GapRange'].right:.1f}%)** スタートで、"
+                                    **{best_p['パターン']}** の形になり、”
                                     f"VWAPから **{best_v['VwapRange'].left:.1f}% ～ {best_v['VwapRange'].right:.1f}%** の位置にある時、"
                                     f"**{best_t['TR']}** にエントリーするパターンです。\n\n"
                                     f"(GAP勝率: {best_g['<lambda_0>']:.1%} / VWAP勝率: {best_v['<lambda_0>']:.1%} / 時間勝率: {best_t['<lambda_0>']:.1%})")
