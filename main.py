@@ -437,7 +437,7 @@ with tab_screen:
                         
 # --- タブ3: バックテスト (6.3の全分析機能を復元) ---
 with tab_bt:
-    if st.button("📊 個別バックテスト実行", type="primary", use_container_width=True, key="bt_run_main"):
+    if st.button("バックテスト実行", type="primary", use_container_width=True, key="bt_run_main"):
         t_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
         if not t_list:
             st.error("銘柄コードを入力してください。")
