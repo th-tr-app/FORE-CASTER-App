@@ -147,6 +147,10 @@ h5 {
     height: 15px;
 }
 
+.ai-sector-tips {
+    font-size: 0.8em !important;      /* AI診断ボックス内の「注目セクター」テキスト */
+}
+
 /* 見出しの右側に表示されるリンクマーク（アンカー）を非表示にする */
 .header-anchor {
     display: none !important;
