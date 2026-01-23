@@ -261,6 +261,7 @@ with tab_top:
     # --- 厳選トップ5のリスト表示（10項目 ＆ ％表記版） ---
     if 'ot_last_top5' in st.session_state:
         st.markdown("### 🏆 本日のおすすめ銘柄トップ５")
+        st.markdown("<br>", unsafe_allow_html=True)
         rdf_ot = st.session_state['ot_last_top5']
         
         # 表示する列の順番を指定し、％表記を適用
