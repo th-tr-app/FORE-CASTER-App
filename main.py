@@ -100,22 +100,22 @@ s_t = st.sidebar.time_input("開始時間", time(9, 0), step=300); e_t = st.side
 
 st.sidebar.write("")
 st.sidebar.header("📉 エントリー条件")
-    u_vwap = st.sidebar.checkbox("VWAPより上でエントリー", value=True)
-    u_ema = st.sidebar.checkbox("EMA5より上でエントリー", value=True)
-    u_rsi = st.sidebar.checkbox("RSIが45以上or上向き", value=True)
-    u_macd = st.sidebar.checkbox("MACDが上向き", value=True)
-    st.sidebar.divider()
-    g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, -3.0, 0.05) / 100
-    g_max = st.sidebar.slider("寄付アップ上限 (%)", -5.0, 5.0, 1.0, 0.05) / 100
+u_vwap = st.sidebar.checkbox("VWAPより上でエントリー", value=True)
+u_ema = st.sidebar.checkbox("EMA5より上でエントリー", value=True)
+u_rsi = st.sidebar.checkbox("RSIが45以上or上向き", value=True)
+u_macd = st.sidebar.checkbox("MACDが上向き", value=True)
+st.sidebar.divider()
+g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, -3.0, 0.05) / 100
+g_max = st.sidebar.slider("寄付アップ上限 (%)", -5.0, 5.0, 1.0, 0.05) / 100
 st.sidebar.header("💰 決済ルール")
-    ts_s = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5, 0.05) / 100
-    ts_w = st.sidebar.number_input("トレイリング幅 (%)", 0.1, 5.0, 0.2, 0.05) / 100
-    sl_f = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.5, 0.05) / 100
-    st.sidebar.divider()
+ts_s = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5, 0.05) / 100
+ts_w = st.sidebar.number_input("トレイリング幅 (%)", 0.1, 5.0, 0.2, 0.05) / 100
+sl_f = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.5, 0.05) / 100
+st.sidebar.divider()
 st.sidebar.header("📉 **動的損切り設定 (ATR)**")
-    u_atr = st.sidebar.checkbox("ATR損切りを使用", value=True)
-    a_mul = st.sidebar.number_input("ATR倍率", 0.5, 5.0, 1.5, 0.1)
-    a_min = st.sidebar.number_input("最低損切り (%)", 0.1, 5.0, 0.5, 0.1) / 100
+u_atr = st.sidebar.checkbox("ATR損切りを使用", value=True)
+a_mul = st.sidebar.number_input("ATR倍率", 0.5, 5.0, 1.5, 0.1)
+a_min = st.sidebar.number_input("最低損切り (%)", 0.1, 5.0, 0.5, 0.1) / 100
 
 params = {
     'days': days_back, 'start_t': s_t, 'end_t': e_t, 'u_vwap': u_vwap, 'u_ema': u_ema, 'u_rsi': u_rsi, 'u_macd': u_macd,
