@@ -78,7 +78,7 @@ h5 {
     text-align: center;
 }
 
-.metric-card ..card-label {
+.metric-card .card-label {
     font-size: 12px !important; 
     color: #aaaaaa;
 }
@@ -89,7 +89,7 @@ h5 {
     margin-top: 2px;
 }
 
-.metric-card ..delta-badge {
+.metric-card .delta-badge {
     font-size: 14px;
     font-weight: 600;
 }
