@@ -19,10 +19,11 @@ h2 {
 }
 
 /* h3: サブタイトル (.sub-title) */
-h3, .sub-title {
-    font-size: 18px !important;
-    font-weight: 300 !important;
-    color: #aaaaaa !important;
+h3, {
+    font-size: 22px !important;
+    font-weight: 600 !important;
+    margin-top: 10px !important;
+    margin-bottom: -5px !important;
 }
 
 /* h4: 診断ボックス内の見出し (.ai-diag-title) */
