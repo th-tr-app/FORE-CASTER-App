@@ -78,13 +78,13 @@ h5 {
 }
 
 .card-label {
-    font-size: 11px;
+    font-size: 12px;
     color: #aaaaaa;
 }
 
 .card-value {
-    font-size: 22px;
-    font-weight: 600;
+    font-size: 24px;
+    font-weight: 800;
 }
 
 .delta-badge {
