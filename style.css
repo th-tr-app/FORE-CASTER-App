@@ -39,8 +39,8 @@ h1, .main-title {
 
 /* --- 見出し3 (###) の設定：セクションタイトル用 --- */
 [data-testid="stMarkdownContainer"] h3 {
-    font-size: 20px !important; 
-    font-weight: 600 !important;
+    font-size: 21px !important; 
+    font-weight: 700 !important;
     color: #ffffff !important;   
     margin-top: 10px !important;
     margin-bottom: -5px !important;
@@ -57,7 +57,7 @@ h4, .ai-diag-title {
 
 /* h5: 小見出し (詳細ログなど) */
 h5 {
-    font-size: 1.2rem !important;
+    font-size: 18px !important;
     font-weight: 500 !important;
     color: #ffffff !important;
     margin-top: 10px !important;
