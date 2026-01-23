@@ -86,7 +86,8 @@ local_css("style.css")
 
 # --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
 st.sidebar.header("🎲 戦略プリセット")
-for p, l in [("NORMAL","通常フィルタ"), ("DEFENSIVE","ディフェンシブ"), ("RANGE","横ばい相場")]:
+st.caption("スクリーニング設定を確認してください。")
+for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェンシブ"), ("RANGE","横ばい相場対応")]:
     is_sel = (st.session_state['preset'] == p)
     # 重複エラーを防ぐためキーを一意にする
     if st.sidebar.button(l + (" [ 選択中 ]" if is_sel else ""), key=f"side_ps_btn_{p}", type="primary" if is_sel else "secondary"):
