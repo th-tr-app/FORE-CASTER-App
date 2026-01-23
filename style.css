@@ -31,7 +31,7 @@ h1, .main-title {
     line-height: 1.1;
 }
 
-/* --- 見出し2 (##) の設定：サイドバー見出し --- */
+/* --- 見出し2 (##) の設定：サイドバー用（st.sidebar.header） --- */
 [data-testid="stSidebar"] h2 {
     font-size: 20px !important;
     font-weight: 700 !important;
