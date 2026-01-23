@@ -397,7 +397,8 @@ with tab_screen:
             current_res = st.session_state.get(f"sc_res_df_{i}")
             if current_res is not None and not current_res.empty:
                 # (以降、st.info や st.dataframe 表示ロジックは維持)
-                st.info("✅ チェックして上の銘柄リストに追加。")
+                st.caption("👇 チェックを入れると銘柄リストに追加できます。")
+                st.markdown("<br>", unsafe_allow_html=True)
                 current_res = current_res.sort_values("売買代金", ascending=False)
                 df_height = (len(current_res) + 1) * 35 + 5 # 縦スクロール防止
                 
@@ -834,7 +835,7 @@ with tab_rank:
     # --- 結果の表示と転送機能 ---
     if 'last_rank_df' in st.session_state:
         rdf = st.session_state['last_rank_df']
-        st.caption("👇 チェックを入れると銘柄リストに追加されます。")
+        st.caption("👇 チェックを入れると銘柄リストに追加できます。")
         st.markdown("<br>", unsafe_allow_html=True)
         
         # 【修正】10項目の表示設定と％表記
