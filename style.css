@@ -55,7 +55,7 @@ h4, .ai-diag-title {
     margin-bottom: -10px !important;
 }
 
-/* h5: 小見出し (詳細ログなど) */
+/* h5: 小見出し (ギャップ幅ごとの勝率など) */
 h5 {
     font-size: 18px !important;
     font-weight: 500 !important;
