@@ -398,7 +398,6 @@ with tab_screen:
             if current_res is not None and not current_res.empty:
                 # (以降、st.info や st.dataframe 表示ロジックは維持)
                 st.info("✅ チェックすると上の銘柄リストに反映されます。")
-                st.markdown("<div class='spacer-md'></div>", unsafe_allow_html=True) # 枠の下に 20px の余白
                 current_res = current_res.sort_values("売買代金", ascending=False)
                 df_height = (len(current_res) + 1) * 35 + 5 # 縦スクロール防止
                 
