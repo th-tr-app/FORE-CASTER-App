@@ -521,7 +521,7 @@ with tab_bt:
                     tdf = res_df[res_df['Ticker'] == t].copy()
                     if tdf.empty: continue
                     t_name = ticker_names.get(t, t)
-                    st.markdown(f"### [{t}] {t_name}")
+                    st.markdown(f"##### [{t}] {t_name}")
                     
                     # 1. パターン統計集計
                     pat_stats = tdf.groupby('Pattern', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
