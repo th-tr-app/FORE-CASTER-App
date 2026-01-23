@@ -834,7 +834,8 @@ with tab_rank:
     # --- 結果の表示と転送機能 ---
     if 'last_rank_df' in st.session_state:
         rdf = st.session_state['last_rank_df']
-        st.caption("👇 銘柄をチェックすると監視リストに反映されます。")
+        st.caption("👇 チェックを入れると銘柄リストに追加されます。")
+        st.markdown("<br>", unsafe_allow_html=True)
         
         # 【修正】10項目の表示設定と％表記
         # ご自身で設定された高さ height=735 を維持しています。
