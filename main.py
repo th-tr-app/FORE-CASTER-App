@@ -118,7 +118,7 @@ params = {
 }
 
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
-st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title'>SCREENING & BACKTEST | ver 3.4</h3></div>", unsafe_allow_html=True)
+st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><h3 class='sub-title2'>SCREENING & BACKTEST | ver 3.4</h3></div>", unsafe_allow_html=True)
 
 # 【修正ポイント】key="target_tickers" を削除し、value= を使用します
 ticker_input_val = st.text_input(
