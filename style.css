@@ -31,12 +31,11 @@ h1, .main-title {
     line-height: 1.1;
 }
 
-/* h2: セクション見出し (タブ内の大きな区切り) */
-h2 {
-    font-size: 20px !important;
-    font-weight: 600 !important;
-    margin-top: 10px !important;
-    margin-bottom: -5px !important;
+/* --- 見出し2 (##) の設定：サイドバー見出し --- */
+[data-testid="stSidebar"] h2 {
+    font-size: 1.2rem !important;
+    font-weight: 700 !important;
+    margin-top: 15px !important;
 }
 
 /* --- 見出し3 (###) の設定：セクションタイトル用 --- */
