@@ -489,7 +489,7 @@ with tab_bt:
             # --- 3. メトリクス表示 (3.0のデザインを継承) ---
             st.markdown(f"""
                 <div class='metric-grid'>
-                    <div class='summary-box'><div class='card-label'>総トレード数</div><div class='card-value'>{count_all}回</div></div>
+                    <div class='summary-box'><div class='card-label'>総トレード数</div><div class='card-value'>{count_all}</div></div>
                     <div class='summary-box'><div class='card-label'>勝率</div><div class='card-value'>{win_rate_all:.1%}</div></div>
                     <div class='summary-box'><div class='card-label'>PF（利益÷損失）</div><div class='card-value'>{pf_all:.2f}</div></div>
                     <div class='summary-box'><div class='card-label'>期待値</div><div class='card-value'>{expectancy_all:.2%}</div></div>
