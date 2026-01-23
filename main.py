@@ -86,7 +86,6 @@ local_css("style.css")
 
 # --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
 st.sidebar.header("🎲 戦略プリセット")
-st.sidebar.caption("スクリーニング設定を確認してください")
 for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェンシブ"), ("RANGE","横ばい相場対応")]:
     is_sel = (st.session_state['preset'] == p)
     # 重複エラーを防ぐためキーを一意にする
