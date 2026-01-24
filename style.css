@@ -136,7 +136,7 @@ h5 {
 
 /* AI診断ボックス内の各行 */
 .ai-diag-row {
-    margin-bottom: 5px;
+    margin-bottom: 10px;
     font-size: 0.8em;
 }
 
