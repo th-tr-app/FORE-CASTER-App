@@ -539,7 +539,7 @@ with tab_bt:
                     # VWAP分析と同じ手法で左揃えを適用
                     st.dataframe(
                         pat_stats.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'})
-                        .set_properties(**{'text-align': 'center'}), # 左揃えを追加
+                        .set_properties(**{'text-align': 'left'}), # 左揃えを追加
                         hide_index=True, 
                         use_container_width=True
                     )
