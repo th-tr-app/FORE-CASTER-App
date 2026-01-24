@@ -177,6 +177,7 @@ with tab_top:
         # main.py の診断表示部分
         diag_html = f"""
         <div class="ai-diagnosis-box">
+            <h4 class="ai-diag-title">📀 今日のマーケットAI診断<br><span style='font-size:0.8em; color:#00f0a8;'>{diag['alert_level']}</span></h4>
             <div class="ai-diag-row"><b>バランス：</b> {diag['balance']}</div>
             <div class="ai-diag-row"><b>推奨戦略：</b> {rec_strat}</div>
             <div class="ai-diag-row"><b>{diag.get('forecast_title', '寄付予測')}：</b> {diag['opening_forecast']}</div>
