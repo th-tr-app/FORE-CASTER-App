@@ -48,58 +48,110 @@ def fetch_market_info(indices_dict):
 
 @st.cache_data(ttl=300)
 def analyze_market_environment():
-    """主要指数から今日の相場環境を診断する"""
+    """主要指数から今日の相場環境をプロ視点で診断する (統合アップデート版)"""
     indices = {
-        "N225": "^N225", "VIX": "^VIX", "DJI": "^DJI", "SOX": "^SOX",
-        "WTI": "CL=F", "CME": "NIY=F", "USDJPY": "JPY=X", "GOLD": "GC=F", "JPY_F": "6J=F"
+        "N225": "^N225", "VIX": "^VIX", "SOX": "^SOX",
+        "WTI": "CL=F", "CME": "NIY=F", "USDJPY": "JPY=X", "GOLD": "GC=F"
     }
     data_map = {}
     for k, ticker in indices.items():
         try:
-            df = yf.download(ticker, period="7d", interval="1d", progress=False)
+            df = yf.download(ticker, period="10d", interval="1d", progress=False)
             if not df.empty and len(df) >= 2:
                 if isinstance(df.columns, pd.MultiIndex): 
                     df.columns = df.columns.get_level_values(0)
                 data_map[k] = df.dropna(subset=['Close'])
         except: continue
 
-    res = {"alert_level": "日経25日線との乖離は正常範囲", "strategy": 0, "opening_forecast": "不明",
-           "phase_comment": "市場は比較的落ち着いています。", "us_impact": "大きな変動なし", "tips": []}
-    
-    n225_close = 0
+    # --- 1. 基礎データの抽出 ---
+    n225_close = 0; n225_ma25 = 0; cme_val = 0
     if "N225" in data_map:
-        try:
-            df_n = data_map["N225"]
-            n225_close = float(df_n['Close'].values.ravel()[-1])
-            n225_ma25 = float(df_n['Close'].rolling(25).mean().values.ravel()[-1])
-            dev_rate = ((n225_close - n225_ma25) / n225_ma25) * 100
-            if dev_rate > 5.0: res["alert_level"] = "買われ過ぎ。"
-            elif dev_rate < -5.0: res["alert_level"] = "売られ過ぎ。"
-        except: pass
+        df_n = data_map["N225"]
+        n225_close = float(df_n['Close'].values.ravel()[-1])
+        n225_ma25 = float(df_n['Close'].rolling(25).mean().values.ravel()[-1])
+    
+    if "CME" in data_map:
+        cme_val = float(data_map["CME"]['Close'].values.ravel()[-1])
 
-    if "CME" in data_map and n225_close > 0:
-        try:
-            cme_val = float(data_map["CME"]['Close'].values.ravel()[-1])
-            if (cme_val - n225_close) > 100: res["opening_forecast"] = "ギャップアップ"
-            elif (cme_val - n225_close) < -100: res["opening_forecast"] = "ギャップダウン"
-        except: pass
+    # --- 2. 寄付予測 と 推奨戦略 の判定 (閾値: ±0.15%) ---
+    gap_pct = (cme_val - n225_close) / n225_close if n225_close > 0 else 0
+    bias_list = []
+    
+    if gap_pct <= -0.0015:
+        strategy_idx = 1 # ディフェンシブ (GD時は守り)
+        base_forecast = "大幅ギャップダウン" if gap_pct <= -0.01 else "ギャップダウン"
+    elif gap_pct >= 0.0015:
+        strategy_idx = 0 # 通常フィルター (GU時は攻め)
+        base_forecast = "大幅ギャップアップ" if gap_pct >= 0.01 else "ギャップアップ"
+    else:
+        strategy_idx = 2 # 横ばい相場 (見通し不明)
+        base_forecast = "フラット（方向感なし）"
+
+    # --- 3. 詳細バイアス判定 (為替・半導体・VIX) ---
+    fx_pct = 0; sox_pct = 0; vix_val = 15
+    if "USDJPY" in data_map:
+        fx_now = data_map["USDJPY"]['Close'].values.ravel()[-1]
+        fx_prev = data_map["USDJPY"]['Close'].values.ravel()[-2]
+        fx_pct = (fx_now - fx_prev) / fx_prev
+        if fx_pct <= -0.003: bias_list.append("円高バイアス")
+        elif fx_pct >= 0.003: bias_list.append("円安バイアス")
+
+    if "SOX" in data_map:
+        sox_now = data_map["SOX"]['Close'].values.ravel()[-1]
+        sox_prev = data_map["SOX"]['Close'].values.ravel()[-2]
+        sox_pct = (sox_now - sox_prev) / sox_prev
+        if sox_pct <= -0.005: bias_list.append("ハイテク売り")
+        elif sox_pct >= 0.005: bias_list.append("半導体買い")
 
     if "VIX" in data_map:
-        vix = float(data_map["VIX"]['Close'].values.ravel()[-1])
-        if vix > 25.0: res["strategy"] = 1
-        elif 15.0 <= vix <= 25.0: res["strategy"] = 2
+        vix_val = float(data_map["VIX"]['Close'].values.ravel()[-1])
+        if vix_val >= 20: bias_list.append("VIX上昇")
 
-    if "JPY_F" in data_map:
-        try:
-            f_now = float(data_map["JPY_F"]['Close'].values.ravel()[-1])
-            f_prev = float(data_map["JPY_F"]['Close'].values.ravel()[-2])
-            f_pct = ((f_now / f_prev) - 1) * 100
-            if f_pct > 0.2: res["opening_forecast"] += " (円高バイアス)"; res["tips"].append("14:金融　")
-            elif f_pct < -0.2: res["opening_forecast"] += " (円安バイアス)"; res["tips"].append("11:輸送　")
-        except: pass
+    forecast_txt = f"{base_forecast} ({' / '.join(bias_list)})" if bias_list else base_forecast
 
-    res["tips"] = list(dict.fromkeys(res["tips"]))
-    return res
+    # --- 4. バランス (25日線乖離) ---
+    dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 > 0 else 0
+    if dev_25 > 5:
+        balance_txt = f"【加熱】25日線乖離 +{dev_25:.1f}%。高値警戒水準です。"
+        alert_lvl = "⚠️ 高値警戒（過熱）"
+    elif dev_25 < -5:
+        balance_txt = f"【過売】25日線乖離 {dev_25:.1f}%。自律反発圏です。"
+        alert_lvl = "📢 底打ち待ち（過売）"
+    else:
+        balance_txt = f"【均衡】25日線乖離 {dev_25:.1f}%。正常範囲内です。"
+        alert_lvl = "正常範囲（ニュートラル）"
+
+    # --- 5. 米国株の影響 & 相場展望 ---
+    if vix_val >= 20 or sox_pct <= -0.015:
+        us_impact = "半導体株中心に強い売り圧力。指数主導の下落に警戒が必要。"
+        phase_txt = "リスクオフ局面。安易なリバウンド狙いを避け、守りを固めるべき日。"
+    elif sox_pct >= 0.005:
+        us_impact = "ハイテク株への買い波及が期待。主力大型株の底堅い展開を予想。"
+        phase_txt = "強気トレンド。寄り付き後の押し目を丁寧に拾う展開。"
+    else:
+        us_impact = "米国株の変動は限定的。日本市場独自の材料が優先される展開。"
+        phase_txt = "市場は比較的落ち着いています。個別銘柄の動きを注視。"
+
+    # --- 6. 注目セクター (感度 0.5% で判定) ---
+    tips = []
+    if "WTI" in data_map:
+        w_now = data_map["WTI"]['Close'].values.ravel()[-1]
+        w_prev = data_map["WTI"]['Close'].values.ravel()[-2]
+        if (w_now - w_prev) / w_prev >= 0.005: tips.append("1:鉱業 / 10:石油・石炭")
+    if "GOLD" in data_map:
+        g_now = data_map["GOLD"]['Close'].values.ravel()[-1]
+        g_prev = data_map["GOLD"]['Close'].values.ravel()[-2]
+        if (g_now - g_prev) / g_prev >= 0.005: tips.append("9:非鉄金属")
+    if sox_pct >= 0.005: tips.append("17:電気機器 / 16:機械")
+    if fx_pct >= 0.003: tips.append("19:輸送用機器 / 25:卸売業 / 27:銀行")
+    if vix_val >= 20: tips.append("2:水産・食品 / 12:医薬品")
+
+    return {
+        "strategy": strategy_idx, "opening_forecast": forecast_txt,
+        "balance": balance_txt, "phase_comment": phase_txt,
+        "us_impact": us_impact, "alert_level": alert_lvl,
+        "tips": "　".join(tips) if tips else "個別材料株（全業種対象）"
+    }
 
 # --- 3. スクリーニング・バックテストエンジン ---
 
