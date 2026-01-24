@@ -617,7 +617,11 @@ with tab_bt:
                     gap_dir_disp['WinRate'] = gap_dir_disp['WinRate'].apply(lambda x: f"{x:.1%}")
                     gap_dir_disp['AvgPnL'] = gap_dir_disp['AvgPnL'].apply(lambda x: f"{x:+.2%}")
                     gap_dir_disp.columns = ['方向', '回数', '勝率', '平均損益']
-                    st.dataframe(gap_dir_disp, hide_index=True, use_container_width=True)
+                    st.dataframe(
+                        gap_dir_disp.style.set_properties(**{'text-align': 'left'}), # 左揃えを追加
+                        hide_index=True, 
+                        use_container_width=True
+                    )
 
                     # --- 2. ギャップ幅ごとの分析 (0.5%刻み) ---
                     st.markdown("##### ギャップ幅ごとの勝率")
@@ -633,10 +637,14 @@ with tab_bt:
                         disp_gap['WinRate'] = disp_gap['WinRate'].apply(lambda x: f"{x:.1%}")
                         disp_gap['AvgPnL'] = disp_gap['AvgPnL'].apply(lambda x: f"{x:+.2%}")
                         disp_gap.columns = ['ギャップ幅', '回数', '勝率', '平均損益']
-                        st.dataframe(disp_gap, hide_index=True, use_container_width=True)
+                        st.dataframe(
+                            disp_gap.style.set_properties(**{'text-align': 'left'}), # 左揃えを追加
+                            hide_index=True, 
+                            use_container_width=True
+                        )
                     except: st.warning(f"[{t}] ギャップ幅分析用のデータが不足しています。")
                     st.divider()
-
+        
         with bt_tabs[3]: # 🧐 VWAP分析 (BACK TESTER 6.3 完全移植 & 3.0 変数同期版)
             # --- データの存在チェック ---
             if not res_df.empty and 'Ticker' in res_df.columns:
