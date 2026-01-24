@@ -88,6 +88,12 @@ def analyze_market_environment():
         base_forecast = "フラット"
 
     # --- 3. 時刻判定 (日本時間基準) ---
+    jst = timezone(timedelta(hours=9))
+    now = datetime.now(jst).time()
+    
+    # 時間帯の定義
+    lunch_start, lunch_end = time(11, 30), time(12, 30)
+    after_start, after_end = time(15, 0), time(19, 0)
 
     # デフォルト設定 (寄り前・深夜)
     forecast_title = "寄付予測"
