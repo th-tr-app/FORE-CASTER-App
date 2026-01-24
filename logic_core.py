@@ -115,13 +115,13 @@ def analyze_market_environment():
     # --- 4. バランス (25日線乖離) ---
     dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 > 0 else 0
     if dev_25 > 5:
-        balance_txt = f"【加熱】25日線乖離 +{dev_25:.1f}%。高値警戒"
+        balance_txt = f"加熱 / 25日線乖離 +{dev_25:.1f}%。高値警戒"
         alert_lvl = "⚠️ 高値警戒（過熱）"
     elif dev_25 < -5:
-        balance_txt = f"【過売】25日線乖離 {dev_25:.1f}%。自律反発圏"
+        balance_txt = f"過売 / 25日線乖離 {dev_25:.1f}%。自律反発圏"
         alert_lvl = "📢 底打ち待ち（過売）"
     else:
-        balance_txt = f"【均衡】25日線乖離 {dev_25:.1f}%。正常範囲内"
+        balance_txt = f"均衡 / 25日線乖離 {dev_25:.1f}%。正常範囲内"
         alert_lvl = "正常範囲（ニュートラル）"
 
     # --- 5. 米国株の影響 & 相場展望 ---
