@@ -115,13 +115,13 @@ def analyze_market_environment():
     # --- 4. バランス (25日線乖離) ---
     dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 > 0 else 0
     if dev_25 > 5:
-        balance_txt = f"【加熱】25日線乖離 +{dev_25:.1f}%。高値警戒水準です。"
+        balance_txt = f"【加熱】25日線乖離 +{dev_25:.1f}%。高値警戒"
         alert_lvl = "⚠️ 高値警戒（過熱）"
     elif dev_25 < -5:
-        balance_txt = f"【過売】25日線乖離 {dev_25:.1f}%。自律反発圏です。"
+        balance_txt = f"【過売】25日線乖離 {dev_25:.1f}%。自律反発圏"
         alert_lvl = "📢 底打ち待ち（過売）"
     else:
-        balance_txt = f"【均衡】25日線乖離 {dev_25:.1f}%。正常範囲内です。"
+        balance_txt = f"【均衡】25日線乖離 {dev_25:.1f}%。正常範囲内"
         alert_lvl = "正常範囲（ニュートラル）"
 
     # --- 5. 米国株の影響 & 相場展望 ---
@@ -144,7 +144,7 @@ def analyze_market_environment():
     if "GOLD" in data_map:
         g_now = data_map["GOLD"]['Close'].values.ravel()[-1]
         g_prev = data_map["GOLD"]['Close'].values.ravel()[-2]
-        if (g_now - g_prev) / g_prev >= 0.005: tips.append("9:非鉄金属")
+        if (g_now - g_prev) / g_prev >= 0.005: tips.append("/ 9:非鉄金属")
     if sox_pct >= 0.005: tips.append("17:電気機器 / 16:機械")
     if fx_pct >= 0.003: tips.append("19:輸送用機器 / 25:卸売業 / 27:銀行")
     if vix_val >= 20: tips.append("2:水産・食品 / 12:医薬品")
