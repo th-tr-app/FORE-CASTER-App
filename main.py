@@ -529,11 +529,22 @@ with tab_bt:
                     if tdf.empty: continue
                     t_name = ticker_names.get(t, t)
                     st.markdown(f"### [{t}] {t_name}")
-                    
-                    # 1. パターン統計集計
+
+                    # --- 勝ちパターン分析 (文字列変換 ＆ 左揃え) ---
                     pat_stats = tdf.groupby('Pattern', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
                     pat_stats.columns = ['パターン', '回数', '勝率', '平均損益']
-                    st.dataframe(pat_stats.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'}), hide_index=True, use_container_width=True)
+
+                    # 表示用に全ての列を文字列に変換する
+                    pat_stats_disp = pat_stats.copy()
+                    pat_stats_disp['回数'] = pat_stats_disp['回数'].astype(str)
+                    pat_stats_disp['勝率'] = pat_stats_disp['勝率'].apply(lambda x: f"{x:.1%}")
+                    pat_stats_disp['平均損益'] = pat_stats_disp['平均損益'].apply(lambda x: f"{x:+.2%}")
+
+                    st.dataframe(
+                        pat_stats_disp.style.set_properties(**{'text-align': 'left'}), # 文字列なので確実に左に寄る
+                        hide_index=True, 
+                        use_container_width=True
+                    )
 
                     # 2. ベスト条件抽出用ヘルパー関数 (代用ロジック)
                     def get_best_row(df, count_col, rate_col, threshold=3):
