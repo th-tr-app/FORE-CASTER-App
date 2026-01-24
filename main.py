@@ -536,6 +536,9 @@ with tab_bt:
                     pat_stats = tdf.groupby('Pattern', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
                     pat_stats.columns = ['パターン', '回数', '勝率', '平均損益']
                     st.dataframe(pat_stats.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'}), hide_index=True, use_container_width=True)
+                                                        
+                    # 表を表示
+                    st.dataframe(pat_stats.style.set_properties(**{'text-align': 'left'}), hide_index=True, use_container_width=True)
                     
                     # 2. ベスト条件抽出用ヘルパー関数 (代用ロジック)
                     def get_best_row(df, count_col, rate_col, threshold=3):
@@ -610,7 +613,9 @@ with tab_bt:
                     gap_dir_disp['WinRate'] = gap_dir_disp['WinRate'].apply(lambda x: f"{x:.1%}")
                     gap_dir_disp['AvgPnL'] = gap_dir_disp['AvgPnL'].apply(lambda x: f"{x:+.2%}")
                     gap_dir_disp.columns = ['方向', 'トレード数', '勝率', '平均損益']
-                    st.dataframe(gap_dir_disp, hide_index=True, use_container_width=True)
+                                    
+                    # 表を表示
+                    st.dataframe(gap_dir_disp.style.set_properties(**{'text-align': 'left'}), hide_index=True, use_container_width=True)
 
                     # --- 2. ギャップ幅ごとの分析 (0.5%刻み) ---
                     st.markdown("##### ギャップ幅ごとの勝率")
@@ -621,16 +626,16 @@ with tab_bt:
                         gap_range_stats = tdf.groupby('GapRange', observed=True).agg(
                             Count=('PnL', 'count'), WinRate=('PnL', lambda x: (x > 0).mean()), AvgPnL=('PnL', 'mean')
                         ).reset_index()
+                        
                         gap_range_stats['RangeLabel'] = gap_range_stats['GapRange'].apply(lambda i: f"{i.left:.1f}% ～ {i.right:.1f}%")
                         disp_gap = gap_range_stats[['RangeLabel', 'Count', 'WinRate', 'AvgPnL']].copy()
                         disp_gap['WinRate'] = disp_gap['WinRate'].apply(lambda x: f"{x:.1%}")
                         disp_gap['AvgPnL'] = disp_gap['AvgPnL'].apply(lambda x: f"{x:+.2%}")
                         disp_gap.columns = ['ギャップ幅', '回数', '勝率', '平均損益']
-                        st.dataframe(
-                            disp_gap.style.set_properties(**{'text-align': 'left'}), # 左揃えを追加
-                            hide_index=True, 
-                            use_container_width=True
-                        )
+                                    
+                        # 表を表示
+                        st.dataframe(disp_gap.style.set_properties(**{'text-align': 'left'}), hide_index=True, use_container_width=True)
+                    
                     except: st.warning(f"[{t}] ギャップ幅分析用のデータが不足しています。")
                     st.divider()
         
