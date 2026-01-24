@@ -538,7 +538,7 @@ with tab_bt:
                     st.dataframe(pat_stats.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'}), hide_index=True, use_container_width=True)
                                                         
                     # 表を表示
-                    st.dataframe(pat_stats.(**{'text-align':'left'}), hide_index=True, use_container_width=True)
+                    st.dataframe(pat_stats.style.set_properties(**{'text-align':'left'}), hide_index=True, use_container_width=True)
                     
                     # 2. ベスト条件抽出用ヘルパー関数 (代用ロジック)
                     def get_best_row(df, count_col, rate_col, threshold=3):
