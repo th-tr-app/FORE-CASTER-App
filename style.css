@@ -162,3 +162,11 @@ h5 {
 [data-testid="stHeaderActionElements"] {
     display: none !important;
 }
+
+/* アプリ内の全てのデータフレームの数値を左揃えにする */
+[data-testid="stTable"] td, [data-testid="stDataFrame"] td {
+    text-align: left !important;
+}
+[data-testid="stTable"] th, [data-testid="stDataFrame"] th {
+    text-align: left !important;
+}
