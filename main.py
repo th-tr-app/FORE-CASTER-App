@@ -534,7 +534,7 @@ with tab_bt:
                     
                     # 1. パターン統計集計
                     pat_stats = tdf.groupby('Pattern', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
-                    pat_stats.columns = ['パターン', 'トレード数', '勝率', '平均損益']
+                    pat_stats.columns = ['パターン', '回数', '勝率', '平均損益']
                     st.dataframe(pat_stats.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'}), hide_index=True, use_container_width=True)
 
                     # 2. ベスト条件抽出用ヘルパー関数 (代用ロジック)
@@ -569,14 +569,14 @@ with tab_bt:
                         t_s = tdf.groupby('TR', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
 
                         # ベスト行の取得 (3回以上を優先し、なければ最大値を採用)
-                        best_p = get_best_row(pat_stats, 'トレード数', '勝率')
+                        best_p = get_best_row(pat_stats, '回数', '勝率')
                         best_g = get_best_row(g_s, 'count', '<lambda_0>')
                         best_v = get_best_row(v_s, 'count', '<lambda_0>')
                         best_t = get_best_row(t_s, 'count', '<lambda_0>')
 
                         if all([best_p is not None, best_g is not None, best_v is not None, best_t is not None]):
                             g_txt = "ギャップアップ" if best_g['GapRange'].left >= 0 else "ギャップダウン"
-                            reliability = "⭐⭐" if best_p['トレード数'] >= 3 else "⭐" # 信頼度アイコン
+                            reliability = "⭐⭐" if best_p['回数'] >= 3 else "⭐" # 信頼度アイコン
                             
                             st.info(f"**🏆 最高勝率パターン {reliability}**\n\n"
                                     f"最も勝率が高かったのは、"
@@ -609,7 +609,7 @@ with tab_bt:
                     gap_dir_disp = gap_dir_stats.copy()
                     gap_dir_disp['WinRate'] = gap_dir_disp['WinRate'].apply(lambda x: f"{x:.1%}")
                     gap_dir_disp['AvgPnL'] = gap_dir_disp['AvgPnL'].apply(lambda x: f"{x:+.2%}")
-                    gap_dir_disp.columns = ['方向', 'トレード数', '勝率', '平均損益']
+                    gap_dir_disp.columns = ['方向', '回数', '勝率', '平均損益']
                     st.dataframe(gap_dir_disp, hide_index=True, use_container_width=True)
 
                     # --- 2. ギャップ幅ごとの分析 (0.5%刻み) ---
@@ -625,7 +625,7 @@ with tab_bt:
                         disp_gap = gap_range_stats[['RangeLabel', 'Count', 'WinRate', 'AvgPnL']].copy()
                         disp_gap['WinRate'] = disp_gap['WinRate'].apply(lambda x: f"{x:.1%}")
                         disp_gap['AvgPnL'] = disp_gap['AvgPnL'].apply(lambda x: f"{x:+.2%}")
-                        disp_gap.columns = ['ギャップ幅', 'トレード数', '勝率', '平均損益']
+                        disp_gap.columns = ['ギャップ幅', '回数', '勝率', '平均損益']
                         st.dataframe(disp_gap, hide_index=True, use_container_width=True)
                     except: st.warning(f"[{t}] ギャップ幅分析用のデータが不足しています。")
                     st.divider()
@@ -676,7 +676,7 @@ with tab_bt:
                         display_stats['WinRate'] = display_stats['WinRate'].apply(lambda x: f"{x:.1%}")
                         display_stats['AvgPnL'] = display_stats['AvgPnL'].apply(lambda x: f"{x:+.2%}")
                         display_stats['Count'] = display_stats['Count'].astype(str)
-                        display_stats.columns = ['乖離率レンジ', 'トレード数', '勝率', '平均損益']
+                        display_stats.columns = ['乖離率レンジ', '回数', '勝率', '平均損益']
                         
                         # 表の表示
                         st.dataframe(display_stats.style.set_properties(**{'text-align': 'left'}), hide_index=True, use_container_width=True)
@@ -719,7 +719,7 @@ with tab_bt:
                         
                         # 最終的な表示用カラム
                         final_disp = time_disp[['時間帯', 'Count', 'WinRate', 'AvgPnL']]
-                        final_disp.columns = ['時間帯', 'トレード数', '勝率', '平均損益']
+                        final_disp.columns = ['時間帯', '回数', '勝率', '平均損益']
                         
                         st.dataframe(final_disp, hide_index=True, use_container_width=True)
                     except Exception:
