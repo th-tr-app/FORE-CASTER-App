@@ -48,7 +48,8 @@ def fetch_market_info(indices_dict):
 
 @st.cache_data(ttl=300)
 def analyze_market_environment():
-    """主要指数から今日の相場環境をプロ視点で診断する (統合アップデート版)"""
+    """主要指数から今日の相場環境をプロ視点で診断する (統合・決定版)"""
+    # 判定に使用する全インデックスを定義
     indices = {
         "N225": "^N225", "VIX": "^VIX", "SOX": "^SOX",
         "WTI": "CL=F", "CME": "NIY=F", "USDJPY": "JPY=X", "GOLD": "GC=F"
@@ -56,14 +57,15 @@ def analyze_market_environment():
     data_map = {}
     for k, ticker in indices.items():
         try:
-            df = yf.download(ticker, period="10d", interval="1d", progress=False)
+            # 25日線の計算も考慮し、多めに10日分の日足を一括取得
+            df = yf.download(ticker, period="40d", interval="1d", progress=False)
             if not df.empty and len(df) >= 2:
                 if isinstance(df.columns, pd.MultiIndex): 
                     df.columns = df.columns.get_level_values(0)
                 data_map[k] = df.dropna(subset=['Close'])
         except: continue
 
-    # --- 1. 基礎データの抽出 ---
+    # --- 1. 基礎データの抽出 (エラー回避のための初期値付) ---
     n225_close = 0; n225_ma25 = 0; cme_val = 0
     if "N225" in data_map:
         df_n = data_map["N225"]
@@ -74,14 +76,15 @@ def analyze_market_environment():
         cme_val = float(data_map["CME"]['Close'].values.ravel()[-1])
 
     # --- 2. 寄付予測 と 推奨戦略 の判定 (閾値: ±0.15%) ---
+    # あなたのルール：GD(ダウン)ならディフェンシブ、GU(アップ)なら通常、不明なら横ばい
     gap_pct = (cme_val - n225_close) / n225_close if n225_close > 0 else 0
     bias_list = []
     
     if gap_pct <= -0.0015:
-        strategy_idx = 1 # ディフェンシブ (GD時は守り)
+        strategy_idx = 1 # ディフェンシブ
         base_forecast = "大幅ギャップダウン" if gap_pct <= -0.01 else "ギャップダウン"
     elif gap_pct >= 0.0015:
-        strategy_idx = 0 # 通常フィルター (GU時は攻め)
+        strategy_idx = 0 # 通常フィルター
         base_forecast = "大幅ギャップアップ" if gap_pct >= 0.01 else "ギャップアップ"
     else:
         strategy_idx = 2 # 横ばい相場 (見通し不明)
@@ -146,6 +149,7 @@ def analyze_market_environment():
     if fx_pct >= 0.003: tips.append("19:輸送用機器 / 25:卸売業 / 27:銀行")
     if vix_val >= 20: tips.append("2:水産・食品 / 12:医薬品")
 
+    # 全てのキー（balance, strategy 等）を確実に返却
     return {
         "strategy": strategy_idx, "opening_forecast": forecast_txt,
         "balance": balance_txt, "phase_comment": phase_txt,
