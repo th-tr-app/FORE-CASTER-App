@@ -272,22 +272,15 @@ with tab_top:
         # ワンタッチ結果の表示
         st.dataframe(
             rdf_ot[['コード', '銘柄名', '前日比', '回数', '勝率', '利益平均', '損失平均', 'PF', '期待値', '総合スコア']].style.format({
-                '前日比': '{:+.2f}%', '勝率': '{:.1%}', '利益平均': '{:+.2%}', 
-                '損失平均': '{:+.2%}', '期待値': '{:+.2%}', 'PF': '{:.2f}', '総合スコア': '{:.2%}'
+                '前日比': '{:+.2f}%', 
+                '勝率': '{:.1%}', 
+                '利益平均': '{:+.2%}', 
+                '損失平均': '{:+.2%}', 
+                '期待値': '{:+.2%}', 
+                'PF': '{:.2f}', 
+                '総合スコア': '{:.2%}' # 0.0190 → 1.90% に変換
             }),
-            use_container_width=True, hide_index=True,
-            column_config={
-                "コード": st.column_config.Column(alignment="left"),
-                "銘柄名": st.column_config.Column(alignment="left"),
-                "前日比": st.column_config.Column(alignment="left"),
-                "回数": st.column_config.Column(alignment="left"),
-                "勝率": st.column_config.Column(alignment="left"),
-                "利益平均": st.column_config.Column(alignment="left"),
-                "損失平均": st.column_config.Column(alignment="left"),
-                "PF": st.column_config.Column(alignment="left"),
-                "期待値": st.column_config.Column(alignment="left"),
-                "総合スコア": st.column_config.Column(alignment="left"),
-            }
+            use_container_width=True, hide_index=True, selection_mode=None
         )
     
         if st.button("♻️ ワンタッチ結果をクリア", key="ot_clear_res_btn"):
