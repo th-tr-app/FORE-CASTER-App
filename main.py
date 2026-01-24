@@ -410,7 +410,7 @@ with tab_screen:
                 df_height = (len(current_res) + 1) * 35 + 5 # 縦スクロール防止
                 
                 sel_event = st.dataframe(
-                    current_res[['コード', '銘柄名', '株価', '前日比', '売買代金', 'RSI', '25MA乖離', 'ATR%']],
+                    current_res[['コード', '銘柄名', '株価', '前日比', 'ATR%', 'RSI', '25MA乖離', '売買代金']],
                     use_container_width=True, hide_index=True, 
                     on_select="rerun", selection_mode="multi-row", 
                     key=f"df_sc_view_final_{i}",
