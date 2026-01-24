@@ -18,75 +18,57 @@ if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 if 'res_df' not in st.session_state: st.session_state['res_df'] = pd.DataFrame()
 if 't_names' not in st.session_state: st.session_state['t_names'] = {}
 
-# --- 【追加】ラベルに固定表示するための「基準値」セット ---
-DEFAULT_VALS = [
-    {
-        'p_rng': (300, 10000), 'v_min': 30.0, 'atrp_rng': (1.5, 5.0), 'ma_opt': "最強：上昇トレンド",
-        'gain_rng': (0.5, 5.0), 'ema_opt': "強気：EMAの上で価格維持", 'adx_rng': (20, 100), 'rci_rng': (0, 100),
-        'rsi_rng': (50, 80), 'vup_min': 1.2, 'ma25_rng': (0.0, 10.0), 'bb_rng': (0.5, 2.5)
-    },
-    {
-        'p_rng': (500, 6000), 'v_min': 50.0, 'atrp_rng': (0.5, 2.5), 'ma_opt': "収束：嵐の前の静けさ",
-        'gain_rng': (-2.0, 1.0), 'ema_opt': "安定：EMA付近での推移", 'adx_rng': (0, 30), 'rci_rng': (-80, 20),
-        'rsi_rng': (40, 70), 'vup_min': 1.0, 'ma25_rng': (0.0, 10.0), 'bb_rng': (-2.0, 0.5)
-    },
-    {
-        'p_rng': (200, 6000), 'v_min': 20.0, 'atrp_rng': (1.0, 3.0), 'ma_opt': "リバウンド：短期MA上抜け",
-        'gain_rng': (-1.0, 2.0), 'ema_opt': "レンジ：EMAを上下にまたぐ", 'adx_rng': (10, 30), 'rci_rng': (-50, 50),
-        'rsi_rng': (45, 60), 'vup_min': 1.1, 'ma25_rng': (-3.0, 3.0), 'bb_rng': (-1.0, 1.0)
-    }
-]
-
-# --- 2. 戦略別パラメーターの最適化（DEFAULT_VALS 参照版） ---
+# main.py 冒頭：sc_params の初期値を新しいIDに合わせて修正
+# --- 戦略別パラメーターの最適化（実戦テスト反映版） ---
 if 'sc_params' not in st.session_state:
     st.session_state['sc_params'] = [
         # 🔍 通常フィルター：全業種を対象にトレンドを追う
         {
-            'sector': [0], 
-            'c_gain': True, 'gain_rng': DEFAULT_VALS[0]['gain_rng'], 
-            'c_p': True, 'p_rng': DEFAULT_VALS[0]['p_rng'], 
-            'c_v': True, 'v_min': DEFAULT_VALS[0]['v_min'], 
-            'c_atrp': False, 'atrp_rng': DEFAULT_VALS[0]['atrp_rng'], 
-            'c_ma': True, 'ma_opt': DEFAULT_VALS[0]['ma_opt'], 
-            'c_ema': True, 'ema_opt': DEFAULT_VALS[0]['ema_opt'], 
-            'c_adx': False, 'adx_rng': DEFAULT_VALS[0]['adx_rng'], 
-            'c_rci': False, 'rci_rng': DEFAULT_VALS[0]['rci_rng'], 
-            'c_rsi': True, 'rsi_rng': DEFAULT_VALS[0]['rsi_rng'], 
-            'c_vup': False, 'vup_min': DEFAULT_VALS[0]['vup_min'], 
-            'c_ma25': True, 'ma25_rng': DEFAULT_VALS[0]['ma25_rng'], 
-            'c_bb': True, 'bb_rng': DEFAULT_VALS[0]['bb_rng']
+            'sector': [0], # 全業種
+            'c_gain': True, 'gain_rng': (0.5, 5.0), 
+            'c_p': True, 'p_rng': (300, 10000), 
+            'c_v': True, 'v_min': 30.0, 
+            'c_atrp': False, 'atrp_rng': (1.5, 5.0), 
+            'c_ma': True, 'ma_opt': "最強：上昇トレンド", 
+            'c_ema': True, 'ema_opt': "強気：EMAの上で価格維持", 
+            'c_adx': False, 'adx_rng': (20, 100), 
+            'c_rci': False, 'rci_rng': (0, 100), 
+            'c_rsi': True, 'rsi_rng': (50, 80), 
+            'c_vup': False, 'vup_min': 1.2, 
+            'c_ma25': True, 'ma25_rng': (0.0, 10.0), 
+            'c_bb': True, 'bb_rng': (0.5, 2.5)
         },
         # 🛡️ ディフェンシブ：実戦テスト結果を反映（5項目のみ有効）
         {
             'sector': [2, 5, 13, 14, 16], # 水産・食品、医薬品、商社、金融、サービス
-            'c_gain': False, 'gain_rng': DEFAULT_VALS[1]['gain_rng'], 
-            'c_p': True, 'p_rng': DEFAULT_VALS[1]['p_rng'], 
-            'c_v': True, 'v_min': DEFAULT_VALS[1]['v_min'], 
-            'c_atrp': True, 'atrp_rng': DEFAULT_VALS[1]['atrp_rng'], 
-            'c_ma': False, 'ma_opt': DEFAULT_VALS[1]['ma_opt'], 
-            'c_ema': False, 'ema_opt': DEFAULT_VALS[1]['ema_opt'], 
-            'c_adx': False, 'adx_rng': DEFAULT_VALS[1]['adx_rng'], 
-            'c_rci': False, 'rci_rng': DEFAULT_VALS[1]['rci_rng'], 
-            'c_rsi': True, 'rsi_rng': DEFAULT_VALS[1]['rsi_rng'], 
-            'c_vup': False, 'vup_min': DEFAULT_VALS[1]['vup_min'], 
-            'c_ma25': True, 'ma25_rng': DEFAULT_VALS[1]['ma25_rng'], 
-            'c_bb': False, 'bb_rng': DEFAULT_VALS[1]['bb_rng']
+            'c_gain': False, 'gain_rng': (-2.0, 1.0), 
+            'c_p': True, 'p_rng': (500, 6000),          # 修正
+            'c_v': True, 'v_min': 50.0, 
+            'c_atrp': True, 'atrp_rng': (0.5, 2.5), 
+            'c_ma': False, 'ma_opt': "収束：嵐の前の静けさ", 
+            'c_ema': False, 'ema_opt': "安定：EMA付近での推移", 
+            'c_adx': False, 'adx_rng': (0, 30),         # チェックオフ
+            'c_rci': False, 'rci_rng': (-80, 20),       # チェックオフ
+            'c_rsi': True, 'rsi_rng': (40, 70),         # 修正
+            'c_vup': False, 'vup_min': 1.0, 
+            'c_ma25': True, 'ma25_rng': (0.0, 10.0),    # 修正
+            'c_bb': False, 'bb_rng': (-2.0, 0.5)        # チェックオフ
         },
         # ↔️ 横ばい相場：リバウンド（個別材料セクター）
         {
-            'sector': [2, 3, 4, 8, 9], # 水産・食品、繊維、化学、金属、機械 
-            'c_gain': True, 'gain_rng': DEFAULT_VALS[2]['gain_rng'], 
-            'c_p': True, 'p_rng': DEFAULT_VALS[2]['p_rng'], 
-            'c_v': True, 'v_min': DEFAULT_VALS[2]['v_min'], 
-            'c_atrp': True, 'atrp_rng': DEFAULT_VALS[2]['atrp_rng'], 
-            'c_ma': True, 'ma_opt': DEFAULT_VALS[2]['ma_opt'], 
-            'c_ema': False, 'ema_opt': DEFAULT_VALS[2]['ema_opt'], 
-            'c_adx': False, 'adx_rng': DEFAULT_VALS[2]['adx_rng'], 
-            'c_rci': True, 'rci_rng': DEFAULT_VALS[2]['rci_rng'], 
-            'c_rsi': True, 'rsi_rng': DEFAULT_VALS[2]['rsi_rng'], 
-            'c_vup': True, 'vup_min': DEFAULT_VALS[2]['vup_min'], 
-            'c_ma25': True, 'ma25_rng': DEFAULT_VALS[2]['ma25_rng'], 
-            'c_bb': False, 'bb_rng': DEFAULT_VALS[2]['bb_rng']
+            'sector': [2, 3, 4, 8, 9], # 水産・食品、繊維、化学、金属、機械
+            'c_gain': True, 'gain_rng': (-1.0, 2.0), 
+            'c_p': True, 'p_rng': (200, 6000), 
+            'c_v': True, 'v_min': 20.0, 
+            'c_atrp': True, 'atrp_rng': (1.0, 3.0), 
+            'c_ma': True, 'ma_opt': "リバウンド：短期MA上抜け", 
+            'c_ema': False, 'ema_opt': "レンジ：EMAを上下にまたぐ", 
+            'c_adx': False, 'adx_rng': (10, 30), 
+            'c_rci': True, 'rci_rng': (-50, 50), 
+            'c_rsi': True, 'rsi_rng': (45, 60), 
+            'c_vup': True, 'vup_min': 1.1, 
+            'c_ma25': True, 'ma25_rng': (-3.0, 3.0), 
+            'c_bb': False, 'bb_rng': (-1.0, 1.0)
         }
     ]
 
@@ -306,7 +288,7 @@ with tab_top:
             st.session_state['ot_no_results'] = False
             st.rerun()
             
-# --- タブ2: スクリーニングの実装 (全12項目に初期値を表示) ---
+# --- タブ2: スクリーニングの実装 (12パラメーター対応版) ---
 with tab_screen:
     st.markdown("<br>", unsafe_allow_html=True)
     s_tabs = st.tabs(["🔍 通常フィルタ", "🔍 ディフェンシブ", "🔍 横ばい相場"])
@@ -314,11 +296,11 @@ with tab_screen:
     for i, s_tab in enumerate(s_tabs):
         with s_tab:
             p = st.session_state['sc_params'][i]
-            d = DEFAULT_VALS[i] # 初期値セットを取得
             exp_t = f"🔍 スクリーニング設定 ({['通常フィルタ', 'ディフェンシブ', '横ばい相場'][i]})"
             
             # --- 1. パラメーター設定エリア ---
             with st.expander(exp_t, expanded=False):
+                # --- A. 業種選択 ---
                 p['sector'] = st.multiselect(
                     "**対象業種 (複数選択可)**", 
                     options=list(SECTOR_MAP.keys()), 
@@ -331,44 +313,44 @@ with tab_screen:
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     p['c_p'] = st.checkbox("**株価の範囲**", p['c_p'], key=f"c_p_{i}")
-                    p['p_rng'] = st.slider(f"価格(円) [初期値: {d['p_rng'][0]}~{d['p_rng'][1]}]", 100, 10000, p['p_rng'], step=100, key=f"v_p_{i}")
+                    p['p_rng'] = st.slider("価格(円)", 100, 10000, p['p_rng'], step=100, key=f"v_p_{i}")
                     st.divider()
                     p['c_v'] = st.checkbox("**売買代金**", p['c_v'], key=f"c_v_{i}")
-                    p['v_min'] = st.number_input(f"億円以上 [初期値: {d['v_min']}]", value=p['v_min'], step=10.0, key=f"v_v_{i}")
+                    p['v_min'] = st.number_input("億円以上", value=p['v_min'], step=10.0, key=f"v_v_{i}")
                     st.divider()
                     p['c_atrp'] = st.checkbox("**平均値幅 (ATR%)**", p['c_atrp'], key=f"c_atrp_{i}")
-                    p['atrp_rng'] = st.slider(f"期待範囲% [初期値: {d['atrp_rng'][0]:.1f}~{d['atrp_rng'][1]:.1f}]", 0.5, 5.0, p['atrp_rng'], step=0.1, key=f"v_atrp_{i}")
+                    p['atrp_rng'] = st.slider("期待範囲%", 0.5, 5.0, p['atrp_rng'], step=0.1, key=f"v_atrp_{i}")
                     st.divider()
                     p['c_ma'] = st.checkbox("**移動平均上抜け/並び**", p['c_ma'], key=f"c_ma_{i}")
-                    p['ma_opt'] = st.selectbox(f"条件選択 [初期値: {d['ma_opt']}]", ["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"], index=["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"].index(p['ma_opt']), key=f"v_ma_{i}")
+                    p['ma_opt'] = st.selectbox("条件選択", ["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"], index=["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"].index(p['ma_opt']), key=f"v_ma_{i}")
                     st.divider()
 
                 with c2:
                     p['c_gain'] = st.checkbox("**前日値上がり率 (%)**", p['c_gain'], key=f"c_gain_{i}")
-                    p['gain_rng'] = st.slider(f"変動幅% [初期値: {d['gain_rng'][0]:.1f}~{d['gain_rng'][1]:.1f}]", -10.0, 10.0, p['gain_rng'], step=0.5, key=f"v_gain_{i}")
+                    p['gain_rng'] = st.slider("変動幅%", -10.0, 10.0, p['gain_rng'], step=0.5, key=f"v_gain_{i}")
                     st.divider()
                     p['c_ema'] = st.checkbox("**EMA (9日・21日)**", p['c_ema'], key=f"c_ema_{i}")
-                    p['ema_opt'] = st.selectbox(f"EMA基準 [初期値: {d['ema_opt']}]", ["強気：EMAの上で価格維持", "安定：EMA付近での推移", "レンジ：EMAを上下にまたぐ"], index=["強気：EMAの上で価格維持", "安定：EMA付近での推立ち", "レンジ：EMAを上下にまたぐ"].index(p['ema_opt']), key=f"v_ema_{i}")
+                    p['ema_opt'] = st.selectbox("EMA基準", ["強気：EMAの上で価格維持", "安定：EMA付近での推移", "レンジ：EMAを上下にまたぐ"], index=["強気：EMAの上で価格維持", "安定：EMA付近での推移", "レンジ：EMAを上下にまたぐ"].index(p['ema_opt']), key=f"v_ema_{i}")
                     st.divider()
                     p['c_adx'] = st.checkbox("**ADX (強度)**", p['c_adx'], key=f"c_adx_{i}")
-                    p['adx_rng'] = st.slider(f"強度スコア [初期値: {d['adx_rng'][0]}~{d['adx_rng'][1]}]", 0, 100, p['adx_rng'], step=5, key=f"v_adx_{i}")
+                    p['adx_rng'] = st.slider("強度スコア", 0, 100, p['adx_rng'], step=5, key=f"v_adx_{i}")
                     st.divider()
                     p['c_rci'] = st.checkbox("**RCI (過熱感)**", p['c_rci'], key=f"c_rci_{i}")
-                    p['rci_rng'] = st.slider(f"RCI範囲 [初期値: {d['rci_rng'][0]}~{d['rci_rng'][1]}]", -100, 100, p['rci_rng'], step=5, key=f"v_rci_{i}")
+                    p['rci_rng'] = st.slider("RCI範囲", -100, 100, p['rci_rng'], step=5, key=f"v_rci_{i}")
                     st.divider()
 
                 with c3:
                     p['c_rsi'] = st.checkbox("**RSI (レンジ)**", p['c_rsi'], key=f"c_rsi_{i}")
-                    p['rsi_rng'] = st.slider(f"RSIレンジ [初期値: {d['rsi_rng'][0]}~{d['rsi_rng'][1]}]", 0, 100, p['rsi_rng'], step=5, key=f"v_rsi_{i}")
+                    p['rsi_rng'] = st.slider("RSIレンジ", 0, 100, p['rsi_rng'], step=5, key=f"v_rsi_{i}")
                     st.divider()
                     p['c_vup'] = st.checkbox("**出来高増加率**", p['c_vup'], key=f"c_vup_{i}")
-                    p['vup_min'] = st.slider(f"増加倍率 [初期値: {d['vup_min']:.1f}]", 1.0, 5.0, p['vup_min'], step=0.1, key=f"v_vup_{i}")
+                    p['vup_min'] = st.slider("増加倍率", 1.0, 5.0, p['vup_min'], step=0.1, key=f"v_vup_{i}")
                     st.divider()
                     p['c_ma25'] = st.checkbox("**25MA乖離率**", p['c_ma25'], key=f"c_ma25_{i}")
-                    p['ma25_rng'] = st.slider(f"偏差% [初期値: {d['ma25_rng'][0]:.1f}~{d['ma25_rng'][1]:.1f}]", -20.0, 20.0, p['ma25_rng'], step=1.0, key=f"v_ma25_{i}")
+                    p['ma25_rng'] = st.slider("偏差%", -20.0, 20.0, p['ma25_rng'], step=1.0, key=f"v_ma25_{i}")
                     st.divider()
                     p['c_bb'] = st.checkbox("**ボリンジャーバンド**", p['c_bb'], key=f"c_bb_{i}")
-                    p['bb_rng'] = st.slider(f"σ範囲 [初期値: {d['bb_rng'][0]:.1f}~{d['bb_rng'][1]:.1f}]", -3.0, 3.0, p['bb_rng'], step=1.0, key=f"v_bb_{i}")
+                    p['bb_rng'] = st.slider("σ範囲", -3.0, 3.0, p['bb_rng'], step=1.0, key=f"v_bb_{i}")
                     st.divider()
 
             # --- 2. スクリーニング実行 (計算のみ) ---
