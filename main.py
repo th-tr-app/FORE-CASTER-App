@@ -189,10 +189,6 @@ with tab_top:
         """
         st.markdown(diag_html, unsafe_allow_html=True)
 
-    # main.py の診断表示ブロック内
-# core.py 側で既に文字列に変換済みなので、これだけでOK
-tips_str = diag.get("tips", "個別材料株（全業種対象）")
-
     # 4. ワンタッチ判定：全自動スキャン開始ボタン
     if st.button("👉 ワンタッチ／銘柄候補を自動選出!!", type="primary", use_container_width=True, key="ot_full_scan_btn"):
         current_preset = st.session_state['preset'] 
