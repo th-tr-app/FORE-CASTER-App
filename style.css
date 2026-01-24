@@ -54,7 +54,7 @@ h4, .ai-diag-title {
     font-weight: 600 !important;
     color: #3498db !important; /* 青色を維持 */
     margin-top: 0 !important;
-    margin-bottom: 0px !important;
+    margin-bottom: -5px !important;
 }
 
 /* h5: 小見出し (ギャップ幅ごとの勝率など) */
