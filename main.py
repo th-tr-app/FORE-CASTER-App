@@ -269,7 +269,7 @@ with tab_top:
         st.markdown("### 🏆本日の厳選銘柄トップ５")
         rdf_ot = st.session_state['ot_last_top5']
         
-        # ワンタッチ結果の表示
+        # 表示する列の順番を指定し、％表記を適用
         st.dataframe(
             rdf_ot[['コード', '銘柄名', '前日比', '回数', '勝率', '利益平均', '損失平均', 'PF', '期待値', '総合スコア']].style.format({
                 '前日比': '{:+.2f}%', 
@@ -282,7 +282,7 @@ with tab_top:
             }),
             use_container_width=True, hide_index=True, selection_mode=None
         )
-    
+        
         if st.button("♻️ ワンタッチ結果をクリア", key="ot_clear_res_btn"):
             del st.session_state['ot_last_top5']
             st.session_state['ot_no_results'] = False
@@ -301,21 +301,19 @@ with tab_screen:
             # --- 1. パラメーター設定エリア ---
             with st.expander(exp_t, expanded=False):
                 # --- A. 業種選択 ---
-                p['sector'] = st.pills(
-                    "**対象業種 (タップで複数選択)**",
-                    options=list(SECTOR_MAP.keys()),
-                    format_func=lambda x: f"{SECTOR_MAP[x]}",
-                    selection_mode="multi",
-                    default=p['sector'],
-                    key=f"v_sector_pill_{i}"
+                p['sector'] = st.multiselect(
+                    "**対象業種 (複数選択可)**", 
+                    options=list(SECTOR_MAP.keys()), 
+                    format_func=lambda x: f"#{x} {SECTOR_MAP[x]}", 
+                    default=p['sector'], 
+                    key=f"v_sector_{i}"
                 )
-
                 st.divider()
                 
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     p['c_p'] = st.checkbox("**株価の範囲**", p['c_p'], key=f"c_p_{i}")
-                    p['p_rng'] = st.slider("価格（円）", 100, 10000, p['p_rng'], step=100, key=f"v_p_{i}")
+                    p['p_rng'] = st.slider("価格(円)", 100, 10000, p['p_rng'], step=100, key=f"v_p_{i}")
                     st.divider()
                     p['c_v'] = st.checkbox("**売買代金**", p['c_v'], key=f"c_v_{i}")
                     p['v_min'] = st.number_input("億円以上", value=p['v_min'], step=10.0, key=f"v_v_{i}")
@@ -531,12 +529,12 @@ with tab_bt:
                     if tdf.empty: continue
                     t_name = ticker_names.get(t, t)
                     st.markdown(f"### [{t}] {t_name}")
-
+                    
                     # 1. パターン統計集計
                     pat_stats = tdf.groupby('Pattern', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
                     pat_stats.columns = ['パターン', 'トレード数', '勝率', '平均損益']
                     st.dataframe(pat_stats.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'}), hide_index=True, use_container_width=True)
-                    
+
                     # 2. ベスト条件抽出用ヘルパー関数 (代用ロジック)
                     def get_best_row(df, count_col, rate_col, threshold=3):
                         # まずは3回以上で探す
@@ -569,14 +567,14 @@ with tab_bt:
                         t_s = tdf.groupby('TR', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
 
                         # ベスト行の取得 (3回以上を優先し、なければ最大値を採用)
-                        best_p = get_best_row(pat_stats, '回数', '勝率')
+                        best_p = get_best_row(pat_stats, 'トレード数', '勝率')
                         best_g = get_best_row(g_s, 'count', '<lambda_0>')
                         best_v = get_best_row(v_s, 'count', '<lambda_0>')
                         best_t = get_best_row(t_s, 'count', '<lambda_0>')
 
                         if all([best_p is not None, best_g is not None, best_v is not None, best_t is not None]):
                             g_txt = "ギャップアップ" if best_g['GapRange'].left >= 0 else "ギャップダウン"
-                            reliability = "⭐⭐" if best_p['回数'] >= 3 else "⭐" # 信頼度アイコン
+                            reliability = "⭐⭐" if best_p['トレード数'] >= 3 else "⭐" # 信頼度アイコン
                             
                             st.info(f"**🏆 最高勝率パターン {reliability}**\n\n"
                                     f"最も勝率が高かったのは、"
@@ -610,9 +608,7 @@ with tab_bt:
                     gap_dir_disp['WinRate'] = gap_dir_disp['WinRate'].apply(lambda x: f"{x:.1%}")
                     gap_dir_disp['AvgPnL'] = gap_dir_disp['AvgPnL'].apply(lambda x: f"{x:+.2%}")
                     gap_dir_disp.columns = ['方向', 'トレード数', '勝率', '平均損益']
-                                    
-                    # 表を表示
-                    st.dataframe(gap_dir_disp.style.set_properties(**{'text-align': 'left'}), hide_index=True, use_container_width=True)
+                    st.dataframe(gap_dir_disp, hide_index=True, use_container_width=True)
 
                     # --- 2. ギャップ幅ごとの分析 (0.5%刻み) ---
                     st.markdown("##### ギャップ幅ごとの勝率")
@@ -623,19 +619,15 @@ with tab_bt:
                         gap_range_stats = tdf.groupby('GapRange', observed=True).agg(
                             Count=('PnL', 'count'), WinRate=('PnL', lambda x: (x > 0).mean()), AvgPnL=('PnL', 'mean')
                         ).reset_index()
-                        
                         gap_range_stats['RangeLabel'] = gap_range_stats['GapRange'].apply(lambda i: f"{i.left:.1f}% ～ {i.right:.1f}%")
                         disp_gap = gap_range_stats[['RangeLabel', 'Count', 'WinRate', 'AvgPnL']].copy()
                         disp_gap['WinRate'] = disp_gap['WinRate'].apply(lambda x: f"{x:.1%}")
                         disp_gap['AvgPnL'] = disp_gap['AvgPnL'].apply(lambda x: f"{x:+.2%}")
-                        disp_gap.columns = ['ギャップ幅', '回数', '勝率', '平均損益']
-                                    
-                        # 表を表示
-                        st.dataframe(disp_gap.style.set_properties(**{'text-align': 'left'}), hide_index=True, use_container_width=True)
-                    
+                        disp_gap.columns = ['ギャップ幅', 'トレード数', '勝率', '平均損益']
+                        st.dataframe(disp_gap, hide_index=True, use_container_width=True)
                     except: st.warning(f"[{t}] ギャップ幅分析用のデータが不足しています。")
                     st.divider()
-        
+
         with bt_tabs[3]: # 🧐 VWAP分析 (BACK TESTER 6.3 完全移植 & 3.0 変数同期版)
             # --- データの存在チェック ---
             if not res_df.empty and 'Ticker' in res_df.columns:
@@ -682,7 +674,7 @@ with tab_bt:
                         display_stats['WinRate'] = display_stats['WinRate'].apply(lambda x: f"{x:.1%}")
                         display_stats['AvgPnL'] = display_stats['AvgPnL'].apply(lambda x: f"{x:+.2%}")
                         display_stats['Count'] = display_stats['Count'].astype(str)
-                        display_stats.columns = ['乖離率レンジ', '回数', '勝率', '平均損益']
+                        display_stats.columns = ['乖離率レンジ', 'トレード数', '勝率', '平均損益']
                         
                         # 表の表示
                         st.dataframe(display_stats.style.set_properties(**{'text-align': 'left'}), hide_index=True, use_container_width=True)
@@ -725,7 +717,7 @@ with tab_bt:
                         
                         # 最終的な表示用カラム
                         final_disp = time_disp[['時間帯', 'Count', 'WinRate', 'AvgPnL']]
-                        final_disp.columns = ['時間帯', '回数', '勝率', '平均損益']
+                        final_disp.columns = ['時間帯', 'トレード数', '勝率', '平均損益']
                         
                         st.dataframe(final_disp, hide_index=True, use_container_width=True)
                     except Exception:
