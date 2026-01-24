@@ -170,12 +170,14 @@ with tab_top:
                 cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
         
-        # B. 今日のマーケットAI診断
-        tips_str = "".join(diag["tips"]) if diag["tips"] else "特になし"
+        # B. 今日のマーケットAI診断（最新ロジック反映版）
+        # tipsは既に logic_core 側で文字列として整形されている前提です
+        tips_str = diag.get("tips", "個別材料株（全業種対象）")
+
         diag_html = f"""
         <div class="ai-diagnosis-box">
-            <h4 class="ai-diag-title">📀 今日のマーケットAI診断</h4>
-            <div class="ai-diag-row"><b>バランス：</b> {diag['alert_level']}</div>
+            <h4 class="ai-diag-title">📀 今日のマーケットAI診断 <span style='font-size:0.8em; margin-left:10px; color:#ff4b4b;'>{diag['alert_level']}</span></h4>
+            <div class="ai-diag-row"><b>バランス：</b> {diag['balance']}</div>
             <div class="ai-diag-row"><b>推奨戦略：</b> {rec_strat}</div>
             <div class="ai-diag-row"><b>寄付予測：</b> {diag['opening_forecast']}</div>
             <div class="ai-diag-row"><b>相場展望：</b> {diag['phase_comment']}</div>
