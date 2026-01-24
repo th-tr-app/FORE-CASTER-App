@@ -48,8 +48,7 @@ def fetch_market_info(indices_dict):
 
 @st.cache_data(ttl=300)
 def analyze_market_environment():
-    """主要指数から今日の相場環境をプロ視点で診断する (統合・決定版)"""
-    # 判定に使用する全インデックスを定義
+    """主要指数から今日の相場環境をプロ視点で診断する (時系列アップデート版)"""
     indices = {
         "N225": "^N225", "VIX": "^VIX", "SOX": "^SOX",
         "WTI": "CL=F", "CME": "NIY=F", "USDJPY": "JPY=X", "GOLD": "GC=F"
@@ -57,7 +56,6 @@ def analyze_market_environment():
     data_map = {}
     for k, ticker in indices.items():
         try:
-            # 25日線の計算も考慮し、多めに10日分の日足を一括取得
             df = yf.download(ticker, period="40d", interval="1d", progress=False)
             if not df.empty and len(df) >= 2:
                 if isinstance(df.columns, pd.MultiIndex): 
@@ -65,52 +63,60 @@ def analyze_market_environment():
                 data_map[k] = df.dropna(subset=['Close'])
         except: continue
 
-    # --- 1. 基礎データの抽出 (エラー回避のための初期値付) ---
+    # --- 1. 基礎データの抽出 ---
     n225_close = 0; n225_ma25 = 0; cme_val = 0
     if "N225" in data_map:
         df_n = data_map["N225"]
         n225_close = float(df_n['Close'].values.ravel()[-1])
         n225_ma25 = float(df_n['Close'].rolling(25).mean().values.ravel()[-1])
-    
     if "CME" in data_map:
         cme_val = float(data_map["CME"]['Close'].values.ravel()[-1])
 
-    # --- 2. 寄付予測 と 推奨戦略 の判定 (閾値: ±0.15%) ---
-    # あなたのルール：GD(ダウン)ならディフェンシブ、GU(アップ)なら通常、不明なら横ばい
+    # --- 2. 基本判定 (Gap/戦略) ---
     gap_pct = (cme_val - n225_close) / n225_close if n225_close > 0 else 0
     bias_list = []
     
+    # 戦略決定ロジック
     if gap_pct <= -0.0015:
         strategy_idx = 1 # ディフェンシブ
-        base_forecast = "ギャップダウン" if gap_pct <= -0.01 else "ギャップダウン"
+        base_forecast = "ギャップダウン"" if gap_pct <= -0.01 else "下落"
     elif gap_pct >= 0.0015:
         strategy_idx = 0 # 通常フィルター
-        base_forecast = "ギャップアップ" if gap_pct >= 0.01 else "ギャップアップ"
+        base_forecast = "ギャップアップ" if gap_pct >= 0.01 else "上昇"
     else:
-        strategy_idx = 2 # 横ばい相場 (見通し不明)
-        base_forecast = "フラット（方向感なし）"
+        strategy_idx = 2 # 横ばい相場
+        base_forecast = "フラット"
 
-    # --- 3. 詳細バイアス判定 (為替・半導体・VIX) ---
-    fx_pct = 0; sox_pct = 0; vix_val = 15
-    if "USDJPY" in data_map:
-        fx_now = data_map["USDJPY"]['Close'].values.ravel()[-1]
-        fx_prev = data_map["USDJPY"]['Close'].values.ravel()[-2]
-        fx_pct = (fx_now - fx_prev) / fx_prev
-        if fx_pct <= -0.003: bias_list.append("円高バイアス")
-        elif fx_pct >= 0.003: bias_list.append("円安バイアス")
+    # --- 3. 時刻判定 (日本時間基準) ---
+    jst = timezone(timedelta(hours=9))
+    now = datetime.now(jst).time()
+    
+    # 時間帯の定義
+    lunch_start, lunch_end = time(11, 30), time(12, 30)
+    after_start, after_end = time(15, 0), time(19, 0)
 
-    if "SOX" in data_map:
-        sox_now = data_map["SOX"]['Close'].values.ravel()[-1]
-        sox_prev = data_map["SOX"]['Close'].values.ravel()[-2]
-        sox_pct = (sox_now - sox_prev) / sox_prev
-        if sox_pct <= -0.005: bias_list.append("ハイテク売り")
-        elif sox_pct >= 0.005: bias_list.append("半導体買い")
-
-    if "VIX" in data_map:
-        vix_val = float(data_map["VIX"]['Close'].values.ravel()[-1])
-        if vix_val >= 20: bias_list.append("VIX上昇")
-
-    forecast_txt = f"{base_forecast} ({' / '.join(bias_list)})" if bias_list else base_forecast
+    # デフォルト設定 (寄り前・深夜)
+    forecast_title = "寄付予測"
+    phase_txt = "市場は比較的落ち着いています。各銘柄のテクニカルを重視したトレードを。"
+    
+    if lunch_start <= now <= lunch_end:
+        # 【11:30 ~ 12:30：前場の総括】
+        forecast_title = "前場総括"
+        forecast_txt = f"前場は {base_forecast} で推移。25日線乖離は {((n225_close - n225_ma25) / n225_ma25) * 100:.1f}% です。"
+        phase_txt = "前場のトレンドを再確認。後場はVWAP付近の攻防や前場高値更新に注目してください。"
+    elif after_start <= now <= after_end:
+        # 【15:00 ~ 19:00：今日の振り返り】
+        forecast_title = "今日の結果"
+        forecast_txt = f"本日は {base_forecast} で終了。現在の25日線乖離は {((n225_close - n225_ma25) / n225_ma25) * 100:.1f}% です。"
+        phase_txt = "本日のトレードお疲れ様でした。明日に向け期待値の高い銘柄をランキングで精査しましょう。"
+    else:
+        # 【通常時：寄付予測】
+        # バイアス判定ロジック (既存)
+        if "USDJPY" in data_map:
+            fx_pct = (data_map["USDJPY"]['Close'].values.ravel()[-1] / data_map["USDJPY"]['Close'].values.ravel()[-2]) - 1
+            if fx_pct <= -0.003: bias_list.append("円高バイアス")
+            elif fx_pct >= 0.003: bias_list.append("円安バイアス")
+        forecast_txt = f"{base_forecast}寄付 ({' / '.join(bias_list)})" if bias_list else f"{base_forecast}寄付"
 
     # --- 4. バランス (25日線乖離) ---
     dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 > 0 else 0
@@ -152,11 +158,12 @@ def analyze_market_environment():
     # 全てのキー（balance, strategy 等）を確実に返却
     return {
         "strategy": strategy_idx, "opening_forecast": forecast_txt,
+        "forecast_title": forecast_title, # タイトルを返す
         "balance": balance_txt, "phase_comment": phase_txt,
         "us_impact": us_impact, "alert_level": alert_lvl,
-        "tips": "　".join(tips) if tips else "個別材料株（全業種対象）"
+        "tips": tips_str
     }
-
+    
 # --- 3. スクリーニング・バックテストエンジン ---
 
 def evaluate_screening_conditions(df, params):
