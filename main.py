@@ -301,15 +301,16 @@ with tab_screen:
             # --- 1. パラメーター設定エリア ---
             with st.expander(exp_t, expanded=False):
                 # --- A. 業種選択 ---
-                p['sector'] = st.multiselect(
-                    "**対象業種 (複数選択可)**", 
-                    options=list(SECTOR_MAP.keys()), 
-                    format_func=lambda x: f"#{x} {SECTOR_MAP[x]}", 
-                    default=p['sector'], 
-                    key=f"v_sector_{i}"
+                p['sector'] = st.pills(
+                    "**対象業種 (タップで複数選択)**",
+                    options=list(SECTOR_MAP.keys()),
+                    format_func=lambda x: f"{SECTOR_MAP[x]}",
+                    selection_mode="multi",
+                    default=p['sector'],
+                    key=f"v_sector_pill_{i}"
                 )
                 st.divider()
-                
+
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     p['c_p'] = st.checkbox("**株価の範囲**", p['c_p'], key=f"c_p_{i}")
