@@ -82,10 +82,10 @@ def analyze_market_environment():
     
     if gap_pct <= -0.0015:
         strategy_idx = 1 # ディフェンシブ
-        base_forecast = "大幅ギャップダウン" if gap_pct <= -0.01 else "ギャップダウン"
+        base_forecast = "ギャップダウン" if gap_pct <= -0.01 else "ギャップダウン"
     elif gap_pct >= 0.0015:
         strategy_idx = 0 # 通常フィルター
-        base_forecast = "大幅ギャップアップ" if gap_pct >= 0.01 else "ギャップアップ"
+        base_forecast = "ギャップアップ" if gap_pct >= 0.01 else "ギャップアップ"
     else:
         strategy_idx = 2 # 横ばい相場 (見通し不明)
         base_forecast = "フラット（方向感なし）"
