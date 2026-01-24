@@ -313,7 +313,7 @@ with tab_screen:
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     p['c_p'] = st.checkbox("**株価の範囲**", p['c_p'], key=f"c_p_{i}")
-                    p['p_rng'] = st.slider("価格(円)", 100, 10000, p['p_rng'], step=100, key=f"v_p_{i}")
+                    p['p_rng'] = st.slider("価格（300〜10000円）", 100, 10000, p['p_rng'], step=100, key=f"v_p_{i}")
                     st.divider()
                     p['c_v'] = st.checkbox("**売買代金**", p['c_v'], key=f"c_v_{i}")
                     p['v_min'] = st.number_input("億円以上", value=p['v_min'], step=10.0, key=f"v_v_{i}")
