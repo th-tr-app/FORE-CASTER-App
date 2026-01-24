@@ -609,12 +609,8 @@ with tab_bt:
                     gap_dir_disp = gap_dir_stats.copy()
                     gap_dir_disp['WinRate'] = gap_dir_disp['WinRate'].apply(lambda x: f"{x:.1%}")
                     gap_dir_disp['AvgPnL'] = gap_dir_disp['AvgPnL'].apply(lambda x: f"{x:+.2%}")
-                    gap_dir_disp.columns = ['方向', '回数', '勝率', '平均損益']
-                    st.dataframe(
-                        gap_dir_disp.style.set_properties(**{'text-align': 'left'}), # 左揃えを追加
-                        hide_index=True, 
-                        use_container_width=True
-                    )
+                    gap_dir_disp.columns = ['方向', 'トレード数', '勝率', '平均損益']
+                    st.dataframe(gap_dir_disp, hide_index=True, use_container_width=True)
 
                     # --- 2. ギャップ幅ごとの分析 (0.5%刻み) ---
                     st.markdown("##### ギャップ幅ごとの勝率")
