@@ -158,10 +158,9 @@ def analyze_market_environment():
     # 全てのキー（balance, strategy 等）を確実に返却
     return {
         "strategy": strategy_idx, "opening_forecast": forecast_txt,
-        "forecast_title": forecast_title, # タイトルを返す
-        "balance": balance_txt, "phase_comment": phase_txt,
-        "us_impact": us_impact, "alert_level": alert_lvl,
-        "tips": tips_str
+        "forecast_title": forecast_title, "balance": balance_txt, 
+        "phase_comment": phase_txt, "us_impact": us_impact, 
+        "alert_level": alert_lvl, "tips": " / ".join(tips) if tips else "個別材料株（全業種対象）"
     }
     
 # --- 3. スクリーニング・バックテストエンジン ---
