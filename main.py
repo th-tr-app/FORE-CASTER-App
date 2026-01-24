@@ -173,7 +173,7 @@ with tab_top:
         # B. 今日のマーケットAI診断（最新ロジック反映版）
         # tipsは既に logic_core 側で文字列として整形されている前提です
         tips_str = diag.get("tips", "個別材料株（全業種対象）")
-
+        
         # main.py の診断表示部分
         diag_html = f"""
         <div class="ai-diagnosis-box">
