@@ -2,53 +2,11 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import streamlit as st
-from ta.trend import EMAIndicator, MACD, ADXIndicator
-from ta.momentum import RSIIndicator
-from ta.volatility import AverageTrueRange, BollingerBands
-from datetime import datetime, timedelta, time, timezone
-
-# --- 1. テクニカル指標・ユーティリティ ---
-
-def calculate_rci(series, period=9):
-    """RCI (順位相関指数) の算出"""
-    def get_rci(sub):
-        n = len(sub)
-        d = ((np.arange(n) + 1) - sub.rank(ascending=False)).pow(2).sum()
-        return (1 - (6 * d) / (n * (n**2 - 1))) * 100
-    return series.rolling(window=period).apply(get_rci)
-
-def get_trade_pattern(row, gap_pct):
-    """トレードパターンの判定"""
-    check_vwap = row['VWAP'] if pd.notna(row['VWAP']) else row['Close']
-    if (gap_pct <= -0.004) and (row['Close'] > check_vwap): return "A：反転狙い"
-    elif (-0.003 <= gap_pct < 0.003) and (row['Close'] > row['EMA5']): return "D：上昇継続"
-    elif (gap_pct >= 0.005) and (row.get('RSI14', 50) >= 65): return "C：ブレイク"
-    elif (gap_pct >= 0.003) and (row['Close'] > row['EMA5']): return "B：押目上昇"
-    return "E：他タイプ"
-
-# --- 2. 市場分析・指標取得 ---
-
-@st.cache_data(ttl=300)
-def fetch_market_info(indices_dict):
-    """市場指標の値を一括取得する"""
-    data = {}
-    for name, ticker in indices_dict.items():
-        try:
-            df = yf.download(ticker, period="5d", progress=False)
-            if not df.empty:
-                if isinstance(df.columns, pd.MultiIndex): 
-                    df.columns = df.columns.get_level_values(0)
-                df = df.dropna(subset=['Close'])
-                latest = float(df['Close'].values.ravel()[-1])
-                prev = float(df['Close'].values.ravel()[-2])
-                data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
-        except: 
-            data[name] = {"val": None, "pct": None}
-    return data
+from datetime import datetime, timedelta, time, timezone # ← timezoneを追加
 
 @st.cache_data(ttl=300)
 def analyze_market_environment():
-    """主要指数から今日の相場環境をプロ視点で診断する (時系列アップデート版)"""
+    """主要指数から今日の相場環境を診断する (時系列・完全版)"""
     indices = {
         "N225": "^N225", "VIX": "^VIX", "SOX": "^SOX",
         "WTI": "CL=F", "CME": "NIY=F", "USDJPY": "JPY=X", "GOLD": "GC=F"
@@ -72,90 +30,66 @@ def analyze_market_environment():
     if "CME" in data_map:
         cme_val = float(data_map["CME"]['Close'].values.ravel()[-1])
 
-    # --- 2. 基本判定 (Gap/戦略) ---
-    gap_pct = (cme_val - n225_close) / n225_close if n225_close > 0 else 0
-    bias_list = []
-    
-    # 戦略決定ロジック
-    if gap_pct <= -0.0015:
-        strategy_idx = 1 # ディフェンシブ
-        base_forecast = "ギャップダウン"" if gap_pct <= -0.01 else "下落"
-    elif gap_pct >= 0.0015:
-        strategy_idx = 0 # 通常フィルター
-        base_forecast = "ギャップアップ" if gap_pct >= 0.01 else "上昇"
-    else:
-        strategy_idx = 2 # 横ばい相場
-        base_forecast = "フラット"
-
-    # --- 3. 時刻判定 (日本時間基準) ---
+    # --- 2. 時刻判定 (日本時間) ---
     jst = timezone(timedelta(hours=9))
     now = datetime.now(jst).time()
-    
-    # 時間帯の定義
-    lunch_start, lunch_end = time(11, 30), time(12, 30)
-    after_start, after_end = time(15, 0), time(19, 0)
+    l_start, l_end = time(11, 30), time(12, 30)
+    a_start, a_end = time(15, 0), time(19, 0)
 
-    # デフォルト設定 (寄り前・深夜)
-    forecast_title = "寄付予測"
-    phase_txt = "市場は比較的落ち着いています。各銘柄のテクニカルを重視したトレードを。"
+    # --- 3. 寄付予測 と 戦略判定 ---
+    gap_pct = (cme_val - n225_close) / n225_close if n225_close > 0 else 0
+    strategy_idx = 2; forecast_title = "寄付予測"; base_f = "フラット"
     
-    if lunch_start <= now <= lunch_end:
-        # 【11:30 ~ 12:30：前場の総括】
-        forecast_title = "前場総括"
-        forecast_txt = f"前場は {base_forecast} で推移。25日線乖離は {((n225_close - n225_ma25) / n225_ma25) * 100:.1f}% です。"
+    if gap_pct <= -0.0015:
+        strategy_idx = 1; base_f = "大幅下落" if gap_pct <= -0.01 else "下落"
+    elif gap_pct >= 0.0015:
+        strategy_idx = 0; base_f = "大幅上昇" if gap_pct >= 0.01 else "上昇"
+
+    # --- 4. 時間帯別のテキスト生成 ---
+    bias_list = []
+    if lunch_start := (l_start <= now <= l_end):
+        forecast_title = "前場の総括"
+        forecast_txt = f"前場は {base_f} で推移。25日線乖離は {((n225_close - n225_ma25) / n225_ma25) * 100:.1f}% です。"
         phase_txt = "前場のトレンドを再確認。後場はVWAP付近の攻防や前場高値更新に注目してください。"
-    elif after_start <= now <= after_end:
-        # 【15:00 ~ 19:00：今日の振り返り】
+    elif after_start := (a_start <= now <= a_end):
         forecast_title = "今日の結果"
-        forecast_txt = f"本日は {base_forecast} で終了。現在の25日線乖離は {((n225_close - n225_ma25) / n225_ma25) * 100:.1f}% です。"
+        forecast_txt = f"本日は {base_f} で終了。現在の25日線乖離は {((n225_close - n225_ma25) / n225_ma25) * 100:.1f}% です。"
         phase_txt = "本日のトレードお疲れ様でした。明日に向け期待値の高い銘柄をランキングで精査しましょう。"
     else:
-        # 【通常時：寄付予測】
-        # バイアス判定ロジック (既存)
+        # 通常時：バイアス判定
         if "USDJPY" in data_map:
-            fx_pct = (data_map["USDJPY"]['Close'].values.ravel()[-1] / data_map["USDJPY"]['Close'].values.ravel()[-2]) - 1
-            if fx_pct <= -0.003: bias_list.append("円高バイアス")
-            elif fx_pct >= 0.003: bias_list.append("円安バイアス")
-        forecast_txt = f"{base_forecast}寄付 ({' / '.join(bias_list)})" if bias_list else f"{base_forecast}寄付"
+            fx_p = (data_map["USDJPY"]['Close'].values.ravel()[-1] / data_map["USDJPY"]['Close'].values.ravel()[-2]) - 1
+            if fx_p <= -0.003: bias_list.append("円高バイアス")
+            elif fx_p >= 0.003: bias_list.append("円安バイアス")
+        forecast_txt = f"{base_f}寄付 ({' / '.join(bias_list)})" if bias_list else f"{base_f}寄付"
+        phase_txt = "市場は比較的落ち着いています。各銘柄のテクニカルを重視したトレードを。"
 
-    # --- 4. バランス (25日線乖離) ---
+    # --- 5. 指標診断 (バランス、米国株、セクター) ---
     dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 > 0 else 0
+    balance_txt = f"【均衡】25日線乖離 {dev_25:.1f}%。正常範囲内です。"
+    alert_lvl = "正常範囲（ニュートラル）"
     if dev_25 > 5:
-        balance_txt = f"加熱 / 25日線乖離 +{dev_25:.1f}%。高値警戒"
-        alert_lvl = "▶︎▶︎高値警戒（過熱）"
+        balance_txt = f"【加熱】25日線乖離 +{dev_25:.1f}%。警戒水準。"; alert_lvl = "⚠️ 高値警戒（過熱）"
     elif dev_25 < -5:
-        balance_txt = f"過売 / 25日線乖離 {dev_25:.1f}%。自律反発圏"
-        alert_lvl = "▶︎▶︎底打ち待ち（過売）"
-    else:
-        balance_txt = f"均衡 / 25日線乖離 {dev_25:.1f}%。正常範囲内"
-        alert_lvl = "▶︎▶︎正常範囲（ニュートラル）"
+        balance_txt = f"【過売】25日線乖離 {dev_25:.1f}%。自律反発圏。"; alert_lvl = "📢 底打ち待ち（過売）"
 
-    # --- 5. 米国株の影響 & 相場展望 ---
+    sox_pct = 0; vix_val = 15
+    if "SOX" in data_map: sox_pct = (data_map["SOX"]['Close'].values.ravel()[-1] / data_map["SOX"]['Close'].values.ravel()[-2]) - 1
+    if "VIX" in data_map: vix_val = data_map["VIX"]['Close'].values.ravel()[-1]
+    
     if vix_val >= 20 or sox_pct <= -0.015:
         us_impact = "半導体株中心に強い売り圧力。指数主導の下落に警戒が必要。"
-        phase_txt = "リスクオフ局面。安易なリバウンド狙いを避け、守りを固めるべき日。"
     elif sox_pct >= 0.005:
         us_impact = "ハイテク株への買い波及が期待。主力大型株の底堅い展開を予想。"
-        phase_txt = "強気トレンド。寄り付き後の押し目を丁寧に拾う展開。"
     else:
         us_impact = "米国株の変動は限定的。日本市場独自の材料が優先される展開。"
-        phase_txt = "市場は比較的落ち着いています。個別銘柄の動きを注視。"
 
-    # --- 6. 注目セクター (感度 0.5% で判定) ---
     tips = []
-    if "WTI" in data_map:
-        w_now = data_map["WTI"]['Close'].values.ravel()[-1]
-        w_prev = data_map["WTI"]['Close'].values.ravel()[-2]
-        if (w_now - w_prev) / w_prev >= 0.005: tips.append("1:鉱業 / 10:石油・石炭")
-    if "GOLD" in data_map:
-        g_now = data_map["GOLD"]['Close'].values.ravel()[-1]
-        g_prev = data_map["GOLD"]['Close'].values.ravel()[-2]
-        if (g_now - g_prev) / g_prev >= 0.005: tips.append("/ 9:非鉄金属")
+    if "WTI" in data_map and (data_map["WTI"]['Close'].values.ravel()[-1] / data_map["WTI"]['Close'].values.ravel()[-2]) - 1 >= 0.005: tips.append("1:鉱業 / 10:石油・石炭")
+    if "GOLD" in data_map and (data_map["GOLD"]['Close'].values.ravel()[-1] / data_map["GOLD"]['Close'].values.ravel()[-2]) - 1 >= 0.005: tips.append("9:非鉄金属")
     if sox_pct >= 0.005: tips.append("17:電気機器 / 16:機械")
-    if fx_pct >= 0.003: tips.append("19:輸送用機器 / 25:卸売業 / 27:銀行")
     if vix_val >= 20: tips.append("2:水産・食品 / 12:医薬品")
 
-    # 全てのキー（balance, strategy 等）を確実に返却
     return {
         "strategy": strategy_idx, "opening_forecast": forecast_txt,
         "forecast_title": forecast_title, "balance": balance_txt, 
