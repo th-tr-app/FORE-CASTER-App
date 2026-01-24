@@ -619,7 +619,13 @@ with tab_bt:
                     gap_dir_disp['WinRate'] = gap_dir_disp['WinRate'].apply(lambda x: f"{x:.1%}")
                     gap_dir_disp['AvgPnL'] = gap_dir_disp['AvgPnL'].apply(lambda x: f"{x:+.2%}")
                     gap_dir_disp.columns = ['方向', '回数', '勝率', '平均損益']
-                    st.dataframe(gap_dir_disp, hide_index=True, use_container_width=True)
+                    
+                    # --- 【修正点】文字列変換 ＆ 左揃えを適用 ---
+                    gap_dir_disp['回数'] = gap_dir_disp['回数'].astype(str)
+                    st.dataframe(
+                        gap_dir_disp.style.set_properties(**{'text-align': 'left'}), 
+                        hide_index=True, use_container_width=True
+                    )
 
                     # --- 2. ギャップ幅ごとの分析 (0.5%刻み) ---
                     st.markdown("##### ギャップ幅ごとの勝率")
@@ -635,7 +641,13 @@ with tab_bt:
                         disp_gap['WinRate'] = disp_gap['WinRate'].apply(lambda x: f"{x:.1%}")
                         disp_gap['AvgPnL'] = disp_gap['AvgPnL'].apply(lambda x: f"{x:+.2%}")
                         disp_gap.columns = ['ギャップ幅', '回数', '勝率', '平均損益']
-                        st.dataframe(disp_gap, hide_index=True, use_container_width=True)
+                        
+                        # --- 【修正点】文字列変換 ＆ 左揃えを適用 ---
+                        disp_gap['回数'] = disp_gap['回数'].astype(str)
+                        st.dataframe(
+                            disp_gap.style.set_properties(**{'text-align': 'left'}), 
+                            hide_index=True, use_container_width=True
+                        )
                     except: st.warning(f"[{t}] ギャップ幅分析用のデータが不足しています。")
                     st.divider()
 
