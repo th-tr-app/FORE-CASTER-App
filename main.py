@@ -534,11 +534,8 @@ with tab_bt:
 
                     # 1. パターン統計集計
                     pat_stats = tdf.groupby('Pattern', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
-                    pat_stats.columns = ['パターン', '回数', '勝率', '平均損益'] # トレード数 → 回数に変更
-
-                    # VWAP分析と同じ手法で左揃えを適用
-                    st.dataframe(
-                        pat_stats.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'})
+                    pat_stats.columns = ['パターン', '回数', '勝率', '平均損益']
+                    st.dataframe(pat_stats.style.format({'勝率': '{:.1%}', '平均損益': '{:+.2%}'}), hide_index=True, use_container_width=True)
 
                     st.dataframe(pat_stats.style.set_properties(**{'text-align': 'left'}), hide_index=True, use_container_width=True)
                     
