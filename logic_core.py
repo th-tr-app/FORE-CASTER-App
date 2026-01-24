@@ -5,7 +5,7 @@ import streamlit as st
 from ta.trend import EMAIndicator, MACD, ADXIndicator
 from ta.momentum import RSIIndicator
 from ta.volatility import AverageTrueRange, BollingerBands
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time, timezone
 
 # --- 1. テクニカル指標・ユーティリティ ---
 
