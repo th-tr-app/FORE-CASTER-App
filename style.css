@@ -48,15 +48,6 @@ h1, .main-title {
     margin-bottom: -5px !important;
 }
 
-/* h4: 診断ボックス内の見出し (.ai-diag-title) */
-h4, .ai-diag-title {
-    font-size: 16px !important;
-    font-weight: 600 !important;
-    color: #3498db !important; /* 青色を維持 */
-    margin-top: 0 !important;
-    margin-bottom: -5px !important;
-}
-
 /* h5: 小見出し (ギャップ幅ごとの勝率など) */
 h5 {
     font-size: 18px !important;
@@ -151,6 +142,33 @@ h5 {
 
 .ai-sector-tips {
     font-size: 0.8em !important;      /* AI診断ボックス内の「注目セクター」テキスト */
+}
+/* タイトルコンテナの調整 */
+.ai-diag-header-container {
+    margin-bottom: 12px; /* 診断項目（バランス：〜）との間隔 */
+}
+
+/* 診断ボックス内の見出し (.ai-diag-title) */
+.ai-diag-main-title {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    color: #3498db !important; /* 青色を維持 */
+    margin-top: 0 !important;
+    margin-bottom: -5px !important;
+}
+
+.ai-diag-status-badge {
+    font-size: 0.85rem;
+    color: #00f0a8;
+    font-weight: 600;
+    margin-top: -2px; /* ここでタイトルの上下間隔を調整！ */
+}
+
+/* セクタータイトルの余白微調整 */
+.ai-diag-title-sector {
+    margin-top: 15px;
+    font-size: 1.0rem;
+    color: #60b4ff;
 }
 
 /* 見出しの右側に表示されるリンクマーク（アンカー）を非表示にする */
