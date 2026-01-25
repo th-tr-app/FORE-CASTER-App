@@ -38,36 +38,36 @@ if 'sc_params' not in st.session_state:
             'c_ma25': True, 'ma25_rng': (0.0, 10.0), 
             'c_bb': True, 'bb_rng': (0.5, 2.5)
         },
-        # 🛡️ ディフェンシブ：安定性を重視した業種選定
+        # 🛡️ ディフェンシブ：【守り】ボラティリティを徹底的に抑える
         {
             'sector': [2, 5, 13, 14, 16], 
             'c_gain': False, 'gain_rng': (-2.0, 1.0), 
-            'c_p': True, 'p_rng': (500, 6000),           # ディフェンシブ：500〜6000
-            'c_v': True, 'v_min': 50.0, 
-            'c_atrp': True, 'atrp_rng': (0.5, 2.5), 
+            'c_p': True, 'p_rng': (500, 6000), 
+            'c_v': True, 'v_min': 50.0,      # 高い流動性を維持
+            'c_atrp': True, 'atrp_rng': (0.5, 2.0), # 低ボラに絞る (2.5→2.0)
             'c_ma': False, 'ma_opt': "収束：嵐の前の静けさ", 
             'c_ema': False, 'ema_opt': "安定：EMA付近での推移", 
             'c_adx': False, 'adx_rng': (0, 30), 
             'c_rci': False, 'rci_rng': (-80, 20), 
-            'c_rsi': True, 'rsi_rng': (40, 70), 
+            'c_rsi': True, 'rsi_rng': (40, 65),     # 上限を下げて過熱感を排除
             'c_vup': False, 'vup_min': 1.0, 
-            'c_ma25': True, 'ma25_rng': (0.0, 10.0), 
+            'c_ma25': True, 'ma25_rng': (-2.0, 5.0), # 25日線付近の安定株に限定
             'c_bb': False, 'bb_rng': (-2.0, 0.5)
         },
-        # ↔️ 横ばい相場：リバウンド狙い（個別材料セクター）
+        # ↔️ 横ばい相場：【攻め】売られすぎからの「リバウンド」に特化
         {
             'sector': [2, 3, 4, 8, 9], 
-            'c_gain': True, 'gain_rng': (-1.0, 2.0), 
-            'c_p': True, 'p_rng': (200, 6000),           # 横ばい相場：200〜6000
+            'c_gain': True, 'gain_rng': (-0.5, 2.5), # 微増を許可して初動を捉える
+            'c_p': True, 'p_rng': (200, 6000), 
             'c_v': True, 'v_min': 20.0, 
-            'c_atrp': True, 'atrp_rng': (1.0, 3.0), 
+            'c_atrp': True, 'atrp_rng': (1.5, 4.0), # ある程度の値幅が必要 (1.0→1.5)
             'c_ma': True, 'ma_opt': "リバウンド：短期MA上抜け", 
             'c_ema': False, 'ema_opt': "レンジ：EMAを上下にまたぐ", 
             'c_adx': False, 'adx_rng': (10, 30), 
-            'c_rci': True, 'rci_rng': (-50, 50), 
-            'c_rsi': True, 'rsi_rng': (45, 60), 
-            'c_vup': True, 'vup_min': 1.1, 
-            'c_ma25': True, 'ma25_rng': (-3.0, 3.0), 
+            'c_rci': True, 'rci_rng': (-90, -30),   # 逆張りのためにマイナス圏を指定
+            'c_rsi': True, 'rsi_rng': (30, 50),     # 売られすぎ圏からの脱出を狙う
+            'c_vup': True, 'vup_min': 1.2,          # 資金流入の兆しを重視 (1.1→1.2)
+            'c_ma25': True, 'ma25_rng': (-10.0, 0.0), # 大幅乖離からの戻りを狙う
             'c_bb': False, 'bb_rng': (-1.0, 1.0)
         }
     ]
