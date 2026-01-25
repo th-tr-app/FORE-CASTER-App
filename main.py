@@ -26,7 +26,7 @@ if 'sc_params' not in st.session_state:
         {
             'sector': [0], # 全業種
             'c_gain': True, 'gain_rng': (0.5, 5.0), 
-            'c_p': True, 'p_rng': (300, 10000), 
+            'c_p': True, 'p_rng': (300, 6000),          # 通常：300〜6000
             'c_v': True, 'v_min': 30.0, 
             'c_atrp': False, 'atrp_rng': (1.5, 5.0), 
             'c_ma': True, 'ma_opt': "最強：上昇トレンド", 
@@ -38,27 +38,27 @@ if 'sc_params' not in st.session_state:
             'c_ma25': True, 'ma25_rng': (0.0, 10.0), 
             'c_bb': True, 'bb_rng': (0.5, 2.5)
         },
-        # 🛡️ ディフェンシブ：実戦テスト結果を反映（5項目のみ有効）
+        # 🛡️ ディフェンシブ：安定性を重視した業種選定
         {
-            'sector': [2, 5, 13, 14, 16], # 水産・食品、医薬品、商社、金融、サービス
+            'sector': [2, 5, 13, 14, 16], 
             'c_gain': False, 'gain_rng': (-2.0, 1.0), 
-            'c_p': True, 'p_rng': (500, 6000),          # 修正
+            'c_p': True, 'p_rng': (500, 6000),           # ディフェンシブ：500〜6000
             'c_v': True, 'v_min': 50.0, 
             'c_atrp': True, 'atrp_rng': (0.5, 2.5), 
             'c_ma': False, 'ma_opt': "収束：嵐の前の静けさ", 
             'c_ema': False, 'ema_opt': "安定：EMA付近での推移", 
-            'c_adx': False, 'adx_rng': (0, 30),         # チェックオフ
-            'c_rci': False, 'rci_rng': (-80, 20),       # チェックオフ
-            'c_rsi': True, 'rsi_rng': (40, 70),         # 修正
+            'c_adx': False, 'adx_rng': (0, 30), 
+            'c_rci': False, 'rci_rng': (-80, 20), 
+            'c_rsi': True, 'rsi_rng': (40, 70), 
             'c_vup': False, 'vup_min': 1.0, 
-            'c_ma25': True, 'ma25_rng': (0.0, 10.0),    # 修正
-            'c_bb': False, 'bb_rng': (-2.0, 0.5)        # チェックオフ
+            'c_ma25': True, 'ma25_rng': (0.0, 10.0), 
+            'c_bb': False, 'bb_rng': (-2.0, 0.5)
         },
-        # ↔️ 横ばい相場：リバウンド（個別材料セクター）
+        # ↔️ 横ばい相場：リバウンド狙い（個別材料セクター）
         {
-            'sector': [2, 3, 4, 8, 9], # 水産・食品、繊維、化学、金属、機械
+            'sector': [2, 3, 4, 8, 9], 
             'c_gain': True, 'gain_rng': (-1.0, 2.0), 
-            'c_p': True, 'p_rng': (200, 6000), 
+            'c_p': True, 'p_rng': (200, 6000),           # 横ばい相場：200〜6000
             'c_v': True, 'v_min': 20.0, 
             'c_atrp': True, 'atrp_rng': (1.0, 3.0), 
             'c_ma': True, 'ma_opt': "リバウンド：短期MA上抜け", 
@@ -313,11 +313,12 @@ with tab_screen:
                     key=f"v_sector_pill_{i}"
                 )
                 st.divider()
-
+ 
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     p['c_p'] = st.checkbox("**株価の範囲**", p['c_p'], key=f"c_p_{i}")
-                    p['p_rng'] = st.slider("価格(円)", 100, 6000, p['p_rng'], step=100, key=f"v_p_{i}")
+                    # メモリを 100〜10000 に統一、ステップを 100円刻みに設定
+                    p['p_rng'] = st.slider("価格(円)", 100, 10000, p['p_rng'], step=100, key=f"v_p_{i}")
                     st.divider()
                     p['c_v'] = st.checkbox("**売買代金**", p['c_v'], key=f"c_v_{i}")
                     p['v_min'] = st.number_input("億円以上", value=p['v_min'], step=10.0, key=f"v_v_{i}")
