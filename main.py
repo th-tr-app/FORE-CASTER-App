@@ -171,22 +171,20 @@ with tab_top:
         st.markdown(cards_html + '</div>', unsafe_allow_html=True)
         
         # B. 今日のマーケットAI診断（最新ロジック反映版）
-        # tipsは既に logic_core 側で文字列として整形されている前提です
-        tips_str = diag.get("tips", "個別材料株（全業種対象）")
-        
         # main.py の診断表示部分
         diag_html = f"""
         <div class="ai-diagnosis-box">
-            <h4 class="ai-diag-title">📀 今日のマーケットAI診断<br>
-                <span style='font-size:0.8em; color:#00f0a8;'>{diag['alert_level']}</span>
-            </h4>        
+            <div class="ai-diag-header-container">
+                <div class="ai-diag-main-title">📀 今日のマーケットAI診断</div>
+                <div class="ai-diag-status-badge">{diag['alert_level']}</div>
+            </div>
             <div class="ai-diag-row"><b>バランス：</b> {diag['balance']}</div>
             <div class="ai-diag-row"><b>推奨戦略：</b> {rec_strat}</div>
             <div class="ai-diag-row"><b>{diag.get('forecast_title', '寄付予測')}：</b> {diag['opening_forecast']}</div>
             <div class="ai-diag-row"><b>相場展望：</b> {diag['phase_comment']}</div>
             <div class="ai-diag-row-last"><b>米国株の影響：</b> {diag['us_impact']}</div>
-            <h4 class="ai-diag-title">👀 指標から推測できる注目セクター</h4>
-            <div class="ai-sector-tips">{tips_str}</div>
+            <h4 class="ai-diag-title-sector">👀 指標から推測できる注目セクター</h4>
+            <div class="ai-sector-tips">{diag.get('tips', '個別材料株（全業種対象）')}</div>
         </div>
         <div class="ai-diag-footer"></div>
         """
