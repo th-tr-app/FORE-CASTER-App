@@ -26,7 +26,7 @@ if 'sc_params' not in st.session_state:
         {
             'sector': [0], # 全業種
             'c_gain': True, 'gain_rng': (0.5, 5.0), 
-            'c_p': True, 'p_rng': (300, 10000), 
+            'c_p': True, 'p_rng': (300, 6000), 
             'c_v': True, 'v_min': 30.0, 
             'c_atrp': False, 'atrp_rng': (1.5, 5.0), 
             'c_ma': True, 'ma_opt': "最強：上昇トレンド", 
