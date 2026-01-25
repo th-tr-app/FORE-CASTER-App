@@ -141,7 +141,7 @@ h5 {
 }
 
 .ai-sector-tips {
-    font-size: 0.8em !important;      /* AI診断ボックス内の「注目セクター」テキスト */
+    font-size: 0.9em !important;      /* AI診断ボックス内の「注目セクター」テキスト */
     margin-top: -5px !important;
 }
 
@@ -161,10 +161,10 @@ h5 {
 
 /* マーケットAI診断の下診 */
 .ai-diag-status-badge {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     color: #00f0a8;
     font-weight: 600;
-    margin-top: 5px; /* ここでタイトルの上下間隔を調整！ */
+    margin-top: 8px; /* ここでタイトルの上下間隔を調整！ */
 }
 
 /* 見出しの右側に表示されるリンクマーク（アンカー）を非表示にする */
