@@ -100,9 +100,9 @@ def analyze_market_environment():
         phase_txt = "市場は比較的落ち着いています。各銘柄のテクニカルを重視したトレードを。"
 
     dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 > 0 else 0
-    if dev_25 > 5: balance_txt = f"加熱 / +{dev_25:.1f}%"; alert_lvl = "▶︎▶︎高値警戒（過熱）"
-    elif dev_25 < -5: balance_txt = f"過売 / {dev_25:.1f}%"; alert_lvl = "▶︎▶︎底打ち待ち（過売）"
-    else: balance_txt = f"均衡 / {dev_25:.1f}%"; alert_lvl = "▶︎▶︎正常範囲（ニュートラル）"
+    if dev_25 > 3: balance_txt = f"買われ過ぎ / 25日線乖離 +{dev_25:.1f}%"; alert_lvl = "▶︎▶︎高値警戒（過熱）"
+    elif dev_25 < -3: balance_txt = f"売られ過ぎ / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎底打ち待ち（過売）"
+    else: balance_txt = f"均衡しています / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎正常範囲（ニュートラル）"
 
     us_impact = "米国株の変動は限定的。"
     if vix_val >= 20 or sox_pct <= -0.015: us_impact = "半導体安。指数主導の下落に警戒。"
