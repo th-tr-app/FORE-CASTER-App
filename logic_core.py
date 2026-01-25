@@ -96,7 +96,7 @@ def analyze_market_environment():
         bias_list = []
         if fx_pct <= -0.003: bias_list.append("円高バイアス")
         elif fx_pct >= 0.003: bias_list.append("円安バイアス")
-        forecast_txt = f"{base_forecast}寄付 ({' / '.join(bias_list)})" if bias_list else f"{base_forecast}寄付"
+        forecast_txt = f"{base_forecast} ({' / '.join(bias_list)})" if bias_list else f"{base_forecast}"
         phase_txt = "市場は比較的落ち着いています。各銘柄のテクニカルを重視したトレードを。"
 
     dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 > 0 else 0
