@@ -124,19 +124,58 @@ def analyze_market_environment():
 
 # --- 3. スクリーニング・シミュレーション ---
 
+# logic_core.py の evaluate_screening_conditions 関数を以下に差し替え
+
 def evaluate_screening_conditions(df, params):
+    """銘柄の日次データに対して全12項目の条件に合致するか判定する"""
     if df.empty or len(df) < 30: return None
     if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
     df = df.dropna(subset=['Close', 'Volume'])
-    p = float(df['Close'].values.ravel()[-1]); v = float(df['Volume'].values.ravel()[-1])
-    prev_p = float(df['Close'].values.ravel()[-2]); day_gain = ((p - prev_p) / prev_p) * 100
-    ma25 = df['Close'].rolling(25).mean(); ma25_dev = ((p - ma25.values.ravel()[-1]) / ma25.values.ravel()[-1]) * 100
+    if df.empty: return None
+
+    # 各指標の算出
+    p = float(df['Close'].values.ravel()[-1])
+    v = float(df['Volume'].values.ravel()[-1])
+    prev_p = float(df['Close'].values.ravel()[-2])
+    day_gain = ((p - prev_p) / prev_p) * 100
+    
+    ma25_series = df['Close'].rolling(25).mean()
+    ma25 = ma25_series.values.ravel()[-1]
+    ma25_dev = ((p - ma25) / ma25) * 100 if ma25 > 0 else 0
+    
     atr = AverageTrueRange(df['High'], df['Low'], df['Close'], 14).average_true_range().values.ravel()[-1]
     rsi = RSIIndicator(df['Close'], 14).rsi().values.ravel()[-1]
-    val_total = (p * v) / 100000000
-    if params.get('c_gain') and not (params['gain_range'][0] <= day_gain <= params['gain_range'][1]): return None
-    if params.get('c_v') and val_total < params.get('v_min', 0): return None
-    return {"株価": int(p), "前日比": day_gain, "売買代金": val_total, "出来高": int(v), "RSI": round(rsi, 1), "25MA乖離": round(ma25_dev, 2), "ATR%": round((atr/p)*100, 2)}
+    rci = calculate_rci(df['Close'], 9).values.ravel()[-1] # RCI 9日
+    
+    adx_ins = ADXIndicator(df['High'], df['Low'], df['Close'], 14)
+    adx = adx_ins.adx().values.ravel()[-1]
+    
+    bb = BollingerBands(df['Close'], 20, 2)
+    bb_val = (p - bb.bollinger_mavg().values.ravel()[-1]) / bb.bollinger_std().values.ravel()[-1] if bb.bollinger_std().values.ravel()[-1] != 0 else 0
+    
+    val_total = (p * v) / 100000000 # 億円
+    v_prev_avg = df['Volume'].shift(1).rolling(5).mean().values.ravel()[-1]
+    v_ratio = v / v_prev_avg if v_prev_avg > 0 else 1.0
+
+    # 判定フラグ
+    match = True
+    if params.get('c_gain') and not (params['gain_range'][0] <= day_gain <= params['gain_range'][1]): match = False
+    if params.get('c_p') and not (params['p_range'][0] <= p <= params['p_range'][1]): match = False
+    if params.get('c_v') and val_total < params.get('v_min', 0): match = False
+    if params.get('c_atrp') and not (params['atrp_range'][0] <= (atr/p)*100 <= params['atrp_range'][1]): match = False
+    if params.get('c_rsi') and not (params['rsi_range'][0] <= rsi <= params['rsi_range'][1]): match = False
+    if params.get('c_rci') and not (params['rci_range'][0] <= rci <= params['rci_range'][1]): match = False
+    if params.get('c_adx') and not (params['adx_range'][0] <= adx <= params['adx_range'][1]): match = False
+    if params.get('c_ma25') and not (params['ma25_range'][0] <= ma25_dev <= params['ma25_range'][1]): match = False
+    if params.get('c_vup') and v_ratio < params.get('vup_min', 1.0): match = False
+    if params.get('c_bb') and not (params['bb_range'][0] <= bb_val <= params['bb_range'][1]): match = False
+
+    if match:
+        return {
+            "株価": int(p), "前日比": day_gain, "売買代金": val_total, "出来高": int(v), 
+            "RSI": round(rsi, 1), "25MA乖離": round(ma25_dev, 2), "ATR%": round((atr/p)*100, 2)
+        }
+    return None
 
 @st.cache_data(ttl=3600)
 def fetch_daily_stats_maps(ticker, start):
