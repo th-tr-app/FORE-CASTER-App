@@ -155,13 +155,11 @@ with tab_top:
     
     # 3. 市場指標ウォッチの表示
     with st.expander("🕒 指標ウォッチ（タップで開閉）", expanded=False):
-        # 指定形式の時刻入り更新ボタン
-        st.markdown('<div class="refresh-button-container">', unsafe_allow_html=True)
-        if st.button(f"🔄 更新　　　　　　 ▶︎ {now_jst}", use_container_width=True, key="refresh_top_btn"):
+        # 【修正】指定形式の時刻入り更新ボタン
+        if st.button(f"🔄 リアルタイム更新 ▶︎ {now_jst}", use_container_width=True, key="refresh_top_btn"):
             st.cache_data.clear()
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
+            
         # A. 指標カードの表示
         cards_html = '<div class="metric-grid">'
         for n, t in MARKET_INDICES.items():
