@@ -140,11 +140,12 @@ h5 {
     height: 15px;
 }
 
+/* AI診断ボックス内の「注目セクター」テキスト */
 .ai-sector-tips {
-    font-size: 0.9em !important;      /* AI診断ボックス内の「注目セクター」テキスト */
+    font-size: 0.9em !important;
     color: #00f0a8;
     font-weight: 600;
-    margin-top: 5px !important;
+    margin-top: -10px !important;
 }
 
 /* タイトルコンテナの調整 */
