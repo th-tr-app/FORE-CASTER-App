@@ -142,7 +142,9 @@ h5 {
 
 .ai-sector-tips {
     font-size: 0.8em !important;      /* AI診断ボックス内の「注目セクター」テキスト */
+    margin-top: -2px !important;
 }
+
 /* タイトルコンテナの調整 */
 .ai-diag-header-container {
     margin-bottom: 12px; /* 診断項目（バランス：〜）との間隔 */
@@ -158,17 +160,10 @@ h5 {
 }
 
 .ai-diag-status-badge {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: #00f0a8;
     font-weight: 600;
-    margin-top: -2px; /* ここでタイトルの上下間隔を調整！ */
-}
-
-/* セクタータイトルの余白微調整 */
-.ai-diag-title-sector {
-    margin-top: 15px;
-    font-size: 1.0rem;
-    color: #60b4ff;
+    margin-top: 0px; /* ここでタイトルの上下間隔を調整！ */
 }
 
 /* 見出しの右側に表示されるリンクマーク（アンカー）を非表示にする */
