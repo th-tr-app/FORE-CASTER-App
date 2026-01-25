@@ -183,7 +183,7 @@ with tab_top:
             <div class="ai-diag-row"><b>{diag.get('forecast_title', '寄付予測')}：</b> {diag['opening_forecast']}</div>
             <div class="ai-diag-row"><b>相場展望：</b> {diag['phase_comment']}</div>
             <div class="ai-diag-row-last"><b>米国株の影響：</b> {diag['us_impact']}</div>
-            <h4 class="ai-diag-title-sector">👀 指標から推測できる注目セクター</h4>
+            <h4 class="ai-diag-main-title">👀 指標から推測できる注目セクター</h4>
             <div class="ai-sector-tips">{diag.get('tips', '個別材料株（全業種対象）')}</div>
         </div>
         <div class="ai-diag-footer"></div>
