@@ -179,21 +179,3 @@ h5 {
 [data-testid="stHeaderActionElements"] {
     display: none !important;
 }
-/* style.css に追加 */
-
-/* 更新ボタン（refresh-button-container内）のスタイル */
-.refresh-button-container .stButton > button {
-    background-color: #347adb !important; /* ボタンの背景色 */
-    color: white !important;             /* 文字色 */
-    border: none !important;             /* 枠線を消す */
-    border-radius: 6px !important;       /* 角の丸み */
-    font-weight: 600 !important;         /* 文字を少し太く */
-    transition: 0.3s;                    /* 変化を滑らかに */
-}
-
-/* ホバー（マウスを乗せた時）の設定 */
-.refresh-button-container .stButton > button:hover {
-    background-color: #2967b9 !important; /* 少し濃い青色に */
-    color: white !important;
-    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3); /* 軽く光らせる演出 */
-}
