@@ -142,7 +142,9 @@ h5 {
 
 .ai-sector-tips {
     font-size: 0.9em !important;      /* AI診断ボックス内の「注目セクター」テキスト */
-    margin-top: -5px !important;
+    color: #00f0a8;
+    font-weight: 600;
+    margin-top: -3px !important;
 }
 
 /* タイトルコンテナの調整 */
