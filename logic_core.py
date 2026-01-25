@@ -123,41 +123,46 @@ def analyze_market_environment():
     }
 
 # --- 3. スクリーニング・シミュレーション ---
-
-# logic_core.py の evaluate_screening_conditions 関数を以下に差し替え
+# logic_core.py の判定ロジック（修正版）
 
 def evaluate_screening_conditions(df, params):
-    """銘柄の日次データに対して全12項目の条件に合致するか判定する"""
+    """銘柄の日次データに対して全項目の条件に合致するか判定する"""
     if df.empty or len(df) < 30: return None
     if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
     df = df.dropna(subset=['Close', 'Volume'])
     if df.empty: return None
 
-    # 各指標の算出
+    # 基本情報の取得
     p = float(df['Close'].values.ravel()[-1])
     v = float(df['Volume'].values.ravel()[-1])
     prev_p = float(df['Close'].values.ravel()[-2])
     day_gain = ((p - prev_p) / prev_p) * 100
     
+    # 指標の算出
     ma25_series = df['Close'].rolling(25).mean()
     ma25 = ma25_series.values.ravel()[-1]
     ma25_dev = ((p - ma25) / ma25) * 100 if ma25 > 0 else 0
     
     atr = AverageTrueRange(df['High'], df['Low'], df['Close'], 14).average_true_range().values.ravel()[-1]
     rsi = RSIIndicator(df['Close'], 14).rsi().values.ravel()[-1]
-    rci = calculate_rci(df['Close'], 9).values.ravel()[-1] # RCI 9日
+    rci = calculate_rci(df['Close'], 9).values.ravel()[-1]
     
-    adx_ins = ADXIndicator(df['High'], df['Low'], df['Close'], 14)
-    adx = adx_ins.adx().values.ravel()[-1]
+    adx = ADXIndicator(df['High'], df['Low'], df['Close'], 14).adx().values.ravel()[-1]
     
+    # 【修正箇所】ボリンジャーバンドの計算ロジック
     bb = BollingerBands(df['Close'], 20, 2)
-    bb_val = (p - bb.bollinger_mavg().values.ravel()[-1]) / bb.bollinger_std().values.ravel()[-1] if bb.bollinger_std().values.ravel()[-1] != 0 else 0
+    mavg = bb.bollinger_mavg().values.ravel()[-1]
+    hband = bb.bollinger_hband().values.ravel()[-1]
+    
+    # シグマの幅（Hband - Mavg）が0でないことを確認して算出
+    diff = hband - mavg
+    bb_val = (p - mavg) * 2 / diff if diff != 0 else 0
     
     val_total = (p * v) / 100000000 # 億円
     v_prev_avg = df['Volume'].shift(1).rolling(5).mean().values.ravel()[-1]
     v_ratio = v / v_prev_avg if v_prev_avg > 0 else 1.0
 
-    # 判定フラグ
+    # 判定フラグのチェック
     match = True
     if params.get('c_gain') and not (params['gain_range'][0] <= day_gain <= params['gain_range'][1]): match = False
     if params.get('c_p') and not (params['p_range'][0] <= p <= params['p_range'][1]): match = False
