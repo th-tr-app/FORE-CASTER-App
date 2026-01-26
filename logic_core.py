@@ -43,6 +43,7 @@ def fetch_market_info(indices_dict):
 
 @st.cache_data(ttl=300)
 def analyze_market_environment():
+    """主要指数から今日の相場環境をプロ視点で診断する (時系列・Ver 4.1修正版)"""
     indices = {"N225": "^N225", "VIX": "^VIX", "SOX": "^SOX", "WTI": "CL=F", "CME": "NIY=F", "USDJPY": "JPY=X", "GOLD": "GC=F"}
     data_map = {}
     for k, ticker in indices.items():
@@ -53,6 +54,7 @@ def analyze_market_environment():
                 data_map[k] = df.dropna(subset=['Close'])
         except: continue
 
+    # --- 1. 基礎データの抽出 ---
     n225_close = 0; n225_ma25 = 0; cme_val = 0
     if "N225" in data_map:
         df_n = data_map["N225"]
@@ -60,68 +62,66 @@ def analyze_market_environment():
         n225_ma25 = float(df_n['Close'].rolling(25).mean().values.ravel()[-1])
     if "CME" in data_map: cme_val = float(data_map["CME"]['Close'].values.ravel()[-1])
 
-    gap_pct = (cme_val - n225_close) / n225_close if n225_close > 0 else 0
-    
-    # 修正：140行目付近の引用符エラーを解消
-    if gap_pct <= -0.0015:
-        strategy_idx = 1
-        base_forecast = "ギャップダウン" if gap_pct <= -0.01 else "下落"
-    elif gap_pct >= 0.0015:
-        strategy_idx = 0
-        base_forecast = "ギャップアップ" if gap_pct >= 0.01 else "上昇"
+    # --- 2. 地合い判定 (ここを時間判定の前に移動) ---
+    dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 > 0 else 0
+    if dev_25 > 3:
+        balance_txt = f"買われ過ぎ / 25日線乖離 +{dev_25:.1f}%"; alert_lvl = "▶︎▶︎高値警戒（過熱）"
+    elif dev_25 < -3:
+        balance_txt = f"売られ過ぎ / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎底打ち待ち（過売）"
     else:
-        strategy_idx = 2
-        base_forecast = "フラット"
+        balance_txt = f"均衡しています / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎正常範囲（ニュートラル）"
 
-    jst = timezone(timedelta(hours=9))
-    now = datetime.now(jst).time()
-    l_s, l_e = time(11, 30), time(12, 30)
-    a_s, a_e = time(15, 0), time(19, 0)
+    # --- 3. 時刻と外部指標の判定 ---
+    gap_pct = (cme_val - n225_close) / n225_close if n225_close > 0 else 0
+    if gap_pct <= -0.0015:
+        strategy_idx = 1; base_forecast = "ギャップダウン" if gap_pct <= -0.01 else "下落"
+    elif gap_pct >= 0.0015:
+        strategy_idx = 0; base_forecast = "ギャップアップ" if gap_pct >= 0.01 else "上昇"
+    else:
+        strategy_idx = 2; base_forecast = "フラット"
 
-    forecast_title = "寄付予測"
-    vix_val = 15; sox_pct = 0; fx_pct = 0 # 初期化
+    vix_val = 15; sox_pct = 0; fx_pct = 0
     if "VIX" in data_map: vix_val = float(data_map["VIX"]['Close'].values.ravel()[-1])
     if "SOX" in data_map: sox_pct = (data_map["SOX"]['Close'].values.ravel()[-1] / data_map["SOX"]['Close'].values.ravel()[-2]) - 1
     if "USDJPY" in data_map: fx_pct = (data_map["USDJPY"]['Close'].values.ravel()[-1] / data_map["USDJPY"]['Close'].values.ravel()[-2]) - 1
 
+    jst = timezone(timedelta(hours=9))
+    now = datetime.now(jst).time()
+    l_s, l_e = time(11, 30), time(12, 30); a_s, a_e = time(15, 0), time(19, 0)
+    forecast_title = "寄付予測"; bias_list = []
+
+    # --- 4. 時間帯別の展望生成 (強化版ロジック) ---
     if l_s <= now <= l_e:
         forecast_title = "前場総括"
-        forecast_txt = f"前場は {base_forecast} で推移。25日線乖離は {((n225_close - n225_ma25) / n225_ma25) * 100:.1f}% です。"
+        forecast_txt = f"前場は {base_forecast} で推移。現在の乖離率は {dev_25:.1f}% です。"
         phase_txt = "前場のトレンドを再確認。後場はVWAP付近の攻防や前場高値更新に注目してください。"
     elif a_s <= now <= a_e:
         forecast_title = "今日の結果"
-        forecast_txt = f"本日は {base_forecast} で終了。現在の25日線乖離は {((n225_close - n225_ma25) / n225_ma25) * 100:.1f}% です。"
-        phase_txt = "本日のトレードお疲れ様でした。明日に向け期待値の高い銘柄を精査しましょう。"
+        forecast_txt = f"本日は {base_forecast} で終了。大引け時点の乖離率は {dev_25:.1f}% です。"
+        phase_txt = "トレードお疲れ様でした。明日に向け期待値の高い銘柄をランキングで精査しましょう。"
     else:
-        # 通常・夜間：相場状況に合わせた展望パターンの生成
+        # 通常・夜間
         if fx_pct <= -0.003: bias_list.append("円高バイアス")
         elif fx_pct >= 0.003: bias_list.append("円安バイアス")
         forecast_txt = f"{base_forecast} ({' / '.join(bias_list)})" if bias_list else f"{base_forecast}"
 
-        # --- 相場展望の分岐ロジック (Ver 4.1) ---
-        if "買われ過ぎ" in alert_lvl:
+        if "高値警戒" in alert_lvl:
             if "上昇" in base_forecast or "アップ" in base_forecast:
                 phase_txt = "加熱圏でのギャップアップ。利確売りをこなしつつ上値を追えるか、ボリンジャー+2σ付近の攻防に警戒。"
             else:
-                phase_txt = "高値警戒感から上値が重い展開。押し目待ちの買い意欲はありますが、深追いはせず反発を確認したい局面。"
-        elif "売られ過ぎ" in alert_lvl:
+                phase_txt = "高値警戒感から上値が重い展開。押し目待ちの買い意欲はありますが、深追いはせず反転を確認したい局面。"
+        elif "底打ち待ち" in alert_lvl:
             if "下落" in base_forecast or "ダウン" in base_forecast:
                 phase_txt = "売られすぎ圏での寄り付き。パニック売り一巡後の自律反発に妙味あり。RCIの底打ちを確認したいところ。"
             else:
                 phase_txt = "底堅い動きが予想されます。悪材料出尽くし感からのリバウンドを想定し、逆張り気味の戦略が有効な地合いです。"
         else:
-            # 正常範囲（ニュートラル）時
             if "上昇" in base_forecast or "アップ" in base_forecast:
                 phase_txt = "堅調なスタート予想。地合いは悪くないですが、VWAPを支持線にできるか、前場高値の更新を注視。"
             elif "下落" in base_forecast or "ダウン" in base_forecast:
                 phase_txt = "売り先行の展開。まずは昨年来安値や節目での下げ止まりを確認。リバウンド初動の資金流入を待ちましょう。"
             else:
                 phase_txt = "方向感の乏しい展開。指数に惑わされず、個別材料株や分足のテクニカル信号に絞った短期決戦が有効。"
-
-    dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 > 0 else 0
-    if dev_25 > 3: balance_txt = f"買われ過ぎ / 25日線乖離 +{dev_25:.1f}%"; alert_lvl = "▶︎▶︎高値警戒（過熱）"
-    elif dev_25 < -3: balance_txt = f"売られ過ぎ / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎底打ち待ち（過売）"
-    else: balance_txt = f"均衡しています / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎正常範囲（ニュートラル）"
 
     us_impact = "米国株の変動は限定的。"
     if vix_val >= 20 or sox_pct <= -0.015: us_impact = "半導体安。指数主導の下落に警戒。"
@@ -133,12 +133,9 @@ def analyze_market_environment():
     if sox_pct >= 0.005: tips.append("17:電気機器 / 16:機械")
     if fx_pct >= 0.003: tips.append("19:輸送用機器 / 25:卸売業 / 27:銀行")
     
-    # 修正：tips_strを定義
-    tips_str = " / ".join(tips) if tips else "個別材料株（全業種対象）"
-
     return {
         "strategy": strategy_idx, "opening_forecast": forecast_txt, "forecast_title": forecast_title,
-        "balance": balance_txt, "phase_comment": phase_txt, "us_impact": us_impact, "alert_level": alert_lvl, "tips": tips_str
+        "balance": balance_txt, "phase_comment": phase_txt, "us_impact": us_impact, "alert_level": alert_lvl, "tips": " / ".join(tips) if tips else "個別材料株（全業種対象）"
     }
 
 # --- 3. スクリーニング・シミュレーション ---
