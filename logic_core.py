@@ -94,11 +94,11 @@ def analyze_market_environment():
     if l_s <= now <= l_e:
         forecast_title = "前場総括"
         forecast_txt = f"前場は {base_forecast} で推移。現在の乖離率は {dev_25:.1f}% です。"
-        phase_txt = "前場のトレンドを再確認。後場はVWAP付近の攻防や前場高値更新に注目してください。"
+        phase_txt = "前場トレンドを再確認。後場はVWAP付近の攻防や前場高値更新に注目。"
     elif a_s <= now <= a_e:
         forecast_title = "今日の結果"
         forecast_txt = f"本日は {base_forecast} で終了。大引け時点の乖離率は {dev_25:.1f}% です。"
-        phase_txt = "トレードお疲れ様でした。明日に向け期待値の高い銘柄をランキングで精査しましょう。"
+        phase_txt = "お疲れ様でした。明日に向け期待値の高い銘柄をランキングで精査しましょう。"
     else:
         # 通常・夜間
         if fx_pct <= -0.003: bias_list.append("円高バイアス")
@@ -107,21 +107,21 @@ def analyze_market_environment():
 
         if "高値警戒" in alert_lvl:
             if "上昇" in base_forecast or "アップ" in base_forecast:
-                phase_txt = "加熱圏でのギャップアップ。利確売りをこなしつつ上値を追えるか、ボリンジャー+2σ付近の攻防に警戒。"
+                phase_txt = "加熱圏のギャップアップ。利確をこなしつつ、ボリンジャー+2σ付近の攻防に警戒。"
             else:
-                phase_txt = "高値警戒感から上値が重い展開。押し目待ちの買い意欲はありますが、深追いはせず反転を確認したい局面。"
+                phase_txt = "高値警戒感から上値が重い展開。押し目買い意欲はあるが反転確認を優先。"
         elif "底打ち待ち" in alert_lvl:
             if "下落" in base_forecast or "ダウン" in base_forecast:
-                phase_txt = "売られすぎ圏での寄り付き。パニック売り一巡後の自律反発に妙味あり。RCIの底打ちを確認したいところ。"
+                phase_txt = "売られすぎ圏での寄り付き。パニック売り後の反発に妙味。RCIの底打ちを待つ。"
             else:
-                phase_txt = "底堅い動きが予想されます。悪材料出尽くし感からのリバウンドを想定し、逆張り気味の戦略が有効な地合いです。"
+                phase_txt = "底堅い動き。悪材料を出尽くしたリバウンドを想定。逆張り戦略が有効な地合い。"
         else:
             if "上昇" in base_forecast or "アップ" in base_forecast:
-                phase_txt = "堅調なスタート予想。地合いは悪くないですが、VWAPを支持線にできるか、前場高値の更新を注視。"
+                phase_txt = "堅調なスタート。VWAPを支持線にできるか、前場高値の更新を注視。"
             elif "下落" in base_forecast or "ダウン" in base_forecast:
-                phase_txt = "売り先行の展開。まずは主要な節目や直近安値での下げ止まりを確認。リバウンド初動の資金流入を待ちましょう。"
+                phase_txt = "売り先行。主要な節目や直近安値での下げ止まりを確認して資金流入を待ちましょう。"
             else:
-                phase_txt = "方向感の乏しい展開。指数に惑わされず、個別材料株や分足のテクニカル信号に絞った短期決戦が有効。"
+                phase_txt = "方向感なし。指数に惑わされず個別材料株や分足のテクニカルに絞る短期決戦が有効。"
 
     us_impact = "米国株の変動は限定的。"
     if vix_val >= 20 or sox_pct <= -0.015: us_impact = "半導体安。指数主導の下落に警戒。"
