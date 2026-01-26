@@ -119,7 +119,7 @@ def analyze_market_environment():
             if "上昇" in base_forecast or "アップ" in base_forecast:
                 phase_txt = "堅調なスタート予想。地合いは悪くないですが、VWAPを支持線にできるか、前場高値の更新を注視。"
             elif "下落" in base_forecast or "ダウン" in base_forecast:
-                phase_txt = "売り先行の展開。まずは昨年来安値や節目での下げ止まりを確認。リバウンド初動の資金流入を待ちましょう。"
+                phase_txt = "売り先行の展開。まずは主要な節目や直近安値での下げ止まりを確認。リバウンド初動の資金流入を待ちましょう。"
             else:
                 phase_txt = "方向感の乏しい展開。指数に惑わされず、個別材料株や分足のテクニカル信号に絞った短期決戦が有効。"
 
