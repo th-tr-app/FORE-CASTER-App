@@ -93,11 +93,30 @@ def analyze_market_environment():
         forecast_txt = f"本日は {base_forecast} で終了。現在の25日線乖離は {((n225_close - n225_ma25) / n225_ma25) * 100:.1f}% です。"
         phase_txt = "本日のトレードお疲れ様でした。明日に向け期待値の高い銘柄を精査しましょう。"
     else:
-        bias_list = []
+        # 通常・夜間：相場状況に合わせた展望パターンの生成
         if fx_pct <= -0.003: bias_list.append("円高バイアス")
         elif fx_pct >= 0.003: bias_list.append("円安バイアス")
         forecast_txt = f"{base_forecast} ({' / '.join(bias_list)})" if bias_list else f"{base_forecast}"
-        phase_txt = "市場は比較的落ち着いています。各銘柄のテクニカルを重視したトレードを。"
+
+        # --- 相場展望の分岐ロジック (Ver 4.1) ---
+        if "買われ過ぎ" in alert_lvl:
+            if "上昇" in base_forecast or "アップ" in base_forecast:
+                phase_txt = "加熱圏でのギャップアップ。利確売りをこなしつつ上値を追えるか、ボリンジャー+2σ付近の攻防に警戒。"
+            else:
+                phase_txt = "高値警戒感から上値が重い展開。押し目待ちの買い意欲はありますが、深追いはせず反発を確認したい局面。"
+        elif "売られ過ぎ" in alert_lvl:
+            if "下落" in base_forecast or "ダウン" in base_forecast:
+                phase_txt = "売られすぎ圏での寄り付き。パニック売り一巡後の自律反発に妙味あり。RCIの底打ちを確認したいところ。"
+            else:
+                phase_txt = "底堅い動きが予想されます。悪材料出尽くし感からのリバウンドを想定し、逆張り気味の戦略が有効な地合いです。"
+        else:
+            # 正常範囲（ニュートラル）時
+            if "上昇" in base_forecast or "アップ" in base_forecast:
+                phase_txt = "堅調なスタート予想。地合いは悪くないですが、VWAPを支持線にできるか、前場高値の更新を注視。"
+            elif "下落" in base_forecast or "ダウン" in base_forecast:
+                phase_txt = "売り先行の展開。まずは昨年来安値や節目での下げ止まりを確認。リバウンド初動の資金流入を待ちましょう。"
+            else:
+                phase_txt = "方向感の乏しい展開。指数に惑わされず、個別材料株や分足のテクニカル信号に絞った短期決戦が有効。"
 
     dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 > 0 else 0
     if dev_25 > 3: balance_txt = f"買われ過ぎ / 25日線乖離 +{dev_25:.1f}%"; alert_lvl = "▶︎▶︎高値警戒（過熱）"
