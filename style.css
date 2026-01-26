@@ -50,8 +50,8 @@ h1, .main-title {
 
 /* h4タグの定義をサイドバーのラベルにも適用できるように整理 */
 h4, .sidebar-label-style {
-    font-size: 15px !important;    /* お好みのサイズに調整してください */
-    font-weight: 600 !important;
+    font-size: 14px !important;    /* お好みのサイズに調整してください */
+    font-weight: 500 !important;
     color: #ffffff !important;
     margin-bottom: 5px !important;
     margin-top: 10px !important;
