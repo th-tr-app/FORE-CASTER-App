@@ -129,9 +129,9 @@ def analyze_market_environment():
 
     tips = []
     if "WTI" in data_map and (data_map["WTI"]['Close'].values.ravel()[-1] / data_map["WTI"]['Close'].values.ravel()[-2]) - 1 >= 0.005: tips.append("1:鉱業 / 10:石油・石炭")
-    if "GOLD" in data_map and (data_map["GOLD"]['Close'].values.ravel()[-1] / data_map["GOLD"]['Close'].values.ravel()[-2]) - 1 >= 0.005: tips.append("9:非鉄金属")
+    if "GOLD" in data_map and (data_map["GOLD"]['Close'].values.ravel()[-1] / data_map["GOLD"]['Close'].values.ravel()[-2]) - 1 >= 0.005: tips.append("9:非金属")
     if sox_pct >= 0.005: tips.append("17:電気機器 / 16:機械")
-    if fx_pct >= 0.003: tips.append("19:輸送用機器 / 25:卸売業 / 27:銀行")
+    if fx_pct >= 0.003: tips.append("19:輸送機器 / 25:卸売業 / 27:銀行")
     
     return {
         "strategy": strategy_idx, "opening_forecast": forecast_txt, "forecast_title": forecast_title,
