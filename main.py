@@ -599,6 +599,46 @@ with tab_bt:
                                     f"**VWAPから {best_v['VwapRange'].left:.1f}% ～ {best_v['VwapRange'].right:.1f}%** の位置にある時、"
                                     f"**{best_t['TR']}** にエントリーするパターンです。\n\n"
                                     f"（GAP勝率: {best_g['<lambda_0>']:.1%} / VWAP勝率: {best_v['<lambda_0>']:.1%} / 時間勝率: {best_t['<lambda_0>']:.1%})")
+                        
+                    # main.py：bt_tabs[1] (🏅 勝ちパターン分析) の st.info の直後
+
+                    st.markdown("---")
+                    st.markdown("#### 🎯 翌営業日の指値戦略シミュレーター")
+                    st.caption("現在のCME先物状況から、過去の勝率が最も高い『理想的な指値』を算出します。")
+
+                    # A. 市場全体のギャップ予測を取得
+                    diag = core.analyze_market_environment()
+                    market_gap = diag.get('gap_pct', 0.0) # logic_coreからCMEの乖離率を取得
+
+                    # B. 銘柄ごとの最適指値を計算
+                    for t in unique_res_tickers:
+                        tdf = res_df[res_df['Ticker'] == t].copy()
+                        if tdf.empty: continue
+    
+                        # 過去の「寄り付きからエントリー価格までの乖離（押し目の深さ）」を計算
+                        tdf['Entry_Push'] = ((tdf['In'] - tdf['DayOpen']) / tdf['DayOpen']) * 100
+    
+                        # 勝ったトレードだけに絞って、平均的な押し目の深さを算出
+                        win_trades = tdf[tdf['PnL'] > 0]
+                        if not win_trades.empty:
+                            avg_push = win_trades['Entry_Push'].mean() # 期待値の高い押し目率
+        
+                            # 最新の終値から明日の予想寄り付きを算出
+                            last_close = tdf['PrevClose'].iloc[0] # 直近終値
+                            pred_open = last_close * (1 + market_gap)
+        
+                            # 最適指値の計算
+                            ideal_limit = pred_open * (1 + (avg_push / 100))
+        
+                            # パネルの表示
+                            c1, c2, c3 = st.columns([1, 1, 2])
+                            with c1:
+                                st.metric("予想寄り付き", f"{int(pred_open)}円", f"{market_gap:+.2%}")
+                            with c2:
+                                st.metric("理想の指値", f"{int(ideal_limit)}円", f"押し目 {avg_push:+.2f}%")
+                            with c3:
+                                st.success(f"**戦略アドバイス:**\n過去の傾向では、寄り付きから **{avg_push:+.2f}%** 付近まで引き付けてからエントリーすると、勝率 **{len(win_trades)/len(tdf):.1%}** で最も高いパフォーマンスが得られています。")
+
                         else:
                             st.warning("⚠️ パターンを特定するためのトレードデータが足りません。")
                             
