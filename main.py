@@ -600,8 +600,12 @@ with tab_bt:
                                     f"**{best_t['TR']}** にエントリーするパターンです。\n\n"
                                     f"（GAP勝率: {best_g['<lambda_0>']:.1%} / VWAP勝率: {best_v['<lambda_0>']:.1%} / 時間勝率: {best_t['<lambda_0>']:.1%})")
                         
-                    # main.py：bt_tabs[1] (🏅 勝ちパターン分析) の st.info の直後
-                    # A. 市場全体のギャップ予測を取得
+            # main.py：bt_tabs[1] (🏅 勝ちパターン分析) の st.info の直後
+            # A. 市場全体のギャップ予測を取得
+            st.markdown("---")
+            st.markdown("#### 🎯 翌営業日の指値戦略シミュレーター")
+            st.caption("現在のCME先物状況から、過去の勝率が最も高い『理想的な指値』を算出します。")
+
                     diag = core.analyze_market_environment()
                     market_gap = diag.get('gap_pct', 0.0) # logic_coreからCMEの乖離率を取得
 
