@@ -65,11 +65,11 @@ def analyze_market_environment():
     # --- 2. 地合い判定 (ここを時間判定の前に移動) ---
     dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 > 0 else 0
     if dev_25 > 3:
-        balance_txt = f"買われ過ぎ / 25日線乖離 +{dev_25:.1f}%"; alert_lvl = "▶︎▶︎ 高値警戒（過熱）"
+        balance_txt = f"買われ過ぎ / 25日線乖離 +{dev_25:.1f}%"; alert_lvl = "▶︎▶︎高値警戒（過熱）"
     elif dev_25 < -3:
-        balance_txt = f"売られ過ぎ / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎ 底打ち待ち（過売）"
+        balance_txt = f"売られ過ぎ / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎底打ち待ち（過売）"
     else:
-        balance_txt = f"均衡しています / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎ 正常範囲（ニュートラル）"
+        balance_txt = f"均衡しています / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎正常範囲（ニュートラル）"
 
     # --- 3. 時刻と外部指標の判定 ---
     gap_pct = (cme_val - n225_close) / n225_close if n225_close > 0 else 0
@@ -134,15 +134,8 @@ def analyze_market_environment():
     if fx_pct >= 0.003: tips.append("19:輸送機器 / 25:卸売業 / 27:銀行")
     
     return {
-        "strategy": strategy_idx, 
-        "opening_forecast": forecast_txt, 
-        "forecast_title": forecast_title,
-        "balance": balance_txt, 
-        "phase_comment": phase_txt, 
-        "us_impact": us_impact, 
-        "alert_level": alert_lvl, 
-        "tips": " / ".join(tips) if tips else "個別材料株（全業種対象）", # ← ここにカンマが必要です！
-        "gap_pct": gap_pct 
+        "strategy": strategy_idx, "opening_forecast": forecast_txt, "forecast_title": forecast_title,
+        "balance": balance_txt, "phase_comment": phase_txt, "us_impact": us_impact, "alert_level": alert_lvl, "tips": " / ".join(tips) if tips else "個別材料株（全業種対象）"
     }
 
 # --- 3. スクリーニング・シミュレーション ---
