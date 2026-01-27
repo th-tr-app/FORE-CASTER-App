@@ -65,9 +65,9 @@ def analyze_market_environment():
     # --- 2. 地合い判定 (ここを時間判定の前に移動) ---
     dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 > 0 else 0
     if dev_25 > 3:
-        balance_txt = f"買われ過ぎ / 25日線乖離 +{dev_25:.1f}%"; alert_lvl = "▶︎▶︎▶︎ 高値警戒（過熱）"
+        balance_txt = f"買われ過ぎ / 25日線乖離 +{dev_25:.1f}%"; alert_lvl = "▶︎▶︎ 高値警戒（過熱）"
     elif dev_25 < -3:
-        balance_txt = f"売られ過ぎ / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎▶︎ 底打ち待ち（過売）"
+        balance_txt = f"売られ過ぎ / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎ 底打ち待ち（過売）"
     else:
         balance_txt = f"均衡しています / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎ 正常範囲（ニュートラル）"
 
