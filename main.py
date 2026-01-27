@@ -523,9 +523,10 @@ with tab_bt:
                 st.session_state['res_df'] = pd.DataFrame()
                 st.rerun()
                 
-        with bt_tabs[1]: # 🏅 勝ちパターン分析 (Ver 4.1.4)
+        with bt_tabs[1]: # 🏅 勝ちパターン分析 (Ver 4.1.5)
             st.markdown("### 🏅 勝ちパターン分析")
-            st.caption("チャートパターン別の成績分析と、ベストなエントリー条件を言語化して勝ちパターンを抽出します。")
+            st.caption("統計データに基づき、明日の理想的なエントリー指値を算出します。")
+            
             if not res_df.empty and 'Ticker' in res_df.columns:
                 unique_res_tickers = res_df['Ticker'].unique()
 
@@ -539,68 +540,54 @@ with tab_bt:
                     pat_stats = tdf.groupby('Pattern', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
                     pat_stats.columns = ['パターン', '回数', '勝率', '平均損益']
                     pat_stats_disp = pat_stats.copy()
-                    pat_stats_disp['回数'] = pat_stats_disp['回数'].astype(str)
                     pat_stats_disp['勝率'] = pat_stats_disp['勝率'].apply(lambda x: f"{x:.1%}")
                     pat_stats_disp['平均損益'] = pat_stats_disp['平均損益'].apply(lambda x: f"{x:+.2%}")
-                    st.dataframe(pat_stats_disp.style.set_properties(**{'text-align': 'left'}), hide_index=True, use_container_width=True)
+                    st.dataframe(pat_stats_disp, hide_index=True, use_container_width=True)
 
-                    # --- 2. 統計分析と最高勝率パターンの抽出 ---
+                    # --- 2. 統計分析と指値シミュレーション ---
                     try:
-                        # 補助関数：3回以上の試行を優先してベストを探す
+                        # 補助関数
                         def get_best_row(df, count_col, rate_col, threshold=3):
                             valid = df[df[count_col] >= threshold]
                             if valid.empty: valid = df[df[count_col] >= 1]
                             return valid.loc[valid[rate_col].idxmax()] if not valid.empty else None
 
-                        # 各種分析
-                        g_min, g_max = tdf['Gap(%)'].min(), tdf['Gap(%)'].max()
-                        bins_g = np.arange(np.floor(g_min), np.ceil(g_max) + 0.5, 0.5)
-                        tdf['GapRange'] = pd.cut(tdf['Gap(%)'], bins=bins_g)
-                        g_s = tdf.groupby('GapRange', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
-                        
+                        # 各種分析データの作成
                         tdf['VWAP_Diff'] = ((tdf['In'] - tdf['EntryVWAP']) / tdf['EntryVWAP']) * 100
-                        v_s = tdf.groupby(pd.cut(tdf['VWAP_Diff'], bins=np.arange(-1, 1.2, 0.2)), observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
-                        
                         tdf['TR'] = tdf['Entry'].apply(lambda dt: f"{dt.strftime('%H:%M')}～{(dt + timedelta(minutes=5)).strftime('%H:%M')}")
-                        t_s = tdf.groupby('TR', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
-
+                        
                         best_p = get_best_row(pat_stats, '回数', '勝率')
-                        best_g = get_best_row(g_s, 'count', '<lambda_0>')
-                        best_v = get_best_row(v_s, 'count', '<lambda_0>')
-                        best_t = get_best_row(t_s, 'count', '<lambda_0>')
 
-                        if all([best_p is not None, best_g is not None, best_v is not None, best_t is not None]):
-                            g_txt = "ギャップアップ" if best_g['GapRange'].left >= 0 else "ギャップダウン"
-                            st.info(f"**🏆 最高勝率パターン**\n\n"
-                                    f"最も勝率が高かったのは、"
-                                    f"**{g_txt} ({best_g['GapRange'].left:.1f}% ～ {best_g['GapRange'].right:.1f}%)** スタートで、"
-                                    f"**{best_p['パターン']}** の形になり、"
-                                    f"**VWAPから {best_v.iloc[0].left:.1f}% ～ {best_v.iloc[0].right:.1f}%** の位置にある時、"
-                                    f"**{best_t['TR']}** にエントリーするパターンです。")
+                        if best_p is not None:
+                            st.info(f"**🏆 最高勝率パターン:** {best_p['パターン']} (勝率 {best_p['勝率']})")
 
-                        # --- 3. 🎯 翌営業日の指値戦略シミュレーター ---
+                        # --- 🎯 翌営業日の指値戦略シミュレーター ---
                         st.markdown("---")
                         st.markdown("##### 🎯 翌営業日の指値戦略シミュレーター")
                         diag = core.analyze_market_environment()
+                        m_gap = diag.get('gap_pct', 0.0) # 生データを取得
                         
-                        # 解析処理を削除し、直接データを取得
-                        m_gap = diag.get('gap_pct', 0.0) 
-                        
-                        # 過去の「寄り付きからエントリーまでの押し目率」を計算
                         tdf['Entry_Push'] = ((tdf['In'] - tdf['DayOpen']) / tdf['DayOpen']) * 100
                         win_tdf = tdf[tdf['PnL'] > 0]
                         
                         if not win_tdf.empty:
-                            avg_push = win_tdf['Entry_Push'].mean() # 期待値の高い押し目率
-                            last_c = tdf['PrevClose'].iloc[0]       # 直近終値
-                            pred_o = last_c * (1 + m_gap)           # 予想寄り付き
-                            ideal_l = pred_o * (1 + (avg_push / 100)) # 理想指値
+                            avg_push = win_tdf['Entry_Push'].mean()
+                            last_c = tdf['PrevClose'].iloc[0]
+                            pred_o = last_c * (1 + m_gap)
+                            ideal_l = pred_o * (1 + (avg_push / 100))
 
                             c1, c2, c3 = st.columns([1, 1, 2])
                             with c1: st.metric("予想寄り付き", f"{int(pred_o)}円", f"{m_gap:+.2%}")
                             with c2: st.metric("理想の指値", f"{int(ideal_l)}円", f"押し目 {avg_push:+.2f}%")
-                            with c3: st.success(f"**戦略アドバイス:**\n過去の傾向では、寄り付きから **{avg_push:+.2f}%** 付近まで引き付けてからエントリーすると、最も高い期待値が得られています。")
-                                
+                            with c3: st.success(f"**戦略アドバイス:**\n寄り付きから **{avg_push:+.2f}%** 付近まで引き付けると、過去の統計上最も高い期待値が得られます。")
+                        else:
+                            st.warning("⚠️ 勝ちトレードデータが不足しているためシミュレーションできません。")
+
+                    except Exception as e:
+                        st.error(f"[{t}] 分析中にエラーが発生しました: {e}")
+                    
+                    st.divider()
+                    
         with bt_tabs[2]: # 📉 ギャップ分析 (BACK TESTER 6.3 完全移植版)
             if not res_df.empty and 'Ticker' in res_df.columns:
                 for t in res_df['Ticker'].unique():
