@@ -69,7 +69,7 @@ def analyze_market_environment():
     elif dev_25 < -3:
         balance_txt = f"売られ過ぎ / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎▶︎ 底打ち待ち（過売）"
     else:
-        balance_txt = f"均衡しています / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎▶︎ 正常範囲（ニュートラル）"
+        balance_txt = f"均衡しています / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎ 正常範囲（ニュートラル）"
 
     # --- 3. 時刻と外部指標の判定 ---
     gap_pct = (cme_val - n225_close) / n225_close if n225_close > 0 else 0
