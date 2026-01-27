@@ -578,12 +578,13 @@ with tab_bt:
                                     f"**VWAPから {best_v.iloc[0].left:.1f}% ～ {best_v.iloc[0].right:.1f}%** の位置にある時、"
                                     f"**{best_t['TR']}** にエントリーするパターンです。")
 
-                        # --- 3. 🎯 翌営業日の指値戦略シミュレーター (新設パネル) ---
+                        # --- 3. 🎯 翌営業日の指値戦略シミュレーター ---
                         st.markdown("---")
                         st.markdown("##### 🎯 翌営業日の指値戦略シミュレーター")
                         diag = core.analyze_market_environment()
-                        # 市場ギャップ率をCMEの予測から取得
-                        m_gap = (float(diag['opening_forecast'].split(' ')[0].replace('ギャップアップ','0.01').replace('ギャップダウン','-0.01').replace('上昇','0.005').replace('下落','-0.005').replace('フラット','0.0')) if 'gap_pct' not in diag else diag['gap_pct'])
+                        
+                        # 解析処理を削除し、直接データを取得
+                        m_gap = diag.get('gap_pct', 0.0) 
                         
                         # 過去の「寄り付きからエントリーまでの押し目率」を計算
                         tdf['Entry_Push'] = ((tdf['In'] - tdf['DayOpen']) / tdf['DayOpen']) * 100
@@ -591,22 +592,15 @@ with tab_bt:
                         
                         if not win_tdf.empty:
                             avg_push = win_tdf['Entry_Push'].mean() # 期待値の高い押し目率
-                            last_c = tdf['PrevClose'].iloc[0] # 直近終値
-                            pred_o = last_c * (1 + m_gap) # 予想寄り付き
+                            last_c = tdf['PrevClose'].iloc[0]       # 直近終値
+                            pred_o = last_c * (1 + m_gap)           # 予想寄り付き
                             ideal_l = pred_o * (1 + (avg_push / 100)) # 理想指値
 
                             c1, c2, c3 = st.columns([1, 1, 2])
                             with c1: st.metric("予想寄り付き", f"{int(pred_o)}円", f"{m_gap:+.2%}")
                             with c2: st.metric("理想の指値", f"{int(ideal_l)}円", f"押し目 {avg_push:+.2f}%")
                             with c3: st.success(f"**戦略アドバイス:**\n過去の傾向では、寄り付きから **{avg_push:+.2f}%** 付近まで引き付けてからエントリーすると、最も高い期待値が得られています。")
-                        else:
-                            st.warning("⚠️ 戦略をシミュレーションするための勝ちトレードデータが不足しています。")
-
-                    except Exception as e:
-                        st.error(f"[{t}] 分析エラー: データの範囲が狭すぎるか、不足しています。({e})")
-                    
-                    st.divider()
-
+                                
         with bt_tabs[2]: # 📉 ギャップ分析 (BACK TESTER 6.3 完全移植版)
             if not res_df.empty and 'Ticker' in res_df.columns:
                 for t in res_df['Ticker'].unique():
