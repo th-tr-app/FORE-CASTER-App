@@ -805,7 +805,7 @@ with tab_bt:
 
                 st.divider()
 
-# --- タブ4: 指値戦略 (Ver 4.4.1 強制横並び・楽天スタイル) ---
+# --- タブ4: 指値戦略 (Ver 4.4.2 PC/モバイル最適化レイアウト) ---
 with tab_strategy:
     st.markdown("### 🎯 指値戦略プランナー")
     
@@ -818,10 +818,12 @@ with tab_strategy:
     elif res_df.empty:
         st.info("💡 まずは「バックテスト」を実行してください。")
     else:
+        # 地合い情報の取得
         diag = core.analyze_market_environment()
         m_curr_pct = diag.get('market_pct', 0.0)
         m_gap = diag.get('gap_pct', 0.0)
 
+        # 市場地合いヘッダー (楽天カラー：プラス＝赤)
         m_cls = "rakuten-plus" if m_curr_pct >= 0 else "rakuten-minus"
         st.markdown(f"**市場地合い:** <span class='{m_cls}' style='font-size:1.2em;'>{m_curr_pct:+.2%}</span>", unsafe_allow_html=True)
         st.divider()
@@ -848,36 +850,43 @@ with tab_strategy:
                 avg_push = win_tdf['Entry_Push'].mean() if not win_tdf.empty else 0
                 pred_o = last_c * (1 + m_gap)
 
-                # --- A. 上段：強制2列 (最新終値・予想寄り付き) ---
-                g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
-                st.markdown(f"""
-                <div class="mobile-flex-container">
-                    <div class="flex-item metric-card">
-                        <div class="card-label">最新終値</div>
-                        <div class="card-value">{last_c:,.0f}円</div>
-                        <div class="card-label" style="font-size:0.7em;">理想押し目: {avg_push:+.2f}%</div>
+                # --- 【PC/スマホ両対応】上段レイアウト ---
+                c_top_l, c_top_r = st.columns([2, 1.2]) # PCでは指標2：入力1の比率で並ぶ
+                
+                with c_top_l:
+                    # 指標ボックス（スマホでも強制2列を維持）
+                    g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
+                    st.markdown(f"""
+                    <div class="mobile-flex-container">
+                        <div class="flex-item metric-card">
+                            <div class="card-label">最新終値</div>
+                            <div class="card-value">{last_c:,.0f}円</div>
+                            <div class="card-label" style="font-size:0.7em;">理想押し目: {avg_push:+.2f}%</div>
+                        </div>
+                        <div class="flex-item metric-card">
+                            <div class="card-label">予想寄り付き</div>
+                            <div class="card-value">{pred_o:,.0f}円</div>
+                            <div class="delta-badge {g_cls}">{m_gap:+.2%}</div>
+                        </div>
                     </div>
-                    <div class="flex-item metric-card">
-                        <div class="card-label">予想寄り付き</div>
-                        <div class="card-value">{pred_o:,.0f}円</div>
-                        <div class="delta-badge {g_cls}">{m_gap:+.2%}</div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
 
-                actual_open_val = st.number_input(f"始値を入力 ({t})", value=0, step=1, key=f"act_in_{t}")
-                btn_calc = st.button(f"🚀 戦略を確定する ({t})", use_container_width=True, type="primary")
+                with c_top_r:
+                    # 始値入力とボタン（PCでは指標の右に、スマホでは下に落ちる）
+                    actual_open_val = st.number_input(f"始値を入力 ({t})", value=0, step=1, key=f"act_in_{t}", label_visibility="collapsed")
+                    btn_calc = st.button(f"🚀 戦略を確定する ({t})", use_container_width=True, type="primary")
 
                 if actual_open_val > 0 or btn_calc:
+                    # 戦略計算
                     today_limit = actual_open_val * (1 + (avg_push / 100))
                     avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
                     target_price = today_limit * (1 + avg_profit)
                     adj_sl = params['sl_fix'] * v_factor
                     stop_price = today_limit * (1 + adj_sl)
                     
-                    # --- B. 下段：強制3列 (今日の指値・利確・損切) ---
+                    # --- 【PC/スマホ両対応】下段レイアウト：強制3列ボックス ---
                     st.markdown(f"""
-                    <div class="mobile-flex-container">
+                    <div class="mobile-flex-container" style="margin-top: 15px;">
                         <div class="flex-item metric-card border-gray">
                             <div class="card-label rakuten-gray">🎯 指値</div>
                             <div class="card-value">{int(today_limit):,}</div>
@@ -895,10 +904,11 @@ with tab_strategy:
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # 判定ロジック
+                    # 判定とトレイリング
                     today_gap = (actual_open_val - last_c) / last_c
+                    win_rate = len(win_tdf) / len(tdf) if len(tdf) > 0 else 0
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
-                    sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / len(similar_trades) if not similar_trades.empty else (len(win_tdf)/len(tdf) if len(tdf)>0 else 0)
+                    sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / len(similar_trades) if not similar_trades.empty else win_rate
                     
                     if m_curr_pct < -0.003 and sim_win_rate >= 0.55:
                         st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%})")
@@ -910,6 +920,7 @@ with tab_strategy:
                     st.info(f"🚀 **トレイリング案** | 開始: {params['ts_start']*v_factor:.2%} / 幅: {params['ts_width']*v_factor:.2%}")
                 else:
                     st.caption("始値を入力して「戦略を確定する」をタップしてください。")
+            st.divider()
                     
 # --- タブ5: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
 with tab_rank:
