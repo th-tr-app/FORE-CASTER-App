@@ -805,9 +805,10 @@ with tab_bt:
 
                 st.divider()
 
-# --- タブ4: 指値戦略 (Ver 4.3.3 地合いフィルター & エラー修正版) ---
+# --- タブ4: 指値戦略 (Ver 4.3.6 ボラティリティ適応型アシスト) ---
 with tab_strategy:
-    st.markdown("### 🎯 指値戦略プランナー (地合いフィルター搭載)")
+    st.markdown("### 🎯 指値戦略プランナー (ボラティリティ適応型)")
+    st.caption("銘柄固有のボラティリティ(ATR)に基づき、損切りとトレイリング幅を自動最適化します。")
     
     res_df = st.session_state.get('res_df', pd.DataFrame())
     ticker_names = st.session_state.get('t_names', {})
@@ -821,13 +822,10 @@ with tab_strategy:
         # 地合い情報の取得
         diag = core.analyze_market_environment()
         m_gap = diag.get('gap_pct', 0.0)
-        m_curr_pct = diag.get('market_pct', 0.0) # 現在の日経平均騰落率
+        m_curr_pct = diag.get('market_pct', 0.0)
 
-        # A. 市場全体の地合い表示
         m_color = "red" if m_curr_pct < -0.003 else "green" if m_curr_pct > 0.003 else "gray"
         st.markdown(f"**現在の市場地合い (日経平均):** :{m_color}[{m_curr_pct:+.2%}]")
-        if m_curr_pct < -0.005:
-            st.error("⚠️ 市場全体が軟調です。個別株が良くても引き付けて待つか、見送りを推奨します。")
         st.divider()
 
         for t in t_list:
@@ -837,69 +835,79 @@ with tab_strategy:
             t_name = ticker_names.get(t, t)
             st.markdown(f"#### 📊 {t} : {t_name}")
             
-            # 最新の終値を yfinance から直接取得
-            with st.spinner(f"{t} のデータを照合中..."):
+            # --- 1. 最新データ取得とボラティリティ(ATR%)の算出 ---
+            with st.spinner(f"{t} のボラティリティを分析中..."):
                 ticker_live = yf.Ticker(t)
-                hist_live = ticker_live.history(period="2d")
-                last_c = hist_live['Close'].iloc[-1] if len(hist_live) >= 2 else tdf['PrevClose'].iloc[-1]
-            
+                hist_live = ticker_live.history(period="30d") # ATR計算用に期間確保
+                if len(hist_live) >= 15:
+                    last_c = hist_live['Close'].iloc[-1]
+                    # ATR(14)の算出
+                    hl = hist_live['High'] - hist_live['Low']
+                    hc = np.abs(hist_live['High'] - hist_live['Close'].shift())
+                    lc = np.abs(hist_live['Low'] - hist_live['Close'].shift())
+                    tr = pd.concat([hl, hc, lc], axis=1).max(axis=1)
+                    atr_val = tr.rolling(14).mean().iloc[-1]
+                    atr_p = (atr_val / last_c) * 100
+                else:
+                    last_c = tdf['PrevClose'].iloc[-1]
+                    atr_p = 1.5 # 取得失敗時の基準値
+
+            # --- 2. ボラティリティ係数(V-Factor)による自動補正 ---
+            # 市場平均的なボラティリティを 1.5% と定義し、倍率を算出
+            v_factor = max(0.6, min(2.5, atr_p / 1.5)) 
+            adj_sl = params['sl_fix'] * v_factor        # 損切り幅を補正
+            adj_ts_start = params['ts_start'] * v_factor # トレイリング開始を補正
+
             # 統計データの算出
             tdf['Entry_Push'] = ((tdf['In'] - tdf['DayOpen']) / tdf['DayOpen']) * 100
             win_tdf = tdf[tdf['PnL'] > 0]
             avg_push = win_tdf['Entry_Push'].mean() if not win_tdf.empty else 0
             win_rate = len(win_tdf) / len(tdf) if len(tdf) > 0 else 0
-            
             pred_o = last_c * (1 + m_gap)
             
-            # B. UIパネルの配置
+            # --- 3. UIパネルの配置 ---
             c0, c1, c2, c3 = st.columns([1, 1, 1, 1.5])
-            
             with c0:
                 st.metric("最新終値", f"{last_c:,.0f}円")
                 st.caption(f"理想の押し目: {avg_push:+.2f}%")
             with c1:
                 st.metric("予想寄り付き", f"{pred_o:,.0f}円", f"{m_gap:+.2%}")
             
-            # 【重要】変数の初期化
             actual_open_val = 0
             with c2:
                 actual_open_val = st.number_input(f"実際の始値 ({t})", value=0, step=1, key=f"act_open_{t}")
             
             with c3:
                 if actual_open_val > 0:
-                    # 1. 執行価格の再計算
                     today_limit = actual_open_val * (1 + (avg_push / 100))
                     avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
                     target_price = today_limit * (1 + avg_profit)
-                    stop_price = today_limit * (1 + params['sl_fix'])
+                    # ボラ適応後の損切り価格
+                    stop_price = today_limit * (1 + adj_sl)
                 
-                    # --- A. 執行価格表示 ---
                     st.metric("🎯 今日の指値", f"{int(today_limit)}円")
                 
                     sub_c1, sub_c2 = st.columns(2)
                     with sub_c1:
-                        # 目標利確も2桁表示で統一
                         st.metric("🏁 目標利確", f"{int(target_price)}円", f"{avg_profit:+.2%}")
                     with sub_c2:
-                        # 損切り目安を小数点第2位（:.2%）に修正
-                        st.metric("🛡️ 損切り目安", f"{int(stop_price)}円", f"{params['sl_fix']:+.2%}", delta_color="inverse")
+                        # 補正後の数値を小数点第2位まで表示
+                        st.metric("🛡️ 損切(適応型)", f"{int(stop_price)}円", f"{adj_sl:+.2%}", delta_color="inverse")
 
-                    # --- B. 判定ロジック ---
+                    # 判定ロジックと補足情報
                     today_gap = (actual_open_val - last_c) / last_c
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
                     sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / len(similar_trades) if not similar_trades.empty else win_rate
-                
-                    if m_curr_pct < -0.003 and sim_win_rate >= 0.55:
-                        st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%}) 地合い軟調。")
-                    elif sim_win_rate >= 0.55:
-                        st.success(f"🔥 **GO** (勝率 {sim_win_rate:.1%}) 統計・地合い良好。")
+                    
+                    if sim_win_rate >= 0.55:
+                        st.success(f"🔥 **GO** (勝率 {sim_win_rate:.1%})")
                     else:
-                        st.error(f"❄️ **NO-GO** (勝率 {sim_win_rate:.1%}) 期待値低。")
+                        st.error(f"❄️ **NO-GO** (勝率 {sim_win_rate:.1%})")
                 
-                    # --- C. 補足情報の高精度化 ---
-                    rr = abs(avg_profit / params['sl_fix']) if params['sl_fix'] != 0 else 0
-                    # トレイリング開始位置を小数点第2位（:.2%）に修正
-                    st.caption(f"RR比: 1 : {rr:.2f} | トレイリング開始: {params['ts_start']:.2%}")
+                    rr = abs(avg_profit / adj_sl) if adj_sl != 0 else 0
+                    # 適応後の高精度表示
+                    st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {rr:.2f}")
+                    st.caption(f"適応トレイリング開始: {adj_ts_start:.2%}")
                 else:
                     st.info("👆 始値を入力してください。")
             st.divider()
