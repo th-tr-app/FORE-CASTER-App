@@ -804,8 +804,71 @@ with tab_bt:
                 st.code("\n".join(log_report), language="text")
 
                 st.divider()
-                
-# --- タブ4: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
+
+# --- タブ4: 指値戦略 (Ver 4.3 枠組み実装版) ---
+with tab_strategy:
+    st.markdown("### 🎯 指値戦略プランナー")
+    st.caption("寄り付き直後の始値を入力し、バックテスト統計に基づいた『勝てる指値』を算出します。")
+
+    res_df = st.session_state.get('res_df', pd.DataFrame())
+    ticker_names = st.session_state.get('t_names', {})
+    t_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
+
+    if not t_list:
+        st.warning("⚠️ 監視リストに銘柄がありません。「ワンタッチ」や「スキャン」で銘柄を追加してください。")
+    elif res_df.empty:
+        st.info("💡 まずは「バックテスト」を実行してください。過去の統計データがないと戦略を算出できません。")
+    else:
+        # 地合い情報の取得
+        diag = core.analyze_market_environment()
+        m_gap = diag.get('gap_pct', 0.0)
+
+        for t in t_list:
+            tdf = res_df[res_df['Ticker'] == t].copy()
+            if tdf.empty: continue
+            
+            t_name = ticker_names.get(t, t)
+            st.markdown(f"#### 📊 {t} : {t_name}")
+            
+            # --- A. 統計データの抽出 ---
+            tdf['Entry_Push'] = ((tdf['In'] - tdf['DayOpen']) / tdf['DayOpen']) * 100
+            win_tdf = tdf[tdf['PnL'] > 0]
+            
+            if win_tdf.empty:
+                st.warning(f"[{t}] 勝ちトレードのデータが不足しているため、戦略を算出できません。")
+                continue
+
+            avg_push = win_tdf['Entry_Push'].mean() # 理想の押し目率
+            last_c = tdf['PrevClose'].iloc[0] # 直近終値
+            pred_o = last_c * (1 + m_gap)     # 予想寄り付き
+            
+            # --- B. UIパネルの配置 ---
+            c1, c2, c3 = st.columns([1, 1, 1.5])
+            
+            with c1:
+                st.metric("予想寄り付き", f"{int(pred_o)}円", f"{m_gap:+.2%}")
+                st.caption(f"理想の押し目: {avg_push:+.2f}%")
+            
+            with c2:
+                # ユーザーが寄り付き直後に始値を入力する欄
+                actual_open = st.number_input(f"実際の始値 ({t})", value=0, step=1, key=f"act_open_{t}")
+            
+            with c3:
+                if actual_open > 0:
+                    # 実際の始値に基づいた「今日の指値」を自動計算
+                    today_limit = actual_open * (1 + (avg_push / 100))
+                    st.metric("🎯 今日の指値", f"{int(today_limit)}円")
+                    
+                    # ギャップ状況の判定
+                    today_gap = (actual_open - last_c) / last_c
+                    gap_type = "GU" if today_gap > 0.003 else "GD" if today_gap < -0.003 else "平穏"
+                    st.info(f"**戦略:** {gap_type}寄り付き。理想の指値で待機してください。")
+                else:
+                    st.info("👆 9:00に始値を入力すると、今日の最適指値が表示されます。")
+            
+            st.divider()
+            
+# --- タブ5: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
 with tab_rank:
     st.markdown("### 🏆 登録銘柄ランキング")
     st.caption("日経225＋αの銘柄から、エントリー条件をクリアした期待値の高い20銘柄をランキングで抽出します。")
