@@ -55,11 +55,16 @@ def analyze_market_environment():
         except: continue
 
     # --- 1. 基礎データの抽出 ---
-    n225_close = 0; n225_ma25 = 0; cme_val = 0
+    n225_close = 0; n225_prev_close = 0; n225_ma25 = 0; cme_val = 0
     if "N225" in data_map:
         df_n = data_map["N225"]
         n225_close = float(df_n['Close'].values.ravel()[-1])
+        n225_prev_close = float(df_n['Close'].values.ravel()[-2]) # 前日終値を取得
         n225_ma25 = float(df_n['Close'].rolling(25).mean().values.ravel()[-1])
+    
+    # 日経平均の現在の騰落率 (地合いフィルターの核)
+    market_pct = (n225_close - n225_prev_close) / n225_prev_close if n225_prev_close > 0 else 0
+    
     if "CME" in data_map: cme_val = float(data_map["CME"]['Close'].values.ravel()[-1])
 
     # --- 2. 地合い判定 (ここを時間判定の前に移動) ---
@@ -137,7 +142,8 @@ def analyze_market_environment():
         "strategy": strategy_idx, "opening_forecast": forecast_txt, "forecast_title": forecast_title,
         "balance": balance_txt, "phase_comment": phase_txt, "us_impact": us_impact, "alert_level": alert_lvl, 
         "tips": " / ".join(tips) if tips else "個別材料株（全業種対象）",
-        "gap_pct": gap_pct  # ← この一行を追加して数値を直接渡せるようにします
+        "gap_pct": gap_pct,
+        "market_pct": market_pct  # ← これを追加
     }
     
 # --- 3. スクリーニング・シミュレーション ---
