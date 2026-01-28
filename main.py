@@ -866,26 +866,40 @@ with tab_strategy:
                 actual_open_val = st.number_input(f"実際の始値 ({t})", value=0, step=1, key=f"act_open_{t}")
             
             with c3:
-                # 定義された変数（actual_open_val）を使用
                 if actual_open_val > 0:
+                    # 1. 執行価格の計算
                     today_limit = actual_open_val * (1 + (avg_push / 100))
+                    avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
+                
+                    # 2. 出口価格の計算 (逆算)
+                    target_price = today_limit * (1 + avg_profit)
+                    stop_price = today_limit * (1 + params['sl_fix'])
+                
+                    # --- 表示セクション ---
+                    st.metric("🎯 今日の指値", f"{int(today_limit)}円")
+                
+                    # 目標利確と想定損切りを並べて表示
+                    sub_c1, sub_c2 = st.columns(2)
+                    with sub_c1:
+                        st.metric("🏁 目標利確", f"{int(target_price)}円", f"{avg_profit:+.2%}")
+                    with sub_c2:
+                        st.metric("🛡️ 損切り目安", f"{int(stop_price)}円", f"{params['sl_fix']:+.1%}", delta_color="inverse")
+
+                    # 判定ロジック
                     today_gap = (actual_open_val - last_c) / last_c
-                    
-                    # 過去の類似ギャップ勝率
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
                     sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / len(similar_trades) if not similar_trades.empty else win_rate
-                    
-                    # 地合いフィルター判定
+                
                     if m_curr_pct < -0.003 and sim_win_rate >= 0.55:
-                        st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%})\n地合いが軟調です。指値を深めにするか慎重に。")
+                        st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%}) 地合い軟調。")
                     elif sim_win_rate >= 0.55:
-                        st.success(f"🔥 **GO** (勝率 {sim_win_rate:.1%})\n統計・地合い共に良好。指値 {int(today_limit)}円。")
+                        st.success(f"🔥 **GO** (勝率 {sim_win_rate:.1%}) 統計・地合い良好。")
                     else:
-                        st.error(f"❄️ **NO-GO** (勝率 {sim_win_rate:.1%})\n期待値が低いゾーンです。")
-                    
-                    # リスクリワード計算
-                    rr = abs(win_tdf['PnL'].mean() / params['sl_fix']) if params['sl_fix'] != 0 else 0
-                    st.caption(f"RR比: 1 : {rr:.2f} (利 {win_tdf['PnL'].mean():.2%} / 損 {params['sl_fix']:.1%})")
+                        st.error(f"❄️ **NO-GO** (勝率 {sim_win_rate:.1%}) 期待値低。")
+                
+                    # リスクリワードの補足説明
+                    rr = abs(avg_profit / params['sl_fix']) if params['sl_fix'] != 0 else 0
+                    st.caption(f"RR比: 1 : {rr:.2f} | トレイリング開始: {params['ts_start']:.1%}")
                 else:
                     st.info("👆 始値を入力してください。")
             st.divider()
