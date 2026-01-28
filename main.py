@@ -805,10 +805,10 @@ with tab_bt:
 
                 st.divider()
 
-# --- タブ4: 指値戦略 (Ver 4.3.1：視認性向上版) ---
+# --- タブ4: 指値戦略 (Ver 4.3.2：リアルタイム同期 + GO/NO-GO) ---
 with tab_strategy:
     st.markdown("### 🎯 指値戦略プランナー")
-    st.caption("前日終値からの乖離を確認し、当日の始値に基づいた『勝てる指値』を算出します。")
+    st.caption("最新の終値を自動取得し、過去の勝率に基づいたエントリー判断を行います。")
 
     res_df = st.session_state.get('res_df', pd.DataFrame())
     ticker_names = st.session_state.get('t_names', {})
@@ -830,49 +830,52 @@ with tab_strategy:
             t_name = ticker_names.get(t, t)
             st.markdown(f"#### 📊 {t} : {t_name}")
             
+            # --- 【修正点】最新の終値を yfinance から直接取得 ---
+            with st.spinner(f"{t} の最新データを照合中..."):
+                ticker_live = yf.Ticker(t)
+                hist_live = ticker_live.history(period="2d")
+                if len(hist_live) >= 2:
+                    last_c = hist_live['Close'].iloc[-1] # これで Yahooファイナンスと一致します
+                else:
+                    last_c = tdf['PrevClose'].iloc[-1] # 取得失敗時の保険
+            
             # 統計データの抽出
             tdf['Entry_Push'] = ((tdf['In'] - tdf['DayOpen']) / tdf['DayOpen']) * 100
             win_tdf = tdf[tdf['PnL'] > 0]
+            avg_push = win_tdf['Entry_Push'].mean() if not win_tdf.empty else 0
+            win_rate = len(win_tdf) / len(tdf) if len(tdf) > 0 else 0
             
-            if win_tdf.empty:
-                st.warning(f"[{t}] 勝ちトレードのデータ不足により戦略を算出できません。")
-                continue
-
-            avg_push = win_tdf['Entry_Push'].mean() # 理想の押し目率
-            last_c = tdf['PrevClose'].iloc[0]       # 直近終値
-            pred_o = last_c * (1 + m_gap)           # 予想寄り付き
+            pred_o = last_c * (1 + m_gap)
             
-            # --- B. UIパネルの配置 (4カラム構成に変更) ---
+            # --- UIパネルの配置 ---
             c0, c1, c2, c3 = st.columns([1, 1, 1, 1.5])
-            
             with c0:
-                # 基準となる前日の終値
-                st.metric("前日終値", f"{int(last_c)}円")
+                st.metric("最新終値", f"{last_c:,.0f}円")
                 st.caption(f"理想の押し目: {avg_push:+.2f}%")
-            
             with c1:
-                # 先物状況を加味した寄り付き予測
-                st.metric("予想寄り付き", f"{int(pred_o)}円", f"{m_gap:+.2%}")
-            
+                st.metric("予想寄り付き", f"{pred_o:,.0f}円", f"{m_gap:+.2%}")
             with c2:
-                # ユーザーが9:00直後に始値を入力する
                 actual_open = st.number_input(f"実際の始値 ({t})", value=0, step=1, key=f"act_open_{t}")
-            
             with c3:
                 if actual_open > 0:
-                    # 今日の指値を算出
                     today_limit = actual_open * (1 + (avg_push / 100))
-                    st.metric("🎯 今日の指値", f"{int(today_limit)}円")
                     
-                    # 実際の寄り付きギャップを判定
+                    # --- 【新機能】GO/NO-GO スコアリング ---
                     today_gap = (actual_open - last_c) / last_c
-                    gap_type = "ギャップアップ" if today_gap > 0.003 else "ギャップダウン" if today_gap < -0.003 else "平穏"
-                    st.info(f"**戦略:** {gap_type}寄り付き。指値 {int(today_limit)}円で待機。")
+                    # 今回のギャップ(±0.5%)と一致する過去データの勝率を計算
+                    similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
+                    sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / len(similar_trades) if not similar_trades.empty else win_rate
+                    
+                    if sim_win_rate >= 0.55:
+                        st.success(f"🔥 **GO** (勝率 {sim_win_rate:.1%})\n指値 {int(today_limit)}円で待機。")
+                    else:
+                        st.error(f"❄️ **NO-GO** (勝率 {sim_win_rate:.1%})\n今のギャップ条件は期待値が低いです。")
+                    
+                    st.caption(f"目標利益: {win_tdf['PnL'].mean():.2%} / 損切: {params['sl_fix']:.1%}")
                 else:
                     st.info("👆 始値を入力してください。")
-            
             st.divider()
-            
+
 # --- タブ5: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
 with tab_rank:
     st.markdown("### 🏆 登録銘柄ランキング")
