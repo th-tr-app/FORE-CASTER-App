@@ -136,9 +136,9 @@ ticker_input_val = st.text_input(
 if ticker_input_val != st.session_state['target_tickers']:
     st.session_state['target_tickers'] = ticker_input_val
     st.rerun()
-    
+
 # --- 5. メインタブ構成 ---
-tab_top, tab_screen, tab_bt, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スキャン", "📈 バックテスト", "🏆 ランキング"])
+tab_top, tab_screen, tab_bt, tab_strategy, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スキャン", "📈 バックテスト", "🎯 指値戦略", "🏆 ランキング"])
 
 # --- タブ1: ワンタッチ (FC 3.3：統合修正版) ---
 with tab_top:
