@@ -124,7 +124,7 @@ params = {
 }
 
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
-st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>SCREENING & BACKTEST | ver 4.37</p></div>", unsafe_allow_html=True)
+st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>SCREENING & BACKTEST | ver 4.38</p></div>", unsafe_allow_html=True)
 
 # 【修正ポイント】key="target_tickers" を削除し、value= を使用します
 ticker_input_val = st.text_input(
@@ -805,7 +805,7 @@ with tab_bt:
 
                 st.divider()
 
-# --- タブ4: 指値戦略 (Ver 4.3.7 ボラティリティ適応型・高精度版) ---
+# --- タブ4: 指値戦略 (Ver 4.3.8 判定バッジ復元版) ---
 with tab_strategy:
     st.markdown("### 🎯 指値戦略プランナー (ボラティリティ適応型)")
     st.caption("銘柄固有のボラティリティに基づき、注文パラメーターを自動最適化します。")
@@ -819,7 +819,7 @@ with tab_strategy:
     elif res_df.empty:
         st.info("💡 まずは「バックテスト」を実行してください。")
     else:
-        # 地合い情報の取得
+        # 1. 市場地合い情報の取得
         diag = core.analyze_market_environment()
         m_gap = diag.get('gap_pct', 0.0)
         m_curr_pct = diag.get('market_pct', 0.0)
@@ -835,7 +835,7 @@ with tab_strategy:
             t_name = ticker_names.get(t, t)
             st.markdown(f"#### 📊 {t} : {t_name}")
             
-            # --- 1. 最新データ取得とボラティリティ(ATR%)の算出 ---
+            # 2. ボラティリティ分析と価格取得
             with st.spinner(f"{t} 分析中..."):
                 ticker_live = yf.Ticker(t)
                 hist_live = ticker_live.history(period="30d")
@@ -850,20 +850,20 @@ with tab_strategy:
                 else:
                     last_c = tdf['PrevClose'].iloc[-1]; atr_p = 1.5
 
-            # --- 2. ボラティリティ係数による自動補正 ---
+            # 3. ボラティリティ係数による自動補正
             v_factor = max(0.6, min(2.5, atr_p / 1.5)) 
             adj_sl = params['sl_fix'] * v_factor
             adj_ts_start = params['ts_start'] * v_factor
-            adj_ts_width = params['ts_width'] * v_factor # トレイリング幅の補正
+            adj_ts_width = params['ts_width'] * v_factor
 
-            # 統計データ算出
+            # 4. 統計データの算出
             tdf['Entry_Push'] = ((tdf['In'] - tdf['DayOpen']) / tdf['DayOpen']) * 100
             win_tdf = tdf[tdf['PnL'] > 0]
             avg_push = win_tdf['Entry_Push'].mean() if not win_tdf.empty else 0
             win_rate = len(win_tdf) / len(tdf) if len(tdf) > 0 else 0
             pred_o = last_c * (1 + m_gap)
             
-            # --- 3. UIパネルの配置 ---
+            # 5. UIパネル表示
             c0, c1, c2, c3 = st.columns([1, 1, 1, 1.5])
             with c0:
                 st.metric("最新終値", f"{last_c:,.0f}円")
@@ -890,7 +890,19 @@ with tab_strategy:
                     with sub_c2:
                         st.metric("🛡️ 損切(適応型)", f"{int(stop_price)}円", f"{adj_sl:+.2%}", delta_color="inverse")
 
-                    # 判定とトレイリング提案
+                    # --- 【復元】GO/NO-GO 判定バッジ ---
+                    today_gap = (actual_open_val - last_c) / last_c
+                    similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
+                    sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / len(similar_trades) if not similar_trades.empty else win_rate
+                    
+                    if m_curr_pct < -0.003 and sim_win_rate >= 0.55:
+                        st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%}) 地合い軟調。")
+                    elif sim_win_rate >= 0.55:
+                        st.success(f"🔥 **GO** (勝率 {sim_win_rate:.1%}) 統計・地合い良好。")
+                    else:
+                        st.error(f"❄️ **NO-GO** (勝率 {sim_win_rate:.1%}) 期待値低。")
+
+                    # --- 【追加】トレイリング設定案 ---
                     st.info(f"🚀 **トレイリング設定案**\n"
                             f"・開始トリガー: {adj_ts_start:.2%}\n"
                             f"・戻し幅（Width）: {adj_ts_width:.2%}")
