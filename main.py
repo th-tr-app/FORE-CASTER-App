@@ -861,7 +861,7 @@ with tab_strategy:
                         <div class="flex-item metric-card">
                             <div class="card-label">最新終値</div>
                             <div class="card-value">{last_c:,.0f}</div>
-                            <div class="card-label" style="font-size:0.7em;">理想押し目: {avg_push:+.2f}%</div>
+                            <div class="card-label" style="font-size:1.0em;">理想押し目: {avg_push:+.2f}%</div>
                         </div>
                         <div class="flex-item metric-card">
                             <div class="card-label">予想寄り付き</div>
@@ -874,7 +874,7 @@ with tab_strategy:
                 with c_top_r:
                     # 始値入力とボタン（PCでは指標の右に、スマホでは下に落ちる）
                     actual_open_val = st.number_input(f"始値を入力 ({t})", value=0, step=1, key=f"act_in_{t}", label_visibility="collapsed")
-                    btn_calc = st.button(f"🚀 戦略を確定する ({t})", use_container_width=True, type="primary")
+                    btn_calc = st.button(f"戦略を確定する ({t})", use_container_width=True, type="primary")
 
                 if actual_open_val > 0 or btn_calc:
                     # 戦略計算
@@ -913,13 +913,13 @@ with tab_strategy:
                     if m_curr_pct < -0.003 and sim_win_rate >= 0.55:
                         st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%})")
                     elif sim_win_rate >= 0.55:
-                        st.success(f"🔥 **GO** (勝率 {sim_win_rate:.1%})")
+                        st.success(f"🔥 **エントリー可能** (勝率 {sim_win_rate:.1%})")
                     else:
-                        st.error(f"❄️ **NO-GO** (勝率 {sim_win_rate:.1%})")
+                        st.error(f"❄️ **エントリーなし** (勝率 {sim_win_rate:.1%})")
 
-                    st.info(f"🚀 **トレイリング案** | 開始: {params['ts_start']*v_factor:.2%} / 幅: {params['ts_width']*v_factor:.2%}")
+                    st.info(f"🚀 **トレイリング最適化** <br>| 開始: {params['ts_start']*v_factor:.2%} / 幅: {params['ts_width']*v_factor:.2%}")
                 else:
-                    st.caption("始値を入力して「戦略を確定する」をタップしてください。")
+                    st.caption("始値を入力して「戦略を確定する」をタップ。")
             st.divider()
                     
 # --- タブ5: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
