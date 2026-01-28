@@ -224,5 +224,5 @@ h5 {
 
 /* カード内のフォントサイズ微調整（3列対策） */
 .flex-item .card-value {
-    font-size: 1.3em !important;
+    font-size: 1.4em !important;
 }
