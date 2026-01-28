@@ -195,3 +195,16 @@ h5 {
 [data-testid="stHeaderActionElements"] {
     display: none !important;
 }
+
+/* 指値戦略の数値カラーとボックス */
+.rakuten-plus { color: #ff3b30 !important; } /* プラス＝赤 */
+.rakuten-minus { color: #34c759 !important; } /* マイナス＝緑 */
+
+.strategy-box { 
+    background: #1e1e1e; 
+    border-radius: 10px; 
+    padding: 15px; 
+    border-left: 5px solid #ff3b30; 
+    margin-bottom: 10px;
+}
+
