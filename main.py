@@ -861,7 +861,7 @@ with tab_strategy:
                         <div class="flex-item metric-card">
                             <div class="card-label">最新終値</div>
                             <div class="card-value">{last_c:,.0f}</div>
-                            <div class="card-label" style="font-size:1.0em;">理想押し目: {avg_push:+.2f}%</div>
+                            <div class="card-label" style="font-size:1.2em;">理想押し目: {avg_push:+.2f}%</div>
                         </div>
                         <div class="flex-item metric-card">
                             <div class="card-label">予想寄り付き</div>
@@ -917,9 +917,9 @@ with tab_strategy:
                     else:
                         st.error(f"❄️ **エントリーなし** (勝率 {sim_win_rate:.1%})")
 
-                    st.info(f"🚀 **トレイリング最適化** <br>| 開始: {params['ts_start']*v_factor:.2%} / 幅: {params['ts_width']*v_factor:.2%}")
+                    st.info(f"🚀 **トレイリング最適化** | 開始: {params['ts_start']*v_factor:.2%} / 幅: {params['ts_width']*v_factor:.2%}")
                 else:
-                    st.caption("始値を入力して「戦略を確定する」をタップ。")
+                    st.caption("始値を入力して「戦略を確定する」をタップ")
             st.divider()
                     
 # --- タブ5: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
