@@ -867,25 +867,24 @@ with tab_strategy:
             
             with c3:
                 if actual_open_val > 0:
-                    # 1. 執行価格の計算
+                    # 1. 執行価格の再計算
                     today_limit = actual_open_val * (1 + (avg_push / 100))
                     avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
-                
-                    # 2. 出口価格の計算 (逆算)
                     target_price = today_limit * (1 + avg_profit)
                     stop_price = today_limit * (1 + params['sl_fix'])
                 
-                    # --- 表示セクション ---
+                    # --- A. 執行価格表示 ---
                     st.metric("🎯 今日の指値", f"{int(today_limit)}円")
                 
-                    # 目標利確と想定損切りを並べて表示
                     sub_c1, sub_c2 = st.columns(2)
                     with sub_c1:
+                        # 目標利確も2桁表示で統一
                         st.metric("🏁 目標利確", f"{int(target_price)}円", f"{avg_profit:+.2%}")
                     with sub_c2:
-                        st.metric("🛡️ 損切り目安", f"{int(stop_price)}円", f"{params['sl_fix']:+.1%}", delta_color="inverse")
+                        # 損切り目安を小数点第2位（:.2%）に修正
+                        st.metric("🛡️ 損切り目安", f"{int(stop_price)}円", f"{params['sl_fix']:+.2%}", delta_color="inverse")
 
-                    # 判定ロジック
+                    # --- B. 判定ロジック ---
                     today_gap = (actual_open_val - last_c) / last_c
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
                     sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / len(similar_trades) if not similar_trades.empty else win_rate
@@ -897,9 +896,10 @@ with tab_strategy:
                     else:
                         st.error(f"❄️ **NO-GO** (勝率 {sim_win_rate:.1%}) 期待値低。")
                 
-                    # リスクリワードの補足説明
+                    # --- C. 補足情報の高精度化 ---
                     rr = abs(avg_profit / params['sl_fix']) if params['sl_fix'] != 0 else 0
-                    st.caption(f"RR比: 1 : {rr:.2f} | トレイリング開始: {params['ts_start']:.1%}")
+                    # トレイリング開始位置を小数点第2位（:.2%）に修正
+                    st.caption(f"RR比: 1 : {rr:.2f} | トレイリング開始: {params['ts_start']:.2%}")
                 else:
                     st.info("👆 始値を入力してください。")
             st.divider()
