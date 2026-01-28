@@ -208,3 +208,12 @@ h5 {
     margin-bottom: 10px;
 }
 
+/* style.css に追加 */
+.rakuten-plus { color: #ff3b30 !important; font-weight: bold; } /* 赤 */
+.rakuten-minus { color: #34c759 !important; font-weight: bold; } /* 緑 */
+.rakuten-gray { color: #888888 !important; font-weight: bold; } /* グレー */
+
+/* カードの左枠線も色を合わせるための汎用スタイル */
+.border-red { border-left: 5px solid #ff3b30 !important; }
+.border-green { border-left: 5px solid #34c759 !important; }
+.border-gray { border-left: 5px solid #888888 !important; }
