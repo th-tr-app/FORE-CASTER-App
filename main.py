@@ -124,7 +124,7 @@ params = {
 }
 
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
-st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>SCREENING & BACKTEST | ver 4.0</p></div>", unsafe_allow_html=True)
+st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>SCREENING & BACKTEST | ver 4.37</p></div>", unsafe_allow_html=True)
 
 # 【修正ポイント】key="target_tickers" を削除し、value= を使用します
 ticker_input_val = st.text_input(
@@ -805,10 +805,10 @@ with tab_bt:
 
                 st.divider()
 
-# --- タブ4: 指値戦略 (Ver 4.3.6 ボラティリティ適応型アシスト) ---
+# --- タブ4: 指値戦略 (Ver 4.3.7 ボラティリティ適応型・高精度版) ---
 with tab_strategy:
     st.markdown("### 🎯 指値戦略プランナー (ボラティリティ適応型)")
-    st.caption("銘柄固有のボラティリティ(ATR)に基づき、損切りとトレイリング幅を自動最適化します。")
+    st.caption("銘柄固有のボラティリティに基づき、注文パラメーターを自動最適化します。")
     
     res_df = st.session_state.get('res_df', pd.DataFrame())
     ticker_names = st.session_state.get('t_names', {})
@@ -817,7 +817,7 @@ with tab_strategy:
     if not t_list:
         st.warning("⚠️ 監視リストに銘柄がありません。")
     elif res_df.empty:
-        st.info("💡 まずは「バックテスト」を実行してください。過去の統計データが必要です。")
+        st.info("💡 まずは「バックテスト」を実行してください。")
     else:
         # 地合い情報の取得
         diag = core.analyze_market_environment()
@@ -836,12 +836,11 @@ with tab_strategy:
             st.markdown(f"#### 📊 {t} : {t_name}")
             
             # --- 1. 最新データ取得とボラティリティ(ATR%)の算出 ---
-            with st.spinner(f"{t} のボラティリティを分析中..."):
+            with st.spinner(f"{t} 分析中..."):
                 ticker_live = yf.Ticker(t)
-                hist_live = ticker_live.history(period="30d") # ATR計算用に期間確保
+                hist_live = ticker_live.history(period="30d")
                 if len(hist_live) >= 15:
                     last_c = hist_live['Close'].iloc[-1]
-                    # ATR(14)の算出
                     hl = hist_live['High'] - hist_live['Low']
                     hc = np.abs(hist_live['High'] - hist_live['Close'].shift())
                     lc = np.abs(hist_live['Low'] - hist_live['Close'].shift())
@@ -849,16 +848,15 @@ with tab_strategy:
                     atr_val = tr.rolling(14).mean().iloc[-1]
                     atr_p = (atr_val / last_c) * 100
                 else:
-                    last_c = tdf['PrevClose'].iloc[-1]
-                    atr_p = 1.5 # 取得失敗時の基準値
+                    last_c = tdf['PrevClose'].iloc[-1]; atr_p = 1.5
 
-            # --- 2. ボラティリティ係数(V-Factor)による自動補正 ---
-            # 市場平均的なボラティリティを 1.5% と定義し、倍率を算出
+            # --- 2. ボラティリティ係数による自動補正 ---
             v_factor = max(0.6, min(2.5, atr_p / 1.5)) 
-            adj_sl = params['sl_fix'] * v_factor        # 損切り幅を補正
-            adj_ts_start = params['ts_start'] * v_factor # トレイリング開始を補正
+            adj_sl = params['sl_fix'] * v_factor
+            adj_ts_start = params['ts_start'] * v_factor
+            adj_ts_width = params['ts_width'] * v_factor # トレイリング幅の補正
 
-            # 統計データの算出
+            # 統計データ算出
             tdf['Entry_Push'] = ((tdf['In'] - tdf['DayOpen']) / tdf['DayOpen']) * 100
             win_tdf = tdf[tdf['PnL'] > 0]
             avg_push = win_tdf['Entry_Push'].mean() if not win_tdf.empty else 0
@@ -882,7 +880,6 @@ with tab_strategy:
                     today_limit = actual_open_val * (1 + (avg_push / 100))
                     avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
                     target_price = today_limit * (1 + avg_profit)
-                    # ボラ適応後の損切り価格
                     stop_price = today_limit * (1 + adj_sl)
                 
                     st.metric("🎯 今日の指値", f"{int(today_limit)}円")
@@ -891,27 +888,18 @@ with tab_strategy:
                     with sub_c1:
                         st.metric("🏁 目標利確", f"{int(target_price)}円", f"{avg_profit:+.2%}")
                     with sub_c2:
-                        # 補正後の数値を小数点第2位まで表示
                         st.metric("🛡️ 損切(適応型)", f"{int(stop_price)}円", f"{adj_sl:+.2%}", delta_color="inverse")
 
-                    # 判定ロジックと補足情報
-                    today_gap = (actual_open_val - last_c) / last_c
-                    similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
-                    sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / len(similar_trades) if not similar_trades.empty else win_rate
+                    # 判定とトレイリング提案
+                    st.info(f"🚀 **トレイリング設定案**\n"
+                            f"・開始トリガー: {adj_ts_start:.2%}\n"
+                            f"・戻し幅（Width）: {adj_ts_width:.2%}")
                     
-                    if sim_win_rate >= 0.55:
-                        st.success(f"🔥 **GO** (勝率 {sim_win_rate:.1%})")
-                    else:
-                        st.error(f"❄️ **NO-GO** (勝率 {sim_win_rate:.1%})")
-                
-                    rr = abs(avg_profit / adj_sl) if adj_sl != 0 else 0
-                    # 適応後の高精度表示
-                    st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {rr:.2f}")
-                    st.caption(f"適応トレイリング開始: {adj_ts_start:.2%}")
+                    st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
                 else:
                     st.info("👆 始値を入力してください。")
             st.divider()
-            
+
 # --- タブ5: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
 with tab_rank:
     st.markdown("### 🏆 登録銘柄ランキング")
