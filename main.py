@@ -805,7 +805,7 @@ with tab_bt:
 
                 st.divider()
 
-# --- タブ4: 指値戦略 (Ver 4.4.0 モバイル最適化・3列カード配置) ---
+# --- タブ4: 指値戦略 (Ver 4.4.1 強制横並び・楽天スタイル) ---
 with tab_strategy:
     st.markdown("### 🎯 指値戦略プランナー")
     
@@ -818,12 +818,10 @@ with tab_strategy:
     elif res_df.empty:
         st.info("💡 まずは「バックテスト」を実行してください。")
     else:
-        # 地合い情報の取得
         diag = core.analyze_market_environment()
-        m_gap = diag.get('gap_pct', 0.0)
         m_curr_pct = diag.get('market_pct', 0.0)
+        m_gap = diag.get('gap_pct', 0.0)
 
-        # 市場地合いヘッダー (楽天カラー：プラス＝赤)
         m_cls = "rakuten-plus" if m_curr_pct >= 0 else "rakuten-minus"
         st.markdown(f"**市場地合い:** <span class='{m_cls}' style='font-size:1.2em;'>{m_curr_pct:+.2%}</span>", unsafe_allow_html=True)
         st.divider()
@@ -833,79 +831,86 @@ with tab_strategy:
             if tdf.empty: continue
             t_name = ticker_names.get(t, t)
             
-            # --- 銘柄ごとに開閉パネル化 ---
             with st.expander(f"🕒 {t} : {t_name}", expanded=False):
-                
-                # データ取得と分析
                 with st.spinner("分析中..."):
                     ticker_live = yf.Ticker(t)
                     hist_live = ticker_live.history(period="30d")
                     if len(hist_live) >= 15:
                         last_c = hist_live['Close'].iloc[-1]
-                        hl = hist_live['High'] - hist_live['Low']
-                        hc = np.abs(hist_live['High'] - hist_live['Close'].shift())
-                        lc = np.abs(hist_live['Low'] - hist_live['Close'].shift())
+                        hl = hist_live['High'] - hist_live['Low']; hc = np.abs(hist_live['High'] - hist_live['Close'].shift()); lc = np.abs(hist_live['Low'] - hist_live['Close'].shift())
                         tr = pd.concat([hl, hc, lc], axis=1).max(axis=1)
-                        atr_val = tr.rolling(14).mean().iloc[-1]
-                        atr_p = (atr_val / last_c) * 100
-                    else:
-                        last_c = tdf['PrevClose'].iloc[-1]; atr_p = 1.5
-                
+                        atr_p = (tr.rolling(14).mean().iloc[-1] / last_c) * 100
+                    else: last_c = tdf['PrevClose'].iloc[-1]; atr_p = 1.5
+
                 v_factor = max(0.6, min(2.5, atr_p / 1.5)) 
                 tdf['Entry_Push'] = ((tdf['In'] - tdf['DayOpen']) / tdf['DayOpen']) * 100
                 win_tdf = tdf[tdf['PnL'] > 0]
                 avg_push = win_tdf['Entry_Push'].mean() if not win_tdf.empty else 0
                 pred_o = last_c * (1 + m_gap)
 
-                # --- A. 上段：2列並列 (最新終値・予想寄り付き) ---
-                c_fc1, c_fc2 = st.columns(2)
-                with c_fc1:
-                    st.markdown(f'<div class="metric-card"><div class="card-label">最新終値</div><div class="card-value">{last_c:,.0f}円</div><div class="card-label" style="font-size:0.8em;">理想押し目: {avg_push:+.2f}%</div></div>', unsafe_allow_html=True)
-                with c_fc2:
-                    g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
-                    st.markdown(f'<div class="metric-card"><div class="card-label">予想寄り付き</div><div class="card-value">{pred_o:,.0f}円</div><div class="delta-badge {g_cls}">{m_gap:+.2%}</div></div>', unsafe_allow_html=True)
+                # --- A. 上段：強制2列 (最新終値・予想寄り付き) ---
+                g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
+                st.markdown(f"""
+                <div class="mobile-flex-container">
+                    <div class="flex-item metric-card">
+                        <div class="card-label">最新終値</div>
+                        <div class="card-value">{last_c:,.0f}円</div>
+                        <div class="card-label" style="font-size:0.7em;">理想押し目: {avg_push:+.2f}%</div>
+                    </div>
+                    <div class="flex-item metric-card">
+                        <div class="card-label">予想寄り付き</div>
+                        <div class="card-value">{pred_o:,.0f}円</div>
+                        <div class="delta-badge {g_cls}">{m_gap:+.2%}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
-                st.write("")
-                # --- B. 入力エリア ---
                 actual_open_val = st.number_input(f"始値を入力 ({t})", value=0, step=1, key=f"act_in_{t}")
                 btn_calc = st.button(f"🚀 戦略を確定する ({t})", use_container_width=True, type="primary")
 
                 if actual_open_val > 0 or btn_calc:
-                    # 計算ロジック
                     today_limit = actual_open_val * (1 + (avg_push / 100))
                     avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
                     target_price = today_limit * (1 + avg_profit)
                     adj_sl = params['sl_fix'] * v_factor
                     stop_price = today_limit * (1 + adj_sl)
                     
-                    # --- C. 下段：3列並列 (今日の指値・利確・損切) ---
-                    c_res1, c_res2, c_res3 = st.columns(3)
-                    with c_res1:
-                        # 今日の指値をグレーのカードスタイルで表示
-                        st.markdown(f'<div class="metric-card border-gray"><div class="card-label rakuten-gray">🎯 今日の指値</div><div class="card-value">{int(today_limit):,}円</div></div>', unsafe_allow_html=True)
-                    with c_res2:
-                        st.markdown(f'<div class="metric-card border-red"><div class="card-label">🏁 目標利確</div><div class="card-value">{int(target_price):,}円</div><div class="rakuten-plus">{avg_profit:+.2%}</div></div>', unsafe_allow_html=True)
-                    with c_res3:
-                        st.markdown(f'<div class="metric-card border-green"><div class="card-label">🛡️ 損切(適応)</div><div class="card-value">{int(stop_price):,}円</div><div class="rakuten-minus">{adj_sl:+.2%}</div></div>', unsafe_allow_html=True)
+                    # --- B. 下段：強制3列 (今日の指値・利確・損切) ---
+                    st.markdown(f"""
+                    <div class="mobile-flex-container">
+                        <div class="flex-item metric-card border-gray">
+                            <div class="card-label rakuten-gray">🎯 指値</div>
+                            <div class="card-value">{int(today_limit):,}</div>
+                        </div>
+                        <div class="flex-item metric-card border-red">
+                            <div class="card-label">🏁 利確</div>
+                            <div class="card-value">{int(target_price):,}</div>
+                            <div class="rakuten-plus" style="font-size:0.7em;">{avg_profit:+.2%}</div>
+                        </div>
+                        <div class="flex-item metric-card border-green">
+                            <div class="card-label">🛡️ 損切</div>
+                            <div class="card-value">{int(stop_price):,}</div>
+                            <div class="rakuten-minus" style="font-size:0.7em;">{adj_sl:+.2%}</div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                    # 判定バッジとトレイリング設定案
-                    st.write("")
+                    # 判定ロジック
                     today_gap = (actual_open_val - last_c) / last_c
-                    win_rate = len(win_tdf) / len(tdf) if len(tdf) > 0 else 0
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
-                    sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / len(similar_trades) if not similar_trades.empty else win_rate
+                    sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / len(similar_trades) if not similar_trades.empty else (len(win_tdf)/len(tdf) if len(tdf)>0 else 0)
                     
                     if m_curr_pct < -0.003 and sim_win_rate >= 0.55:
-                        st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%}) 地合い軟調。")
+                        st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%})")
                     elif sim_win_rate >= 0.55:
-                        st.success(f"🔥 **GO** (勝率 {sim_win_rate:.1%}) 統計・地合い良好。")
+                        st.success(f"🔥 **GO** (勝率 {sim_win_rate:.1%})")
                     else:
-                        st.error(f"❄️ **NO-GO** (勝率 {sim_win_rate:.1%}) 期待値低。")
+                        st.error(f"❄️ **NO-GO** (勝率 {sim_win_rate:.1%})")
 
                     st.info(f"🚀 **トレイリング案** | 開始: {params['ts_start']*v_factor:.2%} / 幅: {params['ts_width']*v_factor:.2%}")
                 else:
                     st.caption("始値を入力して「戦略を確定する」をタップしてください。")
-
+                    
 # --- タブ5: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
 with tab_rank:
     st.markdown("### 🏆 登録銘柄ランキング")
