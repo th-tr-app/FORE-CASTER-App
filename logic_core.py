@@ -135,9 +135,11 @@ def analyze_market_environment():
     
     return {
         "strategy": strategy_idx, "opening_forecast": forecast_txt, "forecast_title": forecast_title,
-        "balance": balance_txt, "phase_comment": phase_txt, "us_impact": us_impact, "alert_level": alert_lvl, "tips": " / ".join(tips) if tips else "個別材料株（全業種対象）"
+        "balance": balance_txt, "phase_comment": phase_txt, "us_impact": us_impact, "alert_level": alert_lvl, 
+        "tips": " / ".join(tips) if tips else "個別材料株（全業種対象）",
+        "gap_pct": gap_pct  # ← この一行を追加して数値を直接渡せるようにします
     }
-
+    
 # --- 3. スクリーニング・シミュレーション ---
 # logic_core.py の判定ロジック（修正版）
 
