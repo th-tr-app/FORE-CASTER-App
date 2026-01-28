@@ -138,7 +138,7 @@ if ticker_input_val != st.session_state['target_tickers']:
     st.rerun()
 
 # --- 5. メインタブ構成 ---
-tab_top, tab_screen, tab_bt, tab_strategy, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スキャン", "📈 バックテスト", "🎯 指値戦略", "🏆 ランキング"])
+tab_top, tab_screen, tab_bt, tab_strategy, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スキャン", "📈 バックテスト", "📌 指値戦略", "🏆 ランキング"])
 
 # --- タブ1: ワンタッチ (FC 3.3：統合修正版) ---
 with tab_top:
@@ -860,12 +860,12 @@ with tab_strategy:
                     <div class="mobile-flex-container">
                         <div class="flex-item metric-card">
                             <div class="card-label">最新終値</div>
-                            <div class="card-value">{last_c:,.0f}円</div>
+                            <div class="card-value">{last_c:,.0f}</div>
                             <div class="card-label" style="font-size:0.7em;">理想押し目: {avg_push:+.2f}%</div>
                         </div>
                         <div class="flex-item metric-card">
                             <div class="card-label">予想寄り付き</div>
-                            <div class="card-value">{pred_o:,.0f}円</div>
+                            <div class="card-value">{pred_o:,.0f}</div>
                             <div class="delta-badge {g_cls}">{m_gap:+.2%}</div>
                         </div>
                     </div>
@@ -888,18 +888,18 @@ with tab_strategy:
                     st.markdown(f"""
                     <div class="mobile-flex-container" style="margin-top: 15px;">
                         <div class="flex-item metric-card border-gray">
-                            <div class="card-label rakuten-gray">🎯 指値</div>
+                            <div class="card-label rakuten-gray">今日の指値</div>
                             <div class="card-value">{int(today_limit):,}</div>
                         </div>
                         <div class="flex-item metric-card border-red">
-                            <div class="card-label">🏁 利確</div>
+                            <div class="card-label">目標利確</div>
                             <div class="card-value">{int(target_price):,}</div>
-                            <div class="rakuten-plus" style="font-size:0.7em;">{avg_profit:+.2%}</div>
+                            <div class="rakuten-plus" style="font-size:1.0em;">{avg_profit:+.2%}</div>
                         </div>
                         <div class="flex-item metric-card border-green">
-                            <div class="card-label">🛡️ 損切</div>
+                            <div class="card-label">損切ライン</div>
                             <div class="card-value">{int(stop_price):,}</div>
-                            <div class="rakuten-minus" style="font-size:0.7em;">{adj_sl:+.2%}</div>
+                            <div class="rakuten-minus" style="font-size:1.0em;">{adj_sl:+.2%}</div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
