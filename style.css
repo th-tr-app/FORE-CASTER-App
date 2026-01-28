@@ -196,24 +196,33 @@ h5 {
     display: none !important;
 }
 
-/* 指値戦略の数値カラーとボックス */
-.rakuten-plus { color: #ff3b30 !important; } /* プラス＝赤 */
-.rakuten-minus { color: #34c759 !important; } /* マイナス＝緑 */
-
-.strategy-box { 
-    background: #1e1e1e; 
-    border-radius: 10px; 
-    padding: 15px; 
-    border-left: 5px solid #ff3b30; 
+/* 強制横並びコンテナ */
+.mobile-flex-container {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    justify-content: space-between;
+    gap: 8px;
     margin-bottom: 10px;
+    width: 100%;
 }
 
-/* style.css に追加 */
+/* フレックスアイテムの基本設定 */
+.flex-item {
+    flex: 1;
+    min-width: 0; /* 文字あふれ防止 */
+}
+
+/* 楽天証券・カラーバリエーション */
 .rakuten-plus { color: #ff3b30 !important; font-weight: bold; } /* 赤 */
 .rakuten-minus { color: #34c759 !important; font-weight: bold; } /* 緑 */
 .rakuten-gray { color: #888888 !important; font-weight: bold; } /* グレー */
 
-/* カードの左枠線も色を合わせるための汎用スタイル */
 .border-red { border-left: 5px solid #ff3b30 !important; }
 .border-green { border-left: 5px solid #34c759 !important; }
 .border-gray { border-left: 5px solid #888888 !important; }
+
+/* カード内のフォントサイズ微調整（3列対策） */
+.flex-item .card-value {
+    font-size: 1.1em !important;
+}
