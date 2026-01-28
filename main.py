@@ -805,19 +805,19 @@ with tab_bt:
 
                 st.divider()
 
-# --- タブ4: 指値戦略 (Ver 4.3 枠組み実装版) ---
+# --- タブ4: 指値戦略 (Ver 4.3.1：視認性向上版) ---
 with tab_strategy:
     st.markdown("### 🎯 指値戦略プランナー")
-    st.caption("寄り付き直後の始値を入力し、バックテスト統計に基づいた『勝てる指値』を算出します。")
+    st.caption("前日終値からの乖離を確認し、当日の始値に基づいた『勝てる指値』を算出します。")
 
     res_df = st.session_state.get('res_df', pd.DataFrame())
     ticker_names = st.session_state.get('t_names', {})
     t_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
 
     if not t_list:
-        st.warning("⚠️ 監視リストに銘柄がありません。「ワンタッチ」や「スキャン」で銘柄を追加してください。")
+        st.warning("⚠️ 監視リストに銘柄がありません。")
     elif res_df.empty:
-        st.info("💡 まずは「バックテスト」を実行してください。過去の統計データがないと戦略を算出できません。")
+        st.info("💡 まずは「バックテスト」を実行してください。過去の統計データが必要です。")
     else:
         # 地合い情報の取得
         diag = core.analyze_market_environment()
@@ -830,41 +830,46 @@ with tab_strategy:
             t_name = ticker_names.get(t, t)
             st.markdown(f"#### 📊 {t} : {t_name}")
             
-            # --- A. 統計データの抽出 ---
+            # 統計データの抽出
             tdf['Entry_Push'] = ((tdf['In'] - tdf['DayOpen']) / tdf['DayOpen']) * 100
             win_tdf = tdf[tdf['PnL'] > 0]
             
             if win_tdf.empty:
-                st.warning(f"[{t}] 勝ちトレードのデータが不足しているため、戦略を算出できません。")
+                st.warning(f"[{t}] 勝ちトレードのデータ不足により戦略を算出できません。")
                 continue
 
             avg_push = win_tdf['Entry_Push'].mean() # 理想の押し目率
-            last_c = tdf['PrevClose'].iloc[0] # 直近終値
-            pred_o = last_c * (1 + m_gap)     # 予想寄り付き
+            last_c = tdf['PrevClose'].iloc[0]       # 直近終値
+            pred_o = last_c * (1 + m_gap)           # 予想寄り付き
             
-            # --- B. UIパネルの配置 ---
-            c1, c2, c3 = st.columns([1, 1, 1.5])
+            # --- B. UIパネルの配置 (4カラム構成に変更) ---
+            c0, c1, c2, c3 = st.columns([1, 1, 1, 1.5])
             
-            with c1:
-                st.metric("予想寄り付き", f"{int(pred_o)}円", f"{m_gap:+.2%}")
+            with c0:
+                # 基準となる前日の終値
+                st.metric("前日終値", f"{int(last_c)}円")
                 st.caption(f"理想の押し目: {avg_push:+.2f}%")
             
+            with c1:
+                # 先物状況を加味した寄り付き予測
+                st.metric("予想寄り付き", f"{int(pred_o)}円", f"{m_gap:+.2%}")
+            
             with c2:
-                # ユーザーが寄り付き直後に始値を入力する欄
+                # ユーザーが9:00直後に始値を入力する
                 actual_open = st.number_input(f"実際の始値 ({t})", value=0, step=1, key=f"act_open_{t}")
             
             with c3:
                 if actual_open > 0:
-                    # 実際の始値に基づいた「今日の指値」を自動計算
+                    # 今日の指値を算出
                     today_limit = actual_open * (1 + (avg_push / 100))
                     st.metric("🎯 今日の指値", f"{int(today_limit)}円")
                     
-                    # ギャップ状況の判定
+                    # 実際の寄り付きギャップを判定
                     today_gap = (actual_open - last_c) / last_c
-                    gap_type = "GU" if today_gap > 0.003 else "GD" if today_gap < -0.003 else "平穏"
-                    st.info(f"**戦略:** {gap_type}寄り付き。理想の指値で待機してください。")
+                    gap_type = "ギャップアップ" if today_gap > 0.003 else "ギャップダウン" if today_gap < -0.003 else "平穏"
+                    st.info(f"**戦略:** {gap_type}寄り付き。指値 {int(today_limit)}円で待機。")
                 else:
-                    st.info("👆 9:00に始値を入力すると、今日の最適指値が表示されます。")
+                    st.info("👆 始値を入力してください。")
             
             st.divider()
             
