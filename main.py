@@ -819,16 +819,19 @@ with tab_strategy:
     elif res_df.empty:
         st.info("💡 まずは「バックテスト」を実行してください。過去の統計データが必要です。")
     else:
-        # 地合い情報の取得
+        # 1. 地合い情報の取得
         diag = core.analyze_market_environment()
         m_gap = diag.get('gap_pct', 0.0)
+        m_curr_pct = diag.get('market_pct', 0.0) # 現在の日経平均騰落率
+
+        # 市場全体の状況をヘッダーに表示
+        m_color = "red" if m_curr_pct < -0.003 else "green" if m_curr_pct > 0.003 else "gray"
+        st.markdown(f"**現在の市場地合い (日経平均):** :{m_color}[{m_curr_pct:+.2%}]")
+        if m_curr_pct < -0.005:
+            st.error("⚠️ 市場全体が軟調です。個別株が良くても引き付けて待つか、見送りを推奨します。")
+        st.divider()
 
         for t in t_list:
-            tdf = res_df[res_df['Ticker'] == t].copy()
-            if tdf.empty: continue
-            
-            t_name = ticker_names.get(t, t)
-            st.markdown(f"#### 📊 {t} : {t_name}")
             
             # --- 【修正点】最新の終値を yfinance から直接取得 ---
             with st.spinner(f"{t} の最新データを照合中..."):
@@ -847,6 +850,31 @@ with tab_strategy:
             
             pred_o = last_c * (1 + m_gap)
             
+            # --- 判定ロジックの強化 ---
+            with c3:
+                if actual_open > 0:
+                    today_limit = actual_open * (1 + (avg_push / 100))
+                    today_gap = (actual_open - last_c) / last_c
+                
+                    # 過去の類似ギャップ勝率
+                    similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
+                    sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / len(similar_trades) if not similar_trades.empty else win_rate
+                
+                    # 地合いフィルターの適用
+                    if m_curr_pct < -0.003 and sim_win_rate >= 0.55:
+                        # 勝率は高いが地合いが悪い場合
+                        st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%})\n期待値はありますが、地合いが悪化しています。指値を深めにするか慎重に。")
+                    elif sim_win_rate >= 0.55:
+                        # 地合いも悪くなく、勝率も高い場合
+                        st.success(f"🔥 **GO** (勝率 {sim_win_rate:.1%})\n地合い・統計ともに良好。指値 {int(today_limit)}円で待機。")
+                    else:
+                        # そもそも勝率が低い場合
+                        st.error(f"❄️ **NO-GO** (勝率 {sim_win_rate:.1%})\nこのギャップ条件は統計的に不利な局面です。")
+                
+                    # RR比（リスクリワード）の表示
+                    rr_ratio = abs(win_tdf['PnL'].mean() / params['sl_fix']) if params['sl_fix'] != 0 else 0
+                    st.caption(f"RR比: 1 : {rr_ratio:.2f} (利 {win_tdf['PnL'].mean():.2%} / 損 {params['sl_fix']:.1%})")
+                
             # --- UIパネルの配置 ---
             c0, c1, c2, c3 = st.columns([1, 1, 1, 1.5])
             with c0:
