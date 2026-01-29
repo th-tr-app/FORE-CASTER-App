@@ -279,7 +279,7 @@ div[data-testid="stExpander2"] p {
 
 /* 理想押し目(最新終値の横)の数値調整 */
 .strat-highlight-val {
-    font-size: 0.9em;
+    font-size: 1.2em;
     font-weight: 600;
 }
 
