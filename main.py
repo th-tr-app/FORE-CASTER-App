@@ -904,20 +904,23 @@ with tab_strategy:
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # 判定とトレイリング
+                    # --- 判定ロジック：試行回数 (n=) の算出 ---
                     today_gap = (actual_open_val - last_c) / last_c
-                    win_rate = len(win_tdf) / len(tdf) if len(tdf) > 0 else 0
+                    # 類似ギャップ条件に合致する過去データを抽出
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
-                    sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / len(similar_trades) if not similar_trades.empty else win_rate
+                    n_count = len(similar_trades) # 試行回数
+                    sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
                     
+                    # 判定表示 (n数を含める)
                     if m_curr_pct < -0.003 and sim_win_rate >= 0.55:
-                        st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%})")
+                        st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%} / n={n_count}) 地合いに注意。")
                     elif sim_win_rate >= 0.55:
-                        st.success(f"🔥 **エントリー可能** (勝率 {sim_win_rate:.1%})")
+                        st.success(f"🔥 **エントリー可能** (勝率 {sim_win_rate:.1%} / n={n_count}) 統計的優位性あり。")
                     else:
-                        st.error(f"❄️ **エントリーなし** (勝率 {sim_win_rate:.1%})")
+                        st.error(f"❄️ **エントリーなし** (勝率 {sim_win_rate:.1%} / n={n_count}) 期待値が不十分。")
 
                     st.info(f"🚀 **トレイリング最適化** | 開始: {params['ts_start']*v_factor:.2%} / 幅: {params['ts_width']*v_factor:.2%}")
+                    st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
                 else:
                     st.caption("始値を入力して「戦略を確定する」をタップ")
             st.divider()
