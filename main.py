@@ -927,6 +927,11 @@ with tab_strategy:
                     """, unsafe_allow_html=True)
 
                     # --- 最終判定と試行回数 (n=) ---
+
+
+
+
+                    # --- 6. 最終判定のバッジ (Ver 4.5.4) ---)
                     today_gap = (actual_open_val - last_c) / last_c
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
                     n_count = len(similar_trades)
@@ -938,9 +943,11 @@ with tab_strategy:
                         msg = "統計は良いが勢いが弱まっています。" if tech_warning else "統計・勢い共に良好。"
                         st.success(f"🔥 **エントリー可能** (勝率 {sim_win_rate:.1%} / {n_count}回)  \n{msg}")
                     else:
-                        # ❄️ エントリーなし の後に半角スペース2つを追加
+                        # 改行位置の調整
                         st.error(f"❄️ エントリーなし (勝率 {sim_win_rate:.1%} / {n_count}回)  \n期待値が不十分です。")
 
+                    # --- 7. トレイリング案 (ご要望の改行配置に修正) ---
+                    # 「最適化」の後に半角スペースを2つ入れてから \n を入れるのがコツです
                     st.info(f"🚀 トレイリング最適化  \n開始{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}")
                     st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
                 else:
