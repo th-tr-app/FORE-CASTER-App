@@ -258,7 +258,7 @@ div[data-testid="stExpander"] {
     font-size: 13px !important;
     font-weight: 500 !important; 
     color: #aaaaaa;
-    margin-bottom: 25px !important;
+    margin-bottom: -5px !important;
 }
 
 /* カード内の数値（3,355円 などの数字） */
