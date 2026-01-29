@@ -805,7 +805,7 @@ with tab_bt:
 
                 st.divider()
 
-# --- タブ4: 指値戦略 (Ver 4.4.2 PC/モバイル最適化レイアウト) ---
+# --- タブ4: 指値戦略 (Ver 4.4.4 テクニカル診断搭載版) ---
 with tab_strategy:
     st.markdown("### ✨ 指値戦略プランナー")
     
@@ -818,12 +818,10 @@ with tab_strategy:
     elif res_df.empty:
         st.info("💡 まずは「バックテスト」を実行してください。")
     else:
-        # 地合い情報の取得
         diag = core.analyze_market_environment()
         m_curr_pct = diag.get('market_pct', 0.0)
         m_gap = diag.get('gap_pct', 0.0)
 
-        # 市場地合いヘッダー (楽天カラー：プラス＝赤)
         m_cls = "rakuten-plus" if m_curr_pct >= 0 else "rakuten-minus"
         st.markdown(f"**市場地合い:** <span class='{m_cls}' style='font-size:1.2em;'>{m_curr_pct:+.2%}</span>", unsafe_allow_html=True)
         st.divider()
@@ -850,11 +848,8 @@ with tab_strategy:
                 avg_push = win_tdf['Entry_Push'].mean() if not win_tdf.empty else 0
                 pred_o = last_c * (1 + m_gap)
 
-                # --- 【PC/スマホ両対応】上段レイアウト ---
-                c_top_l, c_top_r = st.columns([2, 1.2]) # PCでは指標2：入力1の比率で並ぶ
-                
+                c_top_l, c_top_r = st.columns([2, 1.2])
                 with c_top_l:
-                    # 指標ボックス（スマホでも強制2列を維持）
                     g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
                     st.markdown(f"""
                     <div class="mobile-flex-container">
@@ -872,19 +867,37 @@ with tab_strategy:
                     """, unsafe_allow_html=True)
 
                 with c_top_r:
-                    # 始値入力とボタン（PCでは指標の右に、スマホでは下に落ちる）
                     actual_open_val = st.number_input(f"始値を入力 ({t})", value=0, step=1, key=f"act_in_{t}", label_visibility="collapsed")
                     btn_calc = st.button(f"戦略を確定する ({t})", use_container_width=True, type="primary")
 
                 if actual_open_val > 0 or btn_calc:
-                    # 戦略計算
+                    # テクニカル補助データの取得
+                    with st.spinner("テクニカル診断中..."):
+                        # 1分足を取得して最新の勢いを確認
+                        df_m = ticker_live.history(interval="1m", period="1d")
+                        rsi_slope = 0; ema_gap = 0; tech_warning = False
+                        
+                        if len(df_m) >= 15:
+                            # RSIの向き (直近2本の比較)
+                            rsi_series = core.calculate_rsi(df_m['Close'])
+                            rsi_curr = rsi_series.iloc[-1]
+                            rsi_prev = rsi_series.iloc[-2]
+                            rsi_slope = rsi_curr - rsi_prev
+                            
+                            # EMA5からの乖離率
+                            ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
+                            ema_gap = ((actual_open_val - ema5) / ema5) * 100
+                            
+                            # 警告フラグ
+                            if rsi_slope < 0 or abs(ema_gap) > 1.5: tech_warning = True
+
+                    # 戦略価格表示
                     today_limit = actual_open_val * (1 + (avg_push / 100))
                     avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
                     target_price = today_limit * (1 + avg_profit)
                     adj_sl = params['sl_fix'] * v_factor
                     stop_price = today_limit * (1 + adj_sl)
                     
-                    # --- 【PC/スマホ両対応】下段レイアウト：強制3列ボックス ---
                     st.markdown(f"""
                     <div class="mobile-flex-container" style="margin-top: 15px;">
                         <div class="flex-item metric-card border-gray">
@@ -904,18 +917,30 @@ with tab_strategy:
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # --- 判定ロジック：試行回数 (n=) の算出 ---
+                    # --- テクニカル診断表示 ---
+                    st.write("")
+                    diag_c1, diag_c2 = st.columns(2)
+                    with diag_c1:
+                        r_cls = "rakuten-plus" if rsi_slope > 0 else "rakuten-minus"
+                        r_icon = "📈" if rsi_slope > 0 else "📉"
+                        st.markdown(f"**RSI向き:** <span class='{r_cls}'>{r_icon} {'上昇中' if rsi_slope > 0 else '低下中'}</span>", unsafe_allow_html=True)
+                    with diag_c2:
+                        e_cls = "rakuten-minus" if abs(ema_gap) < 1.5 else "rakuten-plus"
+                        st.markdown(f"**EMA5乖離:** <span class='{e_cls}'>{ema_gap:+.2f}%</span>", unsafe_allow_html=True)
+
+                    # 最終判定
                     today_gap = (actual_open_val - last_c) / last_c
-                    # 類似ギャップ条件に合致する過去データを抽出
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
-                    n_count = len(similar_trades) # 試行回数
+                    n_count = len(similar_trades)
                     sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
                     
-                    # 判定表示 (n数を含める)
                     if m_curr_pct < -0.003 and sim_win_rate >= 0.55:
-                        st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%} / {n_count}回) 地合いに注意。")
+                        st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%} / {n_count}回) 地合い注意。")
                     elif sim_win_rate >= 0.55:
-                        st.success(f"🔥 **エントリー可能** (勝率 {sim_win_rate:.1%} / {n_count}回) 統計的優位性あり。")
+                        if tech_warning:
+                            st.warning(f"⚠️ **要注意エントリー** (勝率 {sim_win_rate:.1%} / {n_count}回) 統計は良いが勢いが弱まっています。")
+                        else:
+                            st.success(f"🔥 **エントリー可能** (勝率 {sim_win_rate:.1%} / {n_count}回) 統計・勢い共に良好。")
                     else:
                         st.error(f"❄️ **エントリーなし** (勝率 {sim_win_rate:.1%} / {n_count}回) 期待値が不十分。")
 
