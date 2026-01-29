@@ -913,11 +913,11 @@ with tab_strategy:
                     
                     # 判定表示 (n数を含める)
                     if m_curr_pct < -0.003 and sim_win_rate >= 0.55:
-                        st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%} / n={n_count}) 地合いに注意。")
+                        st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%} / {n_count}回) 地合いに注意。")
                     elif sim_win_rate >= 0.55:
-                        st.success(f"🔥 **エントリー可能** (勝率 {sim_win_rate:.1%} / n={n_count}) 統計的優位性あり。")
+                        st.success(f"🔥 **エントリー可能** (勝率 {sim_win_rate:.1%} / {n_count}回) 統計的優位性あり。")
                     else:
-                        st.error(f"❄️ **エントリーなし** (勝率 {sim_win_rate:.1%} / n={n_count}) 期待値が不十分。")
+                        st.error(f"❄️ **エントリーなし** (勝率 {sim_win_rate:.1%} / {n_count}回) 期待値が不十分。")
 
                     st.info(f"🚀 **トレイリング最適化** | 開始: {params['ts_start']*v_factor:.2%} / 幅: {params['ts_width']*v_factor:.2%}")
                     st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
