@@ -862,7 +862,7 @@ with tab_strategy:
                         <div class="flex-item strat-card">
                             <div class="card-label">最新終値</div>
                             <div class="strat-value">{last_c:,.0f}</div>
-                            <div class="strat-delta" style="color:#aaaaaa;">理想押し目: {avg_push:+.2f}%</div>
+                            <div class="strat-guide">理想押し目: {avg_push:+.2f}%</div>
                         </div>
                         <div class="flex-item strat-card">
                             <div class="card-label">予想寄り付き</div>
@@ -895,14 +895,14 @@ with tab_strategy:
                     target_price = today_limit * (1 + avg_profit)
                     adj_sl = params['sl_fix'] * v_factor
                     stop_price = today_limit * (1 + adj_sl)
-                    
+
                     # --- 下段レイアウト (共通カード strat-card を使用) ---
                     st.markdown(f"""
                     <div class="mobile-flex-container" style="margin-top: 15px;">
                         <div class="flex-item strat-card">
                             <div class="card-label">今日の指値</div>
                             <div class="strat-value">{int(today_limit):,}</div>
-                            <div class="strat-delta" style="color:#888888;">で指値注文</div>
+                            <div class="strat-guide">で指値注文</div>
                         </div>
                         <div class="flex-item strat-card">
                             <div class="card-label">目標利確</div>
