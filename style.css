@@ -226,3 +226,35 @@ h5 {
 .flex-item .card-value {
     font-size: 1.5em !important;
 }
+
+/* 1. 市場地合いと線の間隔 */
+.stDivider { margin-top: -10px !important; margin-bottom: 10px !important; }
+
+/* 2. アコーディオン（Expander）ヘッダー強調 */
+.stExpander { border: 1px solid #3d414b !important; margin: 15px 0 !important; }
+.stExpander p { font-weight: 700 !important; font-size: 1.1em !important; }
+
+/* 3. ボックス高さと配置の最適化 */
+.metric-card {
+    height: 100px !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 10px 5px !important;
+}
+
+/* 4. フォントウェイトの調整（下段数値はNormalに） */
+.metric-card .card-value { font-weight: 400 !important; font-size: 1.4em !important; }
+
+/* 5. 理想押し目・指値補足の装飾 */
+.highlight-val { font-size: 1.1em; font-weight: 600; }
+.order-label { font-size: 0.65em; color: #888888; display: block; margin-top: -2px; }
+
+/* 6. テクニカル診断の強制横並び */
+.tech-diag-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    margin: 10px 0;
+}
