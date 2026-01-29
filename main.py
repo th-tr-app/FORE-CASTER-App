@@ -862,7 +862,7 @@ with tab_strategy:
                         <div class="flex-item strat-card">
                             <div class="card-label">最新終値</div>
                             <div class="strat-value">{last_c:,.0f}</div>
-                            <div class="strat-guide">理想押し目　<span class="strat-percent">{avg_push:+.2f}%</span></div>
+                            <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div>
                         </div>
                         <div class="flex-item strat-card">
                             <div class="card-label">予想寄り付き</div>
