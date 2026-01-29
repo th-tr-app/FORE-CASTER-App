@@ -262,7 +262,7 @@ div[data-testid="stExpander"] {
 
 /* カード内の数値（3,355円 などの数字） */
 .strat-card .strat-value {
-    font-size: 1.4em !important;
+    font-size: 23px !important;
     font-weight: 600 !important; 
     color: #ffffff;
 }
