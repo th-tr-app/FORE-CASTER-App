@@ -871,26 +871,30 @@ with tab_strategy:
                     btn_calc = st.button(f"戦略を確定する ({t})", use_container_width=True, type="primary")
 
                 if actual_open_val > 0 or btn_calc:
-                    # テクニカル補助データの取得
+                    
+                    # main.py のテクニカル診断セクション (修正版)
                     with st.spinner("テクニカル診断中..."):
-                        # 1分足を取得して最新の勢いを確認
+                        # 1分足を取得
                         df_m = ticker_live.history(interval="1m", period="1d")
                         rsi_slope = 0; ema_gap = 0; tech_warning = False
                         
+                        # データが計算に必要な期間(15本以上)あるかチェック
                         if len(df_m) >= 15:
-                            # RSIの向き (直近2本の比較)
+                            # RSIの計算
                             rsi_series = core.calculate_rsi(df_m['Close'])
-                            rsi_curr = rsi_series.iloc[-1]
-                            rsi_prev = rsi_series.iloc[-2]
-                            rsi_slope = rsi_curr - rsi_prev
                             
-                            # EMA5からの乖離率
+                            # 直近の値が有効(NaNでない)か確認
+                            if not rsi_series.empty and not pd.isna(rsi_series.iloc[-1]):
+                                rsi_curr = rsi_series.iloc[-1]
+                                rsi_prev = rsi_series.iloc[-2]
+                                rsi_slope = rsi_curr - rsi_prev
+                            
+                            # EMA5
                             ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
                             ema_gap = ((actual_open_val - ema5) / ema5) * 100
                             
-                            # 警告フラグ
                             if rsi_slope < 0 or abs(ema_gap) > 1.5: tech_warning = True
-
+                                    
                     # 戦略価格表示
                     today_limit = actual_open_val * (1 + (avg_push / 100))
                     avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
