@@ -809,7 +809,7 @@ with tab_bt:
 with tab_strategy:
     st.markdown("### ✨ 指値戦略プランナー")
     # --- 追加されたコメント ---
-    st.caption("( 統計的勝率・市場地合い・リアルタイムの勢いを統合した最終執行判断用パネルです。始値確定後、15分以内の利用を推奨します。 )")
+    st.caption("統計的勝率・市場地合い・リアルタイムの勢いを統合した最終判断用パネルです。前場・後場の寄付き前と、始値確定後15分以内の利用を推奨します。")
     
     res_df = st.session_state.get('res_df', pd.DataFrame())
     ticker_names = st.session_state.get('t_names', {})
