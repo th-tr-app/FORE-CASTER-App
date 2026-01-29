@@ -227,6 +227,19 @@ h5 {
     font-size: 1.5em !important;
 }
 
+/* 市場地合いと線の間隔を詰める */
+.strat-market-header {
+    margin-bottom: -15px !important;
+}
+
+/* アコーディオン(Expander)の個別調整 */
+div[data-testid="stExpander"] {
+    border: 1px solid #3d414b;
+    border-radius: 6px !important;
+    margin-top: 0px !important;
+    margin-bottom: -15px !important;
+}
+
 /* 指値戦略：5項目共通のカードスタイル */
 .strat-card {
     border: 1px solid #3d414b; /* 枠線 */
@@ -242,22 +255,23 @@ h5 {
 
 /* カード内のラベル（最新終値 などの文字） */
 .strat-card .card-label {
-    font-size: 12px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important; 
     color: #aaaaaa;
+    margin-top: -2px;
     margin-bottom: 2px;
 }
 
 /* カード内の数値（3,355円 などの数字） */
 .strat-card .strat-value {
     font-size: 1.4em !important;
-    font-weight: 400 !important; /* 太字にしない */
+    font-weight: 600 !important; 
     color: #ffffff;
-    margin: 2px 0;
 }
 
 /* ★ 数値の下の「赤・緑・グレーの小文字」を統一するスタイル */
 .strat-card .strat-delta {
-    font-size: 0.8em !important;
+    font-size: 1.0em !important;
     font-weight: 600 !important; /* パーセントは見やすく少しだけ太めに */
     margin-top: -2px;           /* 上の数値との隙間を少し詰める */
 }
