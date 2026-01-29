@@ -295,13 +295,14 @@ div[data-testid="stExpander"] {
     color: #aaaaaa !important;   
 }
 /* 判定バッジとトレイリング枠内の文字設定（強化版） */
-div[data-testid="stNotification"] div[data-testid="stMarkdownContainer"] p {
-    font-size: 10px !important;    /* ★文字を大きくしたい場合はここを調整 */
-    color: #ffffff !important;     /* 文字色を白に強制 */
-    line-height: 1.6 !important;    /* 行間を広げて2行目を読みやすく */
-    font-weight: 500 !important;
+div[data-testid="stNotification"] .stMarkdown p {
+    font-size: 18px !important;    /* ★ここを 20px などに変えるとさらに大きくなります */
+    line-height: 1.6 !important;   /* 行間を広げて読みやすく */
+    font-weight: 500 !important;   /* 文字の太さ */
+    color: #ffffff !important;     /* 文字色を白に固定 */
 }
-/* アイコン自体のサイズも少し調整（必要であれば） */
+
+/* アイコン（🔥や🚀）の大きさも合わせる場合 */
 div[data-testid="stNotification"] span[data-testid="stIconMaterial"] {
-    font-size: 1.0em !important;
+    font-size: 1.3em !important;
 }
