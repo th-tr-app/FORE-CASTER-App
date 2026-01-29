@@ -805,7 +805,7 @@ with tab_bt:
 
                 st.divider()
 
-# --- タブ4: 指値戦略 (Ver 4.5.2 スタイル分離版) ---
+# --- タブ4: 指値戦略 (Ver 4.5.3 デザイン統一版) ---
 with tab_strategy:
     st.markdown("### ✨ 指値戦略プランナー")
     st.caption("統計的勝率・市場地合い・リアルタイムの勢いを統合した最終判断用パネルです。前場・後場の寄付き前と、始値確定後15分以内の利用を推奨します。")
@@ -819,7 +819,7 @@ with tab_strategy:
     elif res_df.empty:
         st.info("💡 まずは「バックテスト」を実行してください。過去の統計データが必要です。")
     else:
-        # 1. 地合い情報の取得 (日経平均／前日比へ名称変更)
+        # 1. 地合い情報の取得 (日経平均／前日比)
         diag = core.analyze_market_environment()
         m_curr_pct = diag.get('market_pct', 0.0)
         m_gap = diag.get('gap_pct', 0.0)
@@ -853,7 +853,7 @@ with tab_strategy:
                 avg_push = win_tdf['Entry_Push'].mean() if not win_tdf.empty else 0
                 pred_o = last_c * (1 + m_gap)
 
-                # --- 上段レイアウト (PC:横並び / スマホ:2列+入力) ---
+                # --- 上段レイアウト (共通カード strat-card を使用) ---
                 c_top_l, c_top_r = st.columns([2, 1.2])
                 with c_top_l:
                     g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
@@ -862,18 +862,17 @@ with tab_strategy:
                         <div class="flex-item strat-card">
                             <div class="card-label">最新終値</div>
                             <div class="strat-value">{last_c:,.0f}</div>
-                            <div class="card-label">理想押し目: <span class="strat-highlight-val">{avg_push:+.2f}%</span></div>
+                            <div class="strat-delta" style="color:#aaaaaa;">理想押し目: {avg_push:+.2f}%</div>
                         </div>
                         <div class="flex-item strat-card">
                             <div class="card-label">予想寄り付き</div>
                             <div class="strat-value">{pred_o:,.0f}</div>
-                            <div class="delta-badge {g_cls}" style="font-size:0.8em; margin-top:0;">{m_gap:+.2%}</div>
+                            <div class="strat-delta {g_cls}">{m_gap:+.2%}</div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
 
                 with c_top_r:
-                    # プレースホルダー「始値を入力」を設定
                     actual_open_val = st.number_input(f"始値を入力 ({t})", value=0, step=1, key=f"act_in_{t}", label_visibility="collapsed", placeholder="始値を入力")
                     btn_calc = st.button(f"戦略を確定する ({t})", use_container_width=True, type="primary")
 
@@ -884,38 +883,41 @@ with tab_strategy:
                         rsi_slope = 0; ema_gap = 0; tech_warning = False
                         if len(df_m) >= 15:
                             rsi_series = core.calculate_rsi(df_m['Close'])
-                            if not rsi_series.empty: rsi_slope = rsi_series.iloc[-1] - rsi_series.iloc[-2]
+                            if not rsi_series.empty and not pd.isna(rsi_series.iloc[-1]):
+                                rsi_slope = rsi_series.iloc[-1] - rsi_series.iloc[-2]
                             ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
                             ema_gap = ((actual_open_val - ema5) / ema5) * 100
                             if rsi_slope < 0 or abs(ema_gap) > 1.5: tech_warning = True
 
+                    # 4. 戦略価格の算出
                     today_limit = actual_open_val * (1 + (avg_push / 100))
                     avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
                     target_price = today_limit * (1 + avg_profit)
                     adj_sl = params['sl_fix'] * v_factor
                     stop_price = today_limit * (1 + adj_sl)
                     
-                    # --- 下段レイアウト：強制3列ボックス (すべて strat-card を適用) ---
+                    # --- 下段レイアウト (共通カード strat-card を使用) ---
                     st.markdown(f"""
                     <div class="mobile-flex-container" style="margin-top: 15px;">
-                        <div class="flex-item strat-card border-gray">
-                            <div class="card-label rakuten-gray">今日の指値</div>
-                            <div class="strat-value">{int(today_limit):,}<span class="strat-order-label">で指値注文</span></div>
+                        <div class="flex-item strat-card">
+                            <div class="card-label">今日の指値</div>
+                            <div class="strat-value">{int(today_limit):,}</div>
+                            <div class="strat-delta" style="color:#888888;">で指値注文</div>
                         </div>
-                        <div class="flex-item strat-card border-red">
+                        <div class="flex-item strat-card">
                             <div class="card-label">目標利確</div>
                             <div class="strat-value">{int(target_price):,}</div>
-                            <div class="rakuten-plus" style="font-size:0.75em;">{avg_profit:+.2%}</div>
+                            <div class="strat-delta rakuten-plus">{avg_profit:+.2%}</div>
                         </div>
-                        <div class="flex-item strat-card border-green">
+                        <div class="flex-item strat-card">
                             <div class="card-label">損切ライン</div>
                             <div class="strat-value">{int(stop_price):,}</div>
-                            <div class="rakuten-minus" style="font-size:0.75em;">{adj_sl:+.2%}</div>
+                            <div class="strat-delta rakuten-minus">{adj_sl:+.2%}</div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # --- テクニカル診断 (RSI/EMA 強制横並び) ---
+                    # --- テクニカル診断 ---
                     r_cls = "rakuten-plus" if rsi_slope > 0 else "rakuten-minus"; r_icon = "📈" if rsi_slope > 0 else "📉"
                     st.markdown(f"""
                     <div class="strat-tech-flex">
@@ -924,7 +926,7 @@ with tab_strategy:
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # 判定 (改行を挿入)
+                    # 5. 最終判定と試行回数 (n=)
                     today_gap = (actual_open_val - last_c) / last_c
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
                     n_count = len(similar_trades)
@@ -938,7 +940,7 @@ with tab_strategy:
                     else:
                         st.error(f"❄️ **エントリーなし**\n(勝率 {sim_win_rate:.1%} / {n_count}回) 期待値が不十分です。")
 
-                    # 🚀 トレイリング案 (改行・損切り追加・白文字)
+                    # 🚀 トレイリング案 (改行・損切り追加)
                     st.info(f"🚀 **トレイリング最適化**\n開始：{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}")
                     st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
                 else:
