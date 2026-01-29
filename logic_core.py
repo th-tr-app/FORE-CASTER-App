@@ -265,3 +265,21 @@ def get_one_touch_score(trades):
     wins = pnls[pnls > 0]; losses = pnls[pnls <= 0]
     win_rate = len(wins) / len(pnls); pf = wins.sum() / abs(losses.sum()) if len(losses) > 0 and losses.sum() != 0 else 9.99
     return {"win_rate": win_rate, "pf": pf, "ev": pnls.mean(), "score": pnls.mean() * win_rate * pf, "count": len(pnls), "avg_win": wins.mean() if len(wins)>0 else 0, "avg_loss": losses.mean() if len(losses)>0 else 0}
+
+# RSIとEMA判定
+def calculate_rsi(series, period=14):
+    """
+    RSI (相対力指数) を計算する
+    """
+    delta = series.diff()
+    # 上昇幅と下落幅を分離
+    gain = (delta.where(delta > 0, 0))
+    loss = (-delta.where(delta < 0, 0))
+
+    # 指数移動平均(EMA)を用いて平滑化
+    avg_gain = gain.ewm(com=period - 1, min_periods=period).mean()
+    avg_loss = loss.ewm(com=period - 1, min_periods=period).mean()
+
+    rs = avg_gain / avg_loss
+    return 100 - (100 / (1 + rs))
+
