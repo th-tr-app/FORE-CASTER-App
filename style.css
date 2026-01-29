@@ -261,3 +261,11 @@ h5 {
     font-weight: 600 !important; /* パーセントは見やすく少しだけ太めに */
     margin-top: -2px;           /* 上の数値との隙間を少し詰める */
 }
+
+/* テクニカル診断(RSI/EMA)の強制横並び */
+.strat-tech-flex {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 8px 0;
+}
