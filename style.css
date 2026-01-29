@@ -238,8 +238,6 @@ h5 {
 div[data-testid="stExpander"] {
     border: 1px solid #3d414b;
     border-radius: 6px !important;
-    padding: 8px 5px !important;
-    text-align: center !important;
     margin-top: 10px !important;
     margin-bottom: 10px !important;
 }
@@ -280,7 +278,7 @@ div[data-testid="stExpander"] p {
 
 /* 理想押し目(最新終値の横)の数値調整 */
 .strat-highlight-val {
-    font-size: 0.7em;
+    font-size: 0.9em;
     font-weight: 600;
 }
 
