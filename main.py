@@ -926,7 +926,7 @@ with tab_strategy:
                         r_icon = "📈" if rsi_slope > 0 else "📉"
                         st.markdown(f"**RSI向き:** <span class='{r_cls}'>{r_icon} {'上昇中' if rsi_slope > 0 else '低下中'}</span>", unsafe_allow_html=True)
                     with diag_c2:
-                        e_cls = "rakuten-plus" if abs(ema_gap) < 1.5 else "rakuten-minus"
+                        e_cls = "rakuten-minus" if abs(ema_gap) < 1.5 else "rakuten-plus"
                         st.markdown(f"**EMA5乖離:** <span class='{e_cls}'>{ema_gap:+.2f}%</span>", unsafe_allow_html=True)
 
                     # 6. 最終判定と試行回数 (n=)
