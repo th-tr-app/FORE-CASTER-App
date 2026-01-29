@@ -294,3 +294,9 @@ div[data-testid="stExpander"] {
     font-weight: 600 !important; /* 数値を目立たせるために太字に設定 */
     color: #aaaaaa !important;   
 }
+/* 判定バッジとトレイリング枠の中のフォントサイズ調整 */
+[data-testid="stNotification"] p {
+    font-size: 14px !important;    /* ★ここの数値を大きくすると文字が大きくなります */
+    line-height: 1.5 !important;    /* 行間を少し広げると2行目が読みやすくなります */
+    font-weight: 500 !important;   /* 文字の太さを微調整したい場合はここを変更 */
+}
