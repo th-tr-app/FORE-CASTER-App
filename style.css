@@ -294,4 +294,15 @@ div[data-testid="stExpander"] {
     font-weight: 600 !important; /* 数値を目立たせるために太字に設定 */
     color: #aaaaaa !important;   
 }
+/* --- 判定バッジとトレイリング枠の文字サイズを強制変更 --- */
+div[data-testid="stNotification"] .stMarkdown p {
+    font-size: 30px !important;    /* ★ここを 20px などに変えるとさらに大きくなります */
+    line-height: 1.6 !important;   /* 行間を広げて読みやすく */
+    font-weight: 500 !important;   /* 文字の太さ */
+    color: #ffffff !important;     /* 文字色を白に固定 */
+}
 
+/* アイコン（🔥や🚀）の大きさも合わせる場合 */
+div[data-testid="stNotification"] span[data-testid="stIconMaterial"] {
+    font-size: 1.3em !important;
+}
