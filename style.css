@@ -294,9 +294,14 @@ div[data-testid="stExpander"] {
     font-weight: 600 !important; /* 数値を目立たせるために太字に設定 */
     color: #aaaaaa !important;   
 }
-/* 判定バッジとトレイリング枠の中のフォントサイズ調整 */
-[data-testid="stNotification"] p {
-    font-size: 10px !important;    /* ★ここの数値を大きくすると文字が大きくなります */
-    line-height: 1 !important;    /* 行間を少し広げると2行目が読みやすくなります */
-    font-weight: 500 !important;   /* 文字の太さを微調整したい場合はここを変更 */
+/* 判定バッジとトレイリング枠内の文字設定（強化版） */
+div[data-testid="stNotification"] div[data-testid="stMarkdownContainer"] p {
+    font-size: 16px !important;    /* ★文字を大きくしたい場合はここを調整 */
+    color: #ffffff !important;     /* 文字色を白に強制 */
+    line-height: 1.6 !important;    /* 行間を広げて2行目を読みやすく */
+    font-weight: 500 !important;
+}
+/* アイコン自体のサイズも少し調整（必要であれば） */
+div[data-testid="stNotification"] span[data-testid="stIconMaterial"] {
+    font-size: 1.2em !important;
 }
