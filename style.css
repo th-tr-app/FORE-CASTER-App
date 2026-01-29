@@ -226,3 +226,70 @@ h5 {
 .flex-item .card-value {
     font-size: 1.5em !important;
 }
+
+/* --- 指値戦略タブ専用スタイル (他のタブには影響しません) --- */
+
+/* 市場地合いと線の間隔を詰める */
+.strat-market-header {
+    margin-bottom: -15px !important;
+}
+
+/* アコーディオン(Expander)の個別調整 */
+div[data-testid="stExpander"] {
+    border: 1px solid #3d414b !important;
+    margin-top: 15px !important;
+    margin-bottom: 15px !important;
+}
+
+/* アコーディオンのヘッダーを太字に */
+div[data-testid="stExpander"] p {
+    font-weight: 700 !important;
+}
+
+/* 指値戦略専用カード (高さを調整可能に) */
+.strat-card {
+    border: 1px solid #3d414b;
+    border-radius: 6px;
+    padding: 10px 5px;
+    text-align: center;
+    height: 100px !important; /* ←ここでカードの高さを調整 */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background-color: #1e1e1e;
+}
+
+/* カード内下段の数値 (Bold解除・サイズ調整) */
+.strat-card .strat-value {
+    font-size: 1.4em !important;
+    font-weight: 400 !important; /* Bold解除 */
+    color: #ffffff;
+    margin: 2px 0;
+}
+
+/* 今日の指値・補足テキスト */
+.strat-order-label {
+    font-size: 0.65em;
+    color: #888888;
+    display: block;
+    margin-top: -3px;
+}
+
+/* 理想押し目(最新終値の横)の数値調整 */
+.strat-highlight-val {
+    font-size: 1.15em;
+    font-weight: 600;
+}
+
+/* テクニカル診断(RSI/EMA)の強制横並び */
+.strat-tech-flex {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 8px 0;
+}
+
+.strat-tech-item {
+    font-size: 0.85em;
+    color: #ffffff;
+}
