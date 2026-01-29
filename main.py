@@ -834,7 +834,7 @@ with tab_strategy:
             t_name = ticker_names.get(t, t)
             
             # --- アコーディオン (常時展開 / ヘッダー形式 [コード] 銘柄名) ---
-            with st.expander2(f"[{t}] {t_name}", expanded=True):
+            with st.expander(f"[{t}] {t_name}", expanded=True):
                 # 2. 基礎データ分析
                 with st.spinner("分析中..."):
                     ticker_live = yf.Ticker(t)
