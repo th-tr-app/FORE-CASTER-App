@@ -236,9 +236,12 @@ h5 {
 
 /* アコーディオン(Expander)の個別調整 */
 div[data-testid="stExpander"] {
-    border: 1px solid #3d414b !important;
-    margin-top: 15px !important;
-    margin-bottom: 15px !important;
+    border: 1px solid #3d414b;
+    border-radius: 6px !important;
+    padding: 8px 5px !important;
+    text-align: center !important;
+    margin-top: 10px !important;
+    margin-bottom: 10px !important;
 }
 
 /* アコーディオンのヘッダーを太字に */
@@ -286,7 +289,6 @@ div[data-testid="stExpander"] p {
     display: flex;
     justify-content: space-between;
     gap: 10px;
-    font-size: 1.00em;
     margin: 8px 0;
 }
 
