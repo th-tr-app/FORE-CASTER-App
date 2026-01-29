@@ -940,7 +940,7 @@ with tab_strategy:
                     else:
                         st.error(f"❄️ エントリーなし (勝率 {sim_win_rate:.1%} / {n_count}回)  \n期待値が不十分です。")
 
-                    st.info(f"🚀 トレイリング最適化  \n開始{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}")
+                    st.info(f"🚀 トレイリング最適化  \n開始：{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}")
                     st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
                 else:
                     st.caption("始値を入力して「戦略を確定する」をタップ")
