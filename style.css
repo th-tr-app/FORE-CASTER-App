@@ -262,8 +262,8 @@ div[data-testid="stExpander2"] p {
 
 /* カード内下段の数値 (Bold解除・サイズ調整) */
 .strat-card .strat-value {
-    font-size: 1.4em !important;
-    font-weight: 400 !important; /* Bold解除 */
+    font-size: 23px !important;
+    font-weight: 600;
     color: #ffffff;
     margin: 2px 0;
 }
