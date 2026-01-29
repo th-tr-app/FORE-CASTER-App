@@ -282,3 +282,10 @@ div[data-testid="stExpander"] {
     gap: 10px;
     margin: 8px 0;
 }
+/* 指値戦略：説明テキスト（理想押し目、で指値注文）の共通スタイル */
+.strat-card .strat-guide {
+    color: #888888 !important;  /* 共通のグレー */
+    font-weight: 400 !important; /* 価格と差をつけるため細めに設定 */
+    font-size: 0.8em !important;
+    margin-top: -2px;
+}
