@@ -291,6 +291,6 @@ div[data-testid="stExpander"] {
 /* 「理想押し目」の数値（％）専用の強調スタイル */
 .strat-percent {
     font-size: 1.15em !important; /* ★ここで数値の大きさを自由に変更してください */
-    font-weight: 700 !important; /* 数値を目立たせるために太字に設定 */
-    color: #ffffff !important;   /* 数値の色をハッキリした白に */
+    font-weight: 600 !important; /* 数値を目立たせるために太字に設定 */
+    color: #aaaaaa !important;   
 }
