@@ -257,7 +257,7 @@ div[data-testid="stExpander2"] p {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    margin-bottom: -10px !important;
+    margin-bottom: 5px !important;
 }
 
 /* カード内下段の数値 (Bold解除・サイズ調整) */
