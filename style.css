@@ -250,7 +250,6 @@ div[data-testid="stExpander"] {
     display: flex;
     flex-direction: column;
     justify-content: center;   /* 中身を上下中央に */
-    margin-bottom: 3px !important;
 }
 
 /* カード内のラベル（最新終値 などの文字） */
