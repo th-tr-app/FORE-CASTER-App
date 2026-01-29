@@ -253,7 +253,7 @@ div[data-testid="stExpander"] p {
     border-radius: 6px;
     padding: 10px 5px;
     text-align: center;
-    height: 100px !important; /* ←ここでカードの高さを調整 */
+    height: 90px !important; /* ←ここでカードの高さを調整 */
     display: flex;
     flex-direction: column;
     justify-content: center;
