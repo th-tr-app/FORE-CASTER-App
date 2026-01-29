@@ -805,9 +805,10 @@ with tab_bt:
 
                 st.divider()
 
-# --- タブ4: 指値戦略 (Ver 4.5.1 ロジック完全統合 & デザイン刷新) ---
+# --- タブ4: 指値戦略 (Ver 4.4.5 最終執行判断パネル) ---
 with tab_strategy:
     st.markdown("### ✨ 指値戦略プランナー")
+    # --- 追加されたコメント ---
     st.caption("統計的勝率・市場地合い・リアルタイムの勢いを統合した最終判断用パネルです。前場・後場の寄付き前と、始値確定後15分以内の利用を推奨します。")
     
     res_df = st.session_state.get('res_df', pd.DataFrame())
@@ -824,9 +825,9 @@ with tab_strategy:
         m_curr_pct = diag.get('market_pct', 0.0)
         m_gap = diag.get('gap_pct', 0.0)
 
-        # ヘッダー名称変更 ＆ 隙間の調整
+        # 市場地合いヘッダー (楽天カラー適用)
         m_cls = "rakuten-plus" if m_curr_pct >= 0 else "rakuten-minus"
-        st.markdown(f"**日経平均／前日比:** <span class='{m_cls}' style='font-size:1.2em; font-weight:bold;'>{m_curr_pct:+.2%}</span>", unsafe_allow_html=True)
+        st.markdown(f"**市場地合い:** <span class='{m_cls}' style='font-size:1.2em; font-weight:bold;'>{m_curr_pct:+.2%}</span>", unsafe_allow_html=True)
         st.divider()
 
         for t in t_list:
@@ -834,11 +835,9 @@ with tab_strategy:
             if tdf.empty: continue
             t_name = ticker_names.get(t, t)
             
-            # --- アコーディオン (常時展開 / ヘッダー太字 / 形式変更) ---
-            with st.expander(f"[{t}] {t_name}", expanded=True):
-                
+            with st.expander(f"🕒 {t} : {t_name}", expanded=False):
                 # 2. 基礎データ分析
-                with st.spinner("分析中..."):
+                with st.spinner("ボラティリティを分析中..."):
                     ticker_live = yf.Ticker(t)
                     hist_live = ticker_live.history(period="30d")
                     if len(hist_live) >= 15:
@@ -855,7 +854,7 @@ with tab_strategy:
                 avg_push = win_tdf['Entry_Push'].mean() if not win_tdf.empty else 0
                 pred_o = last_c * (1 + m_gap)
 
-                # --- 上段レイアウト (PC:横並び / スマホ:2列+入力) ---
+                # --- 上段レイアウト (PC/スマホ対応) ---
                 c_top_l, c_top_r = st.columns([2, 1.2])
                 with c_top_l:
                     g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
@@ -864,7 +863,7 @@ with tab_strategy:
                         <div class="flex-item metric-card">
                             <div class="card-label">最新終値</div>
                             <div class="card-value">{last_c:,.0f}</div>
-                            <div class="card-label">理想押し目: <span class="highlight-val">{avg_push:+.2f}%</span></div>
+                            <div class="card-label" style="font-size:0.7em;">理想押し目: {avg_push:+.2f}%</div>
                         </div>
                         <div class="flex-item metric-card">
                             <div class="card-label">予想寄り付き</div>
@@ -875,36 +874,36 @@ with tab_strategy:
                     """, unsafe_allow_html=True)
 
                 with c_top_r:
-                    # プレースホルダー追加
-                    actual_open_val = st.number_input(f"始値を入力 ({t})", value=0, step=1, key=f"act_in_{t}", label_visibility="collapsed", placeholder="始値を入力")
+                    actual_open_val = st.number_input(f"始値を入力 ({t})", value=0, step=1, key=f"act_in_{t}", label_visibility="collapsed")
                     btn_calc = st.button(f"戦略を確定する ({t})", use_container_width=True, type="primary")
 
                 if actual_open_val > 0 or btn_calc:
                     # 3. テクニカル診断 (RSI向き & EMA乖離)
-                    with st.spinner("診断中..."):
+                    with st.spinner("テクニカル勢いを診断中..."):
                         df_m = ticker_live.history(interval="1m", period="1d")
                         rsi_slope = 0; ema_gap = 0; tech_warning = False
+                        
                         if len(df_m) >= 15:
                             rsi_series = core.calculate_rsi(df_m['Close'])
                             if not rsi_series.empty and not pd.isna(rsi_series.iloc[-1]):
                                 rsi_slope = rsi_series.iloc[-1] - rsi_series.iloc[-2]
+                            
                             ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
                             ema_gap = ((actual_open_val - ema5) / ema5) * 100
                             if rsi_slope < 0 or abs(ema_gap) > 1.5: tech_warning = True
 
-                    # 4. 戦略価格の算出
+                    # 4. 戦略価格の算出と表示
                     today_limit = actual_open_val * (1 + (avg_push / 100))
                     avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
                     target_price = today_limit * (1 + avg_profit)
                     adj_sl = params['sl_fix'] * v_factor
                     stop_price = today_limit * (1 + adj_sl)
                     
-                    # --- 下段レイアウト：強制3列ボックス (今日の指値：グレー、目標：赤、損切：緑) ---
                     st.markdown(f"""
                     <div class="mobile-flex-container" style="margin-top: 15px;">
                         <div class="flex-item metric-card border-gray">
                             <div class="card-label rakuten-gray">今日の指値</div>
-                            <div class="card-value">{int(today_limit):,}<span class="order-label">で指値注文</span></div>
+                            <div class="card-value">{int(today_limit):,}</div>
                         </div>
                         <div class="flex-item metric-card border-red">
                             <div class="card-label">目標利確</div>
@@ -919,33 +918,34 @@ with tab_strategy:
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # --- テクニカル診断 (横並び / EMAは白文字) ---
-                    r_cls = "rakuten-plus" if rsi_slope > 0 else "rakuten-minus"; r_icon = "📈" if rsi_slope > 0 else "📉"
-                    st.markdown(f"""
-                    <div class="tech-diag-container">
-                        <div style="font-size:0.85em;"><b>RSI方向:</b> <span class='{r_cls}'>{r_icon} {'上昇中' if rsi_slope > 0 else '低下中'}</span></div>
-                        <div style="font-size:0.85em;"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # 5. テクニカル診断の可視化
+                    st.write("")
+                    diag_c1, diag_c2 = st.columns(2)
+                    with diag_c1:
+                        r_cls = "rakuten-plus" if rsi_slope > 0 else "rakuten-minus"
+                        r_icon = "📈" if rsi_slope > 0 else "📉"
+                        st.markdown(f"**RSIの方向:** <span class='{r_cls}'>{r_icon} {'上昇中' if rsi_slope > 0 else '低下中'}</span>", unsafe_allow_html=True)
+                    with diag_c2:
+                        e_cls = "rakuten-minus" if abs(ema_gap) < 1.5 else "rakuten-plus"
+                        st.markdown(f"**EMA5乖離:** <span class='{e_cls}'>{ema_gap:+.2f}%</span>", unsafe_allow_html=True)
 
-                    # 6. 最終判定 (改行挿入)
+                    # 6. 最終判定と試行回数 (n=)
                     today_gap = (actual_open_val - last_c) / last_c
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
                     n_count = len(similar_trades)
                     sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
                     
                     if m_curr_pct < -0.003 and sim_win_rate >= 0.55:
-                        st.warning(f"⚠️ **CAUTION**\n(勝率 {sim_win_rate:.1%} / {n_count}回) 地合い軟調。")
+                        st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%} / {n_count}回) 地合い軟調。")
                     elif sim_win_rate >= 0.55:
                         if tech_warning:
-                            st.warning(f"⚠️ **要注意エントリー**\n(勝率 {sim_win_rate:.1%} / {n_count}回) 統計良好ですが勢いが弱まっています。")
+                            st.warning(f"⚠️ **要注意エントリー** (勝率 {sim_win_rate:.1%} / {n_count}回) 統計は良いが勢いが弱まっています。")
                         else:
-                            st.success(f"🔥 **エントリー可能**\n(勝率 {sim_win_rate:.1%} / {n_count}回) 統計・勢い共に良好。")
+                            st.success(f"🔥 **エントリー可能** (勝率 {sim_win_rate:.1%} / {n_count}回) 統計・勢い良好。")
                     else:
-                        st.error(f"❄️ **エントリーなし**\n(勝率 {sim_win_rate:.1%} / {n_count}回) 期待値が不十分です。")
+                        st.error(f"❄️ **エントリーなし** (勝率 {sim_win_rate:.1%} / {n_count}回) 期待値不十分。")
 
-                    # 🚀 トレイリング案 (改行・損切り追加・白文字)
-                    st.info(f"🚀 **トレイリング最適化**\n開始：{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}")
+                    st.info(f"🚀 **トレイリング最適化** | 開始: {params['ts_start']*v_factor:.2%} / 幅: {params['ts_width']*v_factor:.2%}")
                     st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
                 else:
                     st.caption("始値を入力して「戦略を確定する」をタップ")
