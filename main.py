@@ -936,7 +936,7 @@ with tab_strategy:
                         st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%} / {n_count}回)  \n地合い軟調。慎重に判断してください。")
                     elif sim_win_rate >= 0.55:
                         msg = "統計は良いが勢いが弱まっています。" if tech_warning else "統計・勢い共に良好。"
-                            st.success(f"🔥 **エントリー可能** (勝率 {sim_win_rate:.1%} / {n_count}回)  \n{msg}")
+                        st.success(f"🔥 **エントリー可能** (勝率 {sim_win_rate:.1%} / {n_count}回)  \n{msg}")
                     else:
                         # ❄️ エントリーなし の後に半角スペース2つを追加
                         st.error(f"❄️ エントリーなし (勝率 {sim_win_rate:.1%} / {n_count}回)  \n期待値が不十分です。")
