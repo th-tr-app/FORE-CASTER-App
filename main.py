@@ -926,22 +926,21 @@ with tab_strategy:
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # 5. 最終判定と試行回数 (n=)
+                    # --- 最終判定と試行回数 (n=) ---
                     today_gap = (actual_open_val - last_c) / last_c
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
                     n_count = len(similar_trades)
                     sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
-                    
+
                     if m_curr_pct < -0.003 and sim_win_rate >= 0.55:
-                        st.warning(f"⚠️ **CAUTION**\n(勝率 {sim_win_rate:.1%} / {n_count}回) 地合い軟調。")
+                        st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%} / {n_count}回)\n地合い軟調。慎重に判断してください。")
                     elif sim_win_rate >= 0.55:
                         msg = "統計は良いが勢いが弱まっています。" if tech_warning else "統計・勢い共に良好。"
-                        st.success(f"🔥 **エントリー可能**\n(勝率 {sim_win_rate:.1%} / {n_count}回) {msg}")
+                        st.success(f"🔥 **エントリー可能** (勝率 {sim_win_rate:.1%} / {n_count}回)\n{msg}")
                     else:
-                        st.error(f"❄️ **エントリーなし**\n(勝率 {sim_win_rate:.1%} / {n_count}回) 期待値が不十分です。")
+                        st.error(f"❄️ エントリーなし (勝率 {sim_win_rate:.1%} / {n_count}回)\n期待値が不十分です。")
 
-                    # 🚀 トレイリング案 (改行・損切り追加)
-                    st.info(f"🚀 **トレイリング最適化**\n開始：{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}")
+                    st.info(f"🚀 トレイリング最適化 開始\n{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}")
                     st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
                 else:
                     st.caption("始値を入力して「戦略を確定する」をタップ")
