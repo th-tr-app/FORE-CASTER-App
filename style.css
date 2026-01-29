@@ -296,7 +296,7 @@ div[data-testid="stExpander"] {
 }
 /* 判定バッジとトレイリング枠内の文字設定（強化版） */
 div[data-testid="stNotification"] div[data-testid="stMarkdownContainer"] p {
-    font-size: 16px !important;    /* ★文字を大きくしたい場合はここを調整 */
+    font-size: 12px !important;    /* ★文字を大きくしたい場合はここを調整 */
     color: #ffffff !important;     /* 文字色を白に強制 */
     line-height: 1.6 !important;    /* 行間を広げて2行目を読みやすく */
     font-weight: 500 !important;
