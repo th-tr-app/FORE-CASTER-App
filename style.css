@@ -286,6 +286,6 @@ div[data-testid="stExpander"] {
 .strat-card .strat-guide {
     color: #888888 !important;  /* 共通のグレー */
     font-weight: 600 !important; /* 価格と差をつけるため細めに設定 */
-    font-size: 0.8em !important;
-    margin-top: -5px;           /* 上の数値との隙間を少し詰める */
+    font-size: 0.7em !important;
+    margin-top: -4px;           /* 上の数値との隙間を少し詰める */
 }
