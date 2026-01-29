@@ -296,7 +296,7 @@ div[data-testid="stExpander"] {
 }
 /* 判定バッジとトレイリング枠の中のフォントサイズ調整 */
 [data-testid="stNotification"] p {
-    font-size: 12px !important;    /* ★ここの数値を大きくすると文字が大きくなります */
+    font-size: 10px !important;    /* ★ここの数値を大きくすると文字が大きくなります */
     line-height: 1 !important;    /* 行間を少し広げると2行目が読みやすくなります */
     font-weight: 500 !important;   /* 文字の太さを微調整したい場合はここを変更 */
 }
