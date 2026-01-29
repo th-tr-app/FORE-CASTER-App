@@ -237,7 +237,7 @@ div[data-testid="stExpander"] {
     border: 1px solid #3d414b;
     border-radius: 6px !important;
     margin-top: 0px !important;
-    margin-bottom: 10px !important;
+    margin-bottom: 5px !important;
 }
 
 /* 指値戦略：5項目共通のカードスタイル */
