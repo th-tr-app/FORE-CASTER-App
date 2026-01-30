@@ -897,7 +897,7 @@ with tab_strategy:
                         <div class="flex-item strat-card-bottom">
                             <div class="card-label">今日の指値</div>
                             <div class="strat-value">{int(today_limit):,}</div>
-                            <div class="strat-guide">で指値注文</div>
+                            <div class="strat-guide">で逆指値注文</div>
                         </div>
                         <div class="flex-item strat-card-bottom">
                             <div class="card-label">目標利確</div>
