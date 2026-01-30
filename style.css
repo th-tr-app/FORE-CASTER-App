@@ -297,7 +297,7 @@ div[data-testid="stExpander"] {
 
 /* --- 指値戦略：独自メッセージボックス (フォントサイズ調整用) --- */
 .strat-msg-box {
-    padding: 10px;
+    padding: 15px;
     border-radius: 6px;
     margin: 5px 0;
     line-height: 1.5;
@@ -317,7 +317,7 @@ div[data-testid="stExpander"] {
 .msg-bg-error {
     background-color: rgba(220, 53, 69, 0.15); /* 赤の背景(薄め) */
     border-left-color: #dc3545;
-    color: #aaaaaa;
+    color: #ffffff;
 }
 
 /* 情報 (Trailing/Info) */
