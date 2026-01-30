@@ -854,23 +854,23 @@ with tab_strategy:
                 pred_o = last_c * (1 + m_gap)
                 
                 # --- 上段レイアウト (専用カード strat-card-top を使用) ---
-                c_top_l, c_top_r = st.columns([2, 1.2])
-                with c_top_l:
-                    g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
-                    st.markdown(f"""
-                    <div class="strat-card-top">
-                        <div class="flex-item strat-card">
-                            <div class="card-label">最新終値</div>
-                            <div class="strat-value">{last_c:,.0f}</div>
-                            <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div>
-                        </div>
-                        <div class="flex-item strat-card">
-                            <div class="card-label">予想寄り付き</div>
-                            <div class="strat-value">{pred_o:,.0f}</div>
-                            <div class="strat-delta {g_cls}">{m_gap:+.2%}</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                c_top_l, c_top_r = st.columns([2, 1.2])
+                with c_top_l:
+                    g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
+                    st.markdown(f"""
+                    <div class="mobile-flex-container">
+                        <div class="flex-item strat-card-top">
+                            <div class="card-label">最新終値</div>
+                            <div class="strat-value">{last_c:,.0f}</div>
+                            <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div>
+                        </div>
+                        <div class="flex-item strat-card-top">
+                            <div class="card-label">予想寄り付き</div>
+                            <div class="strat-value">{pred_o:,.0f}</div>
+                            <div class="strat-delta {g_cls}">{m_gap:+.2%}</div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
                 with c_top_r:
                     actual_open_val = st.number_input(f"始値を入力 ({t})", value=0, step=1, key=f"act_in_{t}", label_visibility="collapsed", placeholder="始値を入力")
@@ -896,26 +896,26 @@ with tab_strategy:
                     adj_sl = params['sl_fix'] * v_factor
                     stop_price = today_limit * (1 + adj_sl)
 
-                    # --- 下段レイアウト (共通カード strat-card を使用) ---
-                    st.markdown(f"""
-                    <div class="mobile-flex-container" style="margin-top: 15px;">
-                        <div class="flex-item strat-card-bottom">
-                            <div class="card-label">今日の指値</div>
-                            <div class="strat-value">{int(today_limit):,}</div>
-                            <div class="strat-guide">で指値注文</div>
-                        </div>
-                        <div class="flex-item strat-card">
-                            <div class="card-label">目標利確</div>
-                            <div class="strat-value">{int(target_price):,}</div>
-                            <div class="strat-delta rakuten-plus">{avg_profit:+.2%}</div>
-                        </div>
-                        <div class="flex-item strat-card">
-                            <div class="card-label">損切ライン</div>
-                            <div class="strat-value">{int(stop_price):,}</div>
-                            <div class="strat-delta rakuten-minus">{adj_sl:+.2%}</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # --- 下段レイアウト (専用カード strat-card-bottom を使用：ボーダーなし) ---
+                    st.markdown(f"""
+                    <div class="mobile-flex-container" style="margin-top: 15px;">
+                        <div class="flex-item strat-card-bottom">
+                            <div class="card-label">今日の指値</div>
+                            <div class="strat-value">{int(today_limit):,}</div>
+                            <div class="strat-guide">で指値注文</div>
+                        </div>
+                        <div class="flex-item strat-card-bottom">
+                            <div class="card-label">目標利確</div>
+                            <div class="strat-value">{int(target_price):,}</div>
+                            <div class="strat-delta rakuten-plus">{avg_profit:+.2%}</div>
+                        </div>
+                        <div class="flex-item strat-card-bottom">
+                            <div class="card-label">損切ライン</div>
+                            <div class="strat-value">{int(stop_price):,}</div>
+                            <div class="strat-delta rakuten-minus">{adj_sl:+.2%}</div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
                     # --- テクニカル診断 ---
                     r_cls = "rakuten-plus" if rsi_slope > 0 else "rakuten-minus"; r_icon = "📈" if rsi_slope > 0 else "📉"
