@@ -958,7 +958,7 @@ with tab_strategy:
                     sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
 
                     # 新規追加：乖離チェックの実行
-                    is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c)
+                    is_dev_large, dev_val = logic_core.check_opening_deviation(actual_open_val, pred_o, last_c)
 
                     if is_dev_large:
                         # 🚫 乖離ガード発動 (最優先)
