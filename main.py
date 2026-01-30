@@ -851,7 +851,7 @@ with tab_strategy:
                 pred_o = last_c * (1 + m_gap)
 
                 # --- 上段レイアウト (strat-card-top を使用) ---
-                c_top_l, c_top_r = st.columns([2, 1.2])
+                c_top_l, c_top_r = st.columns([2, 1])
                 with c_top_l:
                     g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
                     st.markdown(f"""
