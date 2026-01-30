@@ -880,15 +880,17 @@ with tab_strategy:
                     # セッション状態（バックテスト時に取得した値）をデフォルト値に設定
                     actual_open_val = st.number_input(
                         f"始値を入力 ({t})", 
-                        value=st.session_state.get(input_key), # 値がNoneなら空欄、あれば数値が入る
-                        step=1, # 修正：1.0 から 1 に戻して整数入力に固定 
+                        value=st.session_state.get(input_key), 
+                        step=1, # 修正：1.0 から 1 に戻して整数入力に固定
                         key=input_key, 
                         label_visibility="collapsed", 
                         placeholder="始値を入力"
                     )
                     
-                    # 最終的な確定ボタン
                     btn_calc = st.button(f"始値を更新する ({t})", use_container_width=True, type="primary")
+
+                if actual_open_val or btn_calc:
+                    # (以下、判定・診断ロジックはそのまま維持)
 
                 # 2. エラー修正：actual_open_val が None（空）でないことを確認する条件に変更します
                 if actual_open_val or btn_calc:
