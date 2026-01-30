@@ -18,7 +18,6 @@ if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 if 'res_df' not in st.session_state: st.session_state['res_df'] = pd.DataFrame()
 if 't_names' not in st.session_state: st.session_state['t_names'] = {}
 
-# main.py 冒頭：sc_params の初期値を新しいIDに合わせて修正
 # --- 戦略別パラメーターの最適化（実戦テスト反映版） ---
 if 'sc_params' not in st.session_state:
     st.session_state['sc_params'] = [
