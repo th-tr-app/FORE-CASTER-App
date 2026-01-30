@@ -298,13 +298,13 @@ div[data-testid="stExpander"] {
 div[data-testid="stNotification"] [data-testid="stMarkdownContainer"] p {
     font-size: 10px !important;    /* ★まずは26pxで確認してください。30pxだとスマホで溢れる可能性があります */
     line-height: 1.4 !important;   /* 行間を少し詰めてスッキリさせます */
-    font-weight: 600 !important;   /* 文字の太さを強調 */
+    font-weight: 800 !important;   /* 文字の太さを強調 */
     color: #ffffff !important;     /* 文字色を白に固定 */
 }
 
 /* アイコン（🔥や🚀）の大きさも文字に合わせて巨大化 */
 div[data-testid="stNotification"] span[data-testid="stIconMaterial"] {
-    font-size: 32px !important;
+    font-size: 10px !important;
 }
 
 /* ★一番最後にあった余分な } は削除しました */
