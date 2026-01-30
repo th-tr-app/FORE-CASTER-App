@@ -240,8 +240,8 @@ div[data-testid="stExpander"] {
     margin-bottom: 5px !important;
 }
 
-/* 指値戦略：5項目共通のカードスタイル */
-.strat-card {
+/* --- 指値戦略：上段カード専用 (最新終値・予想寄り付き) --- */
+.strat-card-top {
     border: 1px solid #3d414b; /* 枠線 */
     border-radius: 6px;        /* 角丸 */
     padding: 10px 5px;
@@ -249,7 +249,19 @@ div[data-testid="stExpander"] {
     height: 97px !important;  /* ★高さを100pxから微調整 */
     display: flex;
     flex-direction: column;
-    justify-content: center;   /* 中身を上下中央に */
+    justify-content: center;  /* 中身を上下中央に */
+}
+
+/* --- 指値戦略：下段カード専用 (今日の指値・目標利確・損切ライン) --- */
+.strat-card-bottom {
+    border: 1px solid #3d414b;
+    border-radius: 6px;
+    padding: 10px 5px;
+    text-align: center;
+    height: 90px !important; /* ★下段の高さを個別に指定 */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 /* カード内のラベル（最新終値 などの文字） */
