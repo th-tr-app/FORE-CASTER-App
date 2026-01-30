@@ -282,17 +282,55 @@ div[data-testid="stExpander"] {
     margin: 8px 0;
 }
 /* 指値戦略：説明テキスト（理想押し目、で指値注文）の共通スタイル */
-.strat-card .strat-guide {
-    color: #ffffff !important;  /* 共通のグレー */
-    font-weight: 600 !important; /* 価格と差をつけるため細めに設定 */
-    font-size: 0.8em !important;
-    margin-top: -3px;           /* 上の数値との隙間を少し詰める */
+/* --- 指値戦略：上段カード専用 (最新終値・予想寄り付き) --- */
+.strat-card-top {
+    border: 1px solid #3d414b;
+    border-radius: 6px;
+    padding: 10px 5px;
+    text-align: center;
+    height: 97px !important;  /* ★上段の高さを調整 */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
-/* 「理想押し目」の数値（％）専用の強調スタイル */
-.strat-percent {
-    font-size: 1.15em !important; /* ★ここで数値の大きさを自由に変更してください */
-    font-weight: 600 !important; /* 数値を目立たせるために太字に設定 */
-    color: #ffffff !important;   
+
+/* --- 指値戦略：下段カード専用 (今日の指値・目標利確・損切ライン) --- */
+.strat-card-bottom {
+    border: 1px solid #3d414b;
+    border-radius: 6px;
+    padding: 10px 5px;
+    text-align: center;
+    height: 90px !important; /* ★下段の高さを個別に指定可能 */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* カード内のラベル・数値・ガイドの共通スタイル設定 */
+.strat-card-top .card-label, .strat-card-bottom .card-label {
+    font-size: 13px !important;
+    font-weight: 500 !important; 
+    color: #aaaaaa;
+    margin-bottom: -5px !important;
+}
+
+.strat-card-top .strat-value, .strat-card-bottom .strat-value {
+    font-size: 23px !important;
+    font-weight: 600 !important; 
+    color: #ffffff;
+}
+
+.strat-card-top .strat-delta, .strat-card-bottom .strat-delta {
+    font-size: 1.0em !important;
+    font-weight: 600 !important;
+    margin-top: -5px;
+}
+
+.strat-card-top .strat-guide, .strat-card-bottom .strat-guide {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    font-size: 0.8em !important;
+    margin-top: -3px;
 }
 
 /* --- 指値戦略：独自メッセージボックス (フォントサイズ調整用) --- */
