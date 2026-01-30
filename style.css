@@ -314,6 +314,13 @@ div[data-testid="stExpander"] {
     margin-top: -3px;
 }
 
+/* 「理想押し目」の数値（％）専用の強調スタイル */
+.strat-percent {
+    font-size: 1.15em !important; /* ★ここで数値の大きさを自由に変更してください */
+    font-weight: 600 !important; /* 数値を目立たせるために太字に設定 */
+    color: #aaaaaa !important;   
+}
+
 /* --- 指値戦略：メッセージボックス (フォントサイズ調整用) --- */
 .strat-msg-box {
     padding: 15px;
