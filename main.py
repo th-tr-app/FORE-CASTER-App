@@ -873,7 +873,11 @@ with tab_strategy:
                     actual_open_val = st.number_input(f"始値を入力 ({t})", value=None, step=1, key=f"act_in_{t}", label_visibility="collapsed", placeholder="始値を入力")
                     btn_calc = st.button(f"戦略を確定する ({t})", use_container_width=True, type="primary")
 
-                if actual_open_val > 0 or btn_calc:
+                # 2. エラー修正：actual_open_val が None（空）でないことを確認する条件に変更します
+                if actual_open_val or btn_calc:
+                    if not actual_open_val:
+                        st.error("始値を入力してください。") # 未入力でボタンを押した時の警告
+                    else:
                     with st.spinner("診断中..."):
                         df_m = ticker_live.history(interval="1m", period="1d")
                         rsi_slope = 0; ema_gap = 0; tech_warning = False
