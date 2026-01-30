@@ -294,17 +294,42 @@ div[data-testid="stExpander"] {
     font-weight: 600 !important; /* 数値を目立たせるために太字に設定 */
     color: #aaaaaa !important;   
 }
-/* --- 判定バッジ（st.success等）とトレイリング枠の文字サイズを強制変更 --- */
-div[data-testid="stNotification"] [data-testid="stMarkdownContainer"] 
-    font-size: 10px !important;    /* ★まずは26pxで確認してください。30pxだとスマホで溢れる可能性があります */
-    line-height: 1.4 !important;   /* 行間を少し詰めてスッキリさせます */
-    font-weight: 800 !important;   /* 文字の太さを強調 */
-    color: #ffffff !important;     /* 文字色を白に固定 */
+
+/* --- 指値戦略：独自メッセージボックス (フォントサイズ調整用) --- */
+.strat-msg-box {
+    padding: 16px;
+    border-radius: 6px;
+    margin: 15px 0;
+    line-height: 1.5;
+    border-left: 5px solid transparent; /* 左側の太線 */
+    /* ★ここで全体のフォントサイズを調整できます */
+    font-size: 10px !important; 
 }
 
-/* アイコン（🔥や🚀）の大きさも文字に合わせて巨大化 */
-div[data-testid="stNotification"] span[data-testid="stIconMaterial"] {
-    font-size: 10px !important;
+/* 成功 (Success/GO) */
+.msg-bg-success {
+    background-color: rgba(40, 167, 69, 0.15); /* 緑の背景(薄め) */
+    border-left-color: #28a745;
+    color: #ffffff;
 }
 
-/* ★一番最後にあった余分な } は削除しました */
+/* エラー (No-GO) */
+.msg-bg-error {
+    background-color: rgba(220, 53, 69, 0.15); /* 赤の背景(薄め) */
+    border-left-color: #dc3545;
+    color: #ffffff;
+}
+
+/* 情報 (Trailing/Info) */
+.msg-bg-info {
+    background-color: rgba(0, 123, 255, 0.15); /* 青の背景(薄め) */
+    border-left-color: #007bff;
+    color: #ffffff;
+}
+
+/* 警告 (Caution) */
+.msg-bg-warning {
+    background-color: rgba(255, 193, 7, 0.15); /* 黄の背景(薄め) */
+    border-left-color: #ffc107;
+    color: #ffffff;
+}
