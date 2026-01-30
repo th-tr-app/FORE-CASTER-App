@@ -440,7 +440,7 @@ with tab_screen:
                         st.toast(f"監視リストに {len(new_only)} 銘柄を反映しました")
                         st.rerun()
                         
-# --- タブ3: バックテスト (6.3の全分析機能を復元) ---
+# --- タブ3: バックテスト (Ver 4.6.0：始値自動取得統合版) ---
 with tab_bt:
     if st.button("バックテスト実行", type="primary", use_container_width=True, key="bt_run_main"):
         t_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
@@ -453,7 +453,12 @@ with tab_bt:
             pb = st.progress(0); st_text = st.empty()
             
             for i, t in enumerate(t_list):
-                st_text.text(f"Testing {t}..."); pb.progress((i+1)/len(t_list))
+                st_text.text(f"分析中 {t}..."); pb.progress((i+1)/len(t_list))
+                
+                # --- ⚡️ 重要：本日の始値を自動取得してセッションに保存 ---
+                # 指値戦略タブの入力欄（act_in_銘柄コード）とキーを同期させます
+                st.session_state[f"act_in_{t}"] = core.get_realtime_opening_price(t)
+                
                 # データのダウンロードとMultiIndex対策
                 df = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
                 if df.empty: continue
