@@ -951,27 +951,37 @@ with tab_strategy:
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # --- 6. 最終判定のバッジ ( st.markdown に置き換え ) ---
+                    # --- 6. 最終判定 (乖離ガードロジック搭載版) ---
                     today_gap = (actual_open_val - last_c) / last_c
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
                     n_count = len(similar_trades)
                     sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
 
-                    if m_curr_pct < -0.003 and sim_win_rate >= 0.55:
-                        # ⚠️ CAUTION (警告)
+                    # 新規追加：乖離チェックの実行
+                    is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c)
+
+                    if is_dev_large:
+                        # 🚫 乖離ガード発動 (最優先)
+                        st.markdown(f"""<div class="strat-msg-box msg-bg-error">
+                            ⚠️ <b>見送り</b><br>
+                            予想乖離からのズレ: {dev_val:.2f}%<br>
+                            寄付き乖離が大きいため見送り推奨です。
+                        </div>""", unsafe_allow_html=True)
+                    elif m_curr_pct < -0.003 and sim_win_rate >= 0.55:
+                        # ⚠️ CAUTION
                         st.markdown(f"""<div class="strat-msg-box msg-bg-warning">
                             ⚠️ <b>CAUTION</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>
                             地合い軟調。慎重に判断してください。
                         </div>""", unsafe_allow_html=True)
                     elif sim_win_rate >= 0.55:
-                        # 🔥 エントリー可能 (成功)
+                        # 🔥 エントリー可能
                         msg = "統計は良いが勢いが弱まっています。" if tech_warning else "統計・勢い共に良好。"
                         st.markdown(f"""<div class="strat-msg-box msg-bg-success">
                             🔥 <b>エントリー可能</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>
                             {msg}
                         </div>""", unsafe_allow_html=True)
                     else:
-                        # ❄️ エントリーなし (エラー)
+                        # ❄️ エントリーなし
                         st.markdown(f"""<div class="strat-msg-box msg-bg-error">
                             ❄️ <b>エントリーなし</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>
                             期待値が不十分です。
