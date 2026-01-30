@@ -870,7 +870,7 @@ with tab_strategy:
                     """, unsafe_allow_html=True)
 
                 with c_top_r:
-                    actual_open_val = st.number_input(f"始値を入力 ({t})", value=0, step=1, key=f"act_in_{t}", label_visibility="collapsed", placeholder="始値を入力")
+                    actual_open_val = st.number_input(f"始値を入力 ({t})", value=None, step=1, key=f"act_in_{t}", label_visibility="collapsed", placeholder="始値を入力")
                     btn_calc = st.button(f"戦略を確定する ({t})", use_container_width=True, type="primary")
 
                 if actual_open_val > 0 or btn_calc:
@@ -913,10 +913,10 @@ with tab_strategy:
                     """, unsafe_allow_html=True)
                     
                     # --- テクニカル診断 ---
-                    r_cls = "rakuten-plus" if rsi_slope > 0 else "rakuten-minus"; r_icon = "📈" if rsi_slope > 0 else "📉"
+                    r_cls = "rakuten-plus" if rsi_slope > 0 else "rakuten-minus"
                     st.markdown(f"""
                     <div class="strat-tech-flex">
-                        <div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{r_icon} {'上昇中' if rsi_slope > 0 else '低下中'}</span></div>
+                        <div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{'上昇中' if rsi_slope > 0 else '低下中'}</span></div>
                         <div class="strat-tech-item"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div>
                     </div>
                     """, unsafe_allow_html=True)
