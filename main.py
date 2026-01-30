@@ -875,7 +875,19 @@ with tab_strategy:
                     """, unsafe_allow_html=True)
 
                 with c_top_r:
-                    actual_open_val = st.number_input(f"始値を入力 ({t})", value=None, step=1, key=f"act_in_{t}", label_visibility="collapsed", placeholder="始値を入力")
+                    input_key = f"act_in_{t}"
+                    
+                    # セッション状態（バックテスト時に取得した値）をデフォルト値に設定
+                    actual_open_val = st.number_input(
+                        f"始値を入力 ({t})", 
+                        value=st.session_state.get(input_key), # 値がNoneなら空欄、あれば数値が入る
+                        step=1, 
+                        key=input_key, 
+                        label_visibility="collapsed", 
+                        placeholder="始値を入力"
+                    )
+                    
+                    # 最終的な確定ボタン
                     btn_calc = st.button(f"戦略を確定する ({t})", use_container_width=True, type="primary")
 
                 # 2. エラー修正：actual_open_val が None（空）でないことを確認する条件に変更します
