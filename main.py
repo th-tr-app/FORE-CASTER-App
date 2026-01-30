@@ -881,7 +881,7 @@ with tab_strategy:
                     actual_open_val = st.number_input(
                         f"始値を入力 ({t})", 
                         value=st.session_state.get(input_key), # 値がNoneなら空欄、あれば数値が入る
-                        step=1.0,  # ← ここを float 型に統一 
+                        step=1, # 修正：1.0 から 1 に戻して整数入力に固定 
                         key=input_key, 
                         label_visibility="collapsed", 
                         placeholder="始値を入力"
