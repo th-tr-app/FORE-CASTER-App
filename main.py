@@ -916,12 +916,38 @@ with tab_strategy:
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # --- テクニカル診断 ---
-                    r_cls = "rakuten-plus" if rsi_slope > 0 else "rakuten-minus"
+                    # 3. テクニカル診断 (RSIスロープのマイルド化 & アイコン削除)
+                    with st.spinner("診断中..."):
+                        df_m = ticker_live.history(interval="1m", period="1d")
+                        rsi_slope = 0; ema_gap = 0; tech_warning = False
+                        
+                        if len(df_m) >= 15:
+                            rsi_series = core.calculate_rsi(df_m['Close'])
+                            
+                            # --- マイルド判定ロジック：直近3分(平均) vs その前3分(平均) ---
+                            if len(rsi_series) >= 6:
+                                curr_rsi_avg = rsi_series.tail(3).mean()      # 最新3本の平均
+                                prev_rsi_avg = rsi_series.iloc[-6:-3].mean() # その前3本の平均
+                                rsi_slope = curr_rsi_avg - prev_rsi_avg
+                            elif len(rsi_series) >= 2:
+                                rsi_slope = rsi_series.iloc[-1] - rsi_series.iloc[-2]
+
+                            # EMA5乖離の計算
+                            ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
+                            ema_gap = ((actual_open_val - ema5) / ema5) * 100
+                            
+                            # 判定しきい値：わずかなノイズを無視するため -0.2 以下を「低下」と定義
+                            if rsi_slope < -0.2 or abs(ema_gap) > 1.5: 
+                                tech_warning = True
+
+                    # --- テクニカル表示 (アイコンなし・マイルド判定反映) ---
+                    r_cls = "rakuten-plus" if rsi_slope > -0.2 else "rakuten-minus"
+                    r_text = "上昇・維持" if rsi_slope > -0.2 else "低下中"
+                    
                     st.markdown(f"""
                     <div class="strat-tech-flex">
-                        <div class="strat-tech-item"><b>RSI方向：</b> <span class='{r_cls}'>{'上昇中' if rsi_slope > 0 else '低下中'}</span></div>
-                        <div class="strat-tech-item"><b>EMA5乖離：</b> {ema_gap:+.2f}%</div>
+                        <div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{r_text}</span></div>
+                        <div class="strat-tech-item"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div>
                     </div>
                     """, unsafe_allow_html=True)
 
