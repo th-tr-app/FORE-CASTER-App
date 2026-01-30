@@ -867,7 +867,7 @@ with tab_strategy:
                             <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div>
                         </div>
                         <div class="flex-item strat-card-top">
-                            <div class="card-label">予想寄り付き</div>
+                            <div class="card-label">寄り付き予想</div>
                             <div class="strat-value">{pred_o:,.0f}</div>
                             <div class="strat-delta {g_cls}">{m_gap:+.2%}</div>
                         </div>
