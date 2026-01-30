@@ -305,3 +305,19 @@ def check_opening_deviation(actual, expected, last_close):
     is_large = (dev_pct >= 0.5) or (exp_gap_abs >= 0.1 and act_gap_abs >= 2 * exp_gap_abs)
     
     return is_large, dev_pct
+
+# --- 5. 始値の自動取得ロジック ---
+def get_realtime_opening_price(ticker_symbol):
+    """
+    当日の始値を yfinance から取得する
+    """
+    try:
+        t = yf.Ticker(ticker_symbol)
+        df = t.history(period="1d", interval="1m")
+        if not df.empty:
+            # 最初の1分足（9:00）の始値を返す
+            return float(df['Open'].iloc[0])
+    except Exception:
+        pass
+    return None
+    
