@@ -318,7 +318,7 @@ div[data-testid="stExpander"] {
 .strat-percent {
     font-size: 1.15em !important; /* ★ここで数値の大きさを自由に変更してください */
     font-weight: 600 !important; /* 数値を目立たせるために太字に設定 */
-    color: #aaaaaa !important;   
+    color: #ffffff !important;   
 }
 
 /* --- 指値戦略：メッセージボックス (フォントサイズ調整用) --- */
