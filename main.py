@@ -876,8 +876,8 @@ with tab_strategy:
 
                 with c_top_r:
                     input_key = f"act_in_{t}"
-                    
-                    # セッション状態（バックテスト時に取得した値）をデフォルト値に設定
+
+                    # --- 始値入力欄 (小数点非表示設定) ---
                     actual_open_val = st.number_input(
                         f"始値を入力 ({t})", 
                         value=st.session_state.get(input_key), 
@@ -887,10 +887,8 @@ with tab_strategy:
                         placeholder="始値を入力"
                     )
                     
-                    btn_calc = st.button(f"始値を更新する ({t})", use_container_width=True, type="primary")
-
-                if actual_open_val or btn_calc:
-                    # (以下、判定・診断ロジックはそのまま維持)
+                    # --- ボタン名の変更：戦略を確定する → 手動更新 ---
+                    btn_calc = st.button(f"手動更新 ({t})", use_container_width=True, type="primary")
 
                 # 2. エラー修正：actual_open_val が None（空）でないことを確認する条件に変更します
                 if actual_open_val or btn_calc:
