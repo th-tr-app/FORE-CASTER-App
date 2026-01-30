@@ -878,22 +878,22 @@ with tab_strategy:
                     if not actual_open_val:
                         st.error("始値を入力してください。") # 未入力でボタンを押した時の警告
                     else:
-                    with st.spinner("診断中..."):
-                        df_m = ticker_live.history(interval="1m", period="1d")
-                        rsi_slope = 0; ema_gap = 0; tech_warning = False
-                        if len(df_m) >= 15:
-                            rsi_series = core.calculate_rsi(df_m['Close'])
-                            if not rsi_series.empty and not pd.isna(rsi_series.iloc[-1]):
-                                rsi_slope = rsi_series.iloc[-1] - rsi_series.iloc[-2]
-                            ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
-                            ema_gap = ((actual_open_val - ema5) / ema5) * 100
-                            if rsi_slope < 0 or abs(ema_gap) > 1.5: tech_warning = True
+                        with st.spinner("診断中..."):
+                            df_m = ticker_live.history(interval="1m", period="1d")
+                            rsi_slope = 0; ema_gap = 0; tech_warning = False
+                            if len(df_m) >= 15:
+                                rsi_series = core.calculate_rsi(df_m['Close'])
+                                if not rsi_series.empty and not pd.isna(rsi_series.iloc[-1]):
+                                    rsi_slope = rsi_series.iloc[-1] - rsi_series.iloc[-2]
+                                ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
+                                ema_gap = ((actual_open_val - ema5) / ema5) * 100
+                                if rsi_slope < 0 or abs(ema_gap) > 1.5: tech_warning = True
 
-                    today_limit = actual_open_val * (1 + (avg_push / 100))
-                    avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
-                    target_price = today_limit * (1 + avg_profit)
-                    adj_sl = params['sl_fix'] * v_factor
-                    stop_price = today_limit * (1 + adj_sl)
+                        today_limit = actual_open_val * (1 + (avg_push / 100))
+                        avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
+                        target_price = today_limit * (1 + avg_profit)
+                        adj_sl = params['sl_fix'] * v_factor
+                        stop_price = today_limit * (1 + adj_sl)
 
                     # --- 下段レイアウト (strat-card-bottom を使用：ボーダーなし) ---
                     st.markdown(f"""
