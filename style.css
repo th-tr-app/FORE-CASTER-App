@@ -259,6 +259,14 @@ div[data-testid="stExpander"] {
     gap: 10px;
     margin: 8px 0;
 }
+
+/* RSI方向とEMA5乖離のテキストサイズ */
+.strat-tech-item {
+    font-size: 14px !important;    /* ★お好みのサイズに調整してください */
+    font-weight: 500 !important;
+    color: #ffffff;
+}
+
 /* 指値戦略：説明テキスト（理想押し目、で指値注文）の共通スタイル */
 /* --- 指値戦略：上段カード専用 (最新終値・予想寄り付き) --- */
 .strat-card-top {
