@@ -299,11 +299,11 @@ div[data-testid="stExpander"] {
 .strat-msg-box {
     padding: 10px;
     border-radius: 6px;
-    margin: 5px 5;
+    margin: 5px 0;
     line-height: 1.5;
     border-left: 5px solid transparent; /* 左側の太線 */
     /* ★ここで全体のフォントサイズを調整できます */
-    font-size: 12px !important; 
+    font-size: 13px !important; 
 }
 
 /* 成功 (Success/GO) */
