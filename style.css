@@ -283,7 +283,7 @@ div[data-testid="stExpander"] {
 }
 /* 指値戦略：説明テキスト（理想押し目、で指値注文）の共通スタイル */
 .strat-card .strat-guide {
-    color: #888888 !important;  /* 共通のグレー */
+    color: #ffffff !important;  /* 共通のグレー */
     font-weight: 600 !important; /* 価格と差をつけるため細めに設定 */
     font-size: 0.8em !important;
     margin-top: -3px;           /* 上の数値との隙間を少し詰める */
@@ -292,7 +292,7 @@ div[data-testid="stExpander"] {
 .strat-percent {
     font-size: 1.15em !important; /* ★ここで数値の大きさを自由に変更してください */
     font-weight: 600 !important; /* 数値を目立たせるために太字に設定 */
-    color: #aaaaaa !important;   
+    color: #ffffff !important;   
 }
 
 /* --- 指値戦略：独自メッセージボックス (フォントサイズ調整用) --- */
