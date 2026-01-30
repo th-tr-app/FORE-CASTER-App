@@ -920,8 +920,8 @@ with tab_strategy:
                     r_cls = "rakuten-plus" if rsi_slope > 0 else "rakuten-minus"
                     st.markdown(f"""
                     <div class="strat-tech-flex">
-                        <div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{'上昇中' if rsi_slope > 0 else '低下中'}</span></div>
-                        <div class="strat-tech-item"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div>
+                        <div class="strat-tech-item"><b>RSI方向：</b> <span class='{r_cls}'>{'上昇中' if rsi_slope > 0 else '低下中'}</span></div>
+                        <div class="strat-tech-item"><b>EMA5乖離：</b> {ema_gap:+.2f}%</div>
                     </div>
                     """, unsafe_allow_html=True)
 
