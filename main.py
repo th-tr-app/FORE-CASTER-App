@@ -926,24 +926,37 @@ with tab_strategy:
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # --- 6. 最終判定のバッジ (Ver 4.5.4) ---
+                    # --- 6. 最終判定のバッジ ( st.markdown に置き換え ) ---
                     today_gap = (actual_open_val - last_c) / last_c
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
                     n_count = len(similar_trades)
                     sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
-                    
-                    if m_curr_pct < -0.003 and sim_win_rate >= 0.55:
-                        st.warning(f"⚠️ **CAUTION** (勝率 {sim_win_rate:.1%} / {n_count}回)  \n地合い軟調。慎重に判断してください。")
-                    elif sim_win_rate >= 0.55:
-                        msg = "統計は良いが勢いが弱まっています。" if tech_warning else "統計・勢い共に良好。"
-                        st.success(f"🔥 **エントリー可能** (勝率 {sim_win_rate:.1%} / {n_count}回)  \n{msg}")
-                    else:
-                        # ❄️ エントリーなし の後に半角スペースを2つ入れて改行を強制
-                        st.error(f"❄️ エントリーなし (勝率 {sim_win_rate:.1%} / {n_count}回)  \n期待値が不十分です。")
 
-                    # --- 7. トレイリング案 (ご要望の配置に修正) ---
-                    # 🚀 トレイリング最適化 の後にスペース2つと \n を入れ、2行目の頭に「開始」を持ってきました
-                    st.info(f"🚀 トレイリング最適化  \n開始{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}")
+                    if m_curr_pct < -0.003 and sim_win_rate >= 0.55:
+                        # ⚠️ CAUTION (警告)
+                        st.markdown(f"""<div class="strat-msg-box msg-bg-warning">
+                            ⚠️ <b>CAUTION</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>
+                            地合い軟調。慎重に判断してください。
+                        </div>""", unsafe_allow_html=True)
+                    elif sim_win_rate >= 0.55:
+                        # 🔥 エントリー可能 (成功)
+                        msg = "統計は良いが勢いが弱まっています。" if tech_warning else "統計・勢い共に良好。"
+                        st.markdown(f"""<div class="strat-msg-box msg-bg-success">
+                            🔥 <b>エントリー可能</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>
+                            {msg}
+                        </div>""", unsafe_allow_html=True)
+                    else:
+                        # ❄️ エントリーなし (エラー)
+                        st.markdown(f"""<div class="strat-msg-box msg-bg-error">
+                            ❄️ <b>エントリーなし</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>
+                            期待値が不十分です。
+                        </div>""", unsafe_allow_html=True)
+
+                    # --- 7. トレイリング案 ( st.markdown に置き換え ) ---
+                    st.markdown(f"""<div class="strat-msg-box msg-bg-info">
+                        🚀 <b>トレイリング最適化</b><br>
+                        開始{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}
+                    </div>""", unsafe_allow_html=True)
 
                     st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
                     
