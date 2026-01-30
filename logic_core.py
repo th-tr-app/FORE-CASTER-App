@@ -283,3 +283,25 @@ def calculate_rsi(series, period=14):
     rs = avg_gain / avg_loss
     return 100 - (100 / (1 + rs))
 
+# --- 4. 指値戦略用ガードロジック ---
+
+def check_opening_deviation(actual, expected, last_close):
+    """
+    予想寄付きと実際の始値の乖離をチェックするガードロジック
+    """
+    if actual is None or expected is None or last_close is None:
+        return False, 0.0
+    
+    # 1. 乖離率の計算: abs(Actual - Expected) / Expected * 100
+    dev_pct = abs(actual - expected) / expected * 100
+    
+    # 2. ギャップ幅の比較 (予想ギャップの2倍判定用)
+    exp_gap_abs = abs(expected - last_close) / last_close * 100
+    act_gap_abs = abs(actual - last_close) / last_close * 100
+    
+    # 判定条件:
+    # A. 乖離率が 0.5% 以上
+    # B. 実際のギャップが予想の 2倍以上 (予想が 0.1% 以上の有意な時のみ)
+    is_large = (dev_pct >= 0.5) or (exp_gap_abs >= 0.1 and act_gap_abs >= 2 * exp_gap_abs)
+    
+    return is_large, dev_pct
