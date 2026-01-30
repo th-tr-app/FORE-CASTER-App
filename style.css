@@ -265,6 +265,8 @@ div[data-testid="stExpander"] {
     font-size: 14px !important;    /* ★お好みのサイズに調整してください */
     font-weight: 500 !important;
     color: #ffffff;
+    margin-top: -5px !important;
+    margin-bottom: -5px !important;
 }
 
 /* 指値戦略：説明テキスト（理想押し目、で指値注文）の共通スタイル */
