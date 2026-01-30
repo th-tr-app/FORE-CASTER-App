@@ -317,7 +317,7 @@ div[data-testid="stExpander"] {
 .msg-bg-error {
     background-color: rgba(220, 53, 69, 0.15); /* 赤の背景(薄め) */
     border-left-color: #dc3545;
-    color: #ffffff;
+    color: #aaaaaa;
 }
 
 /* 情報 (Trailing/Info) */
