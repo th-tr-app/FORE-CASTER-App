@@ -282,7 +282,7 @@ div[data-testid="stExpander"] {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    margin-top: -10px !important; /* マイナス値を大きくすると上に上がります */
+    margin-top: -15px !important; /* マイナス値を大きくすると上に上がります */
 }
 
 /* カード内のラベル・数値・ガイドの共通スタイル設定 */
