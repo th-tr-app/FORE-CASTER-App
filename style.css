@@ -308,8 +308,3 @@ div[data-testid="stNotification"] span[data-testid="stIconMaterial"] {
 }
 
 /* ★一番最後にあった余分な } は削除しました */
-
-/* テスト用：これが反映されればCSS自体は読み込まれています */
-div[data-testid="stNotification"] {
-    border: 5px solid red !important;
-}
