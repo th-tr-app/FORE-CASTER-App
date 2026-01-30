@@ -107,8 +107,8 @@ h5 {
 }
 
 /* 指標・前日比プラスマイナスのカラー設定 */
-.plus { color: #ff4b4b; }
-.minus { color: #00f0a8; }
+.plus { color: #ff3b30; }
+.minus { color: #34c759; }
 
 /* B. バックテスト サマリー専用 (BT Summary) */
 .summary-box {
