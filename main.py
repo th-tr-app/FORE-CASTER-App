@@ -888,7 +888,7 @@ with tab_strategy:
                     )
                     
                     # 最終的な確定ボタン
-                    btn_calc = st.button(f"戦略を確定する ({t})", use_container_width=True, type="primary")
+                    btn_calc = st.button(f"始値を更新する ({t})", use_container_width=True, type="primary")
 
                 # 2. エラー修正：actual_open_val が None（空）でないことを確認する条件に変更します
                 if actual_open_val or btn_calc:
