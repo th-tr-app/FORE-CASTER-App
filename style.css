@@ -295,7 +295,7 @@ div[data-testid="stExpander"] {
     color: #aaaaaa !important;   
 }
 /* --- 判定バッジ（st.success等）とトレイリング枠の文字サイズを強制変更 --- */
-div[data-testid="stNotification"] [data-testid="stMarkdownContainer"] p {
+.answer-card {
     font-size: 10px !important;    /* ★まずは26pxで確認してください。30pxだとスマホで溢れる可能性があります */
     line-height: 1.4 !important;   /* 行間を少し詰めてスッキリさせます */
     font-weight: 800 !important;   /* 文字の太さを強調 */
