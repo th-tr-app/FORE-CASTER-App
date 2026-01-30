@@ -306,17 +306,41 @@ def check_opening_deviation(actual, expected, last_close):
     
     return is_large, dev_pct
 
-# --- 5. 始値の自動取得ロジック ---
+# --- 5. 始値の自動取得ロジック (Ver 4.6.1：時間帯判別 & 整数化) ---
 def get_realtime_opening_price(ticker_symbol):
     """
-    当日の始値を yfinance から取得する
+    時間帯に応じて、前場(9:00)または後場(12:30)の始値を自動取得する。
+    市場時間外（夜間等）は None を返し、手動入力を促す。
     """
     try:
+        jst = timezone(timedelta(hours=9))
+        now = datetime.now(jst).time()
+        
+        # 1. 市場稼働時間外 (9:00前 または 15:30以降) は None を返して手動モードへ
+        if now < time(9, 0) or now > time(15, 30):
+            return None
+            
+        # 2. 前場 (9:00~12:29) か 後場 (12:30~) かを判定
+        is_afternoon = now >= time(12, 30)
+        
         t = yf.Ticker(ticker_symbol)
         df = t.history(period="1d", interval="1m")
-        if not df.empty:
-            # 最初の1分足（9:00）の始値を返す
-            return float(df['Open'].iloc[0])
+        if df.empty: return None
+        
+        # インデックスを日本時間に変換
+        df.index = df.index.tz_convert('Asia/Tokyo')
+        
+        if is_afternoon:
+            # 後場：12:30以降の最初のOpenを取得
+            df_pm = df.between_time('12:30', '15:00')
+            if not df_pm.empty:
+                return int(df_pm['Open'].iloc[0]) # 整数に変換して小数点を消す
+        else:
+            # 前場：09:00以降の最初のOpenを取得
+            df_am = df.between_time('09:00', '11:30')
+            if not df_am.empty:
+                return int(df_am['Open'].iloc[0]) # 整数に変換して小数点を消す
+                
     except Exception:
         pass
     return None
