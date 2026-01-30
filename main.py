@@ -1018,7 +1018,7 @@ with tab_strategy:
                     st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
                     
                 else:
-                    st.caption("始値を入力して「更新ボタン」をタップ")
+                    st.caption("始値を入力して「更新ボタン」をタップしてください")
             st.divider()
                     
 # --- タブ5: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
