@@ -819,7 +819,7 @@ with tab_strategy:
     t_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
 
     if not t_list:
-        st.warning("⚠️ 銘柄コードに入力してください。")
+        st.warning("⚠️ 銘柄コードを入力してください。")
     elif res_df.empty:
         st.info("💡 まずは「バックテスト」を実行してください。過去の統計データが必要です。")
     else:
