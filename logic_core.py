@@ -306,18 +306,31 @@ def check_opening_deviation(actual, expected, last_close):
     
     return is_large, dev_pct
 
-# --- 5. 始値の自動取得ロジック (Ver 4.6.1：整数化・時間帯判別版) ---
+# --- 5. 始値の自動取得ロジック (Ver 4.6.2：高速取得版) ---
 def get_realtime_opening_price(ticker_symbol):
     try:
         jst = timezone(timedelta(hours=9))
         now = datetime.now(jst).time()
         
-        # 市場時間外は手動モードへ
+        # 市場時間外は None を返す
         if now < time(9, 0) or now > time(15, 30):
             return None
             
-        is_afternoon = now >= time(12, 30)
         t = yf.Ticker(ticker_symbol)
+
+        # 【追加】まず Ticker.info から本日の始値を直接取得を試みる (historyより速い)
+        # yfinanceの仕様上、寄付き直後はここに最も早く数値が入ります
+        todays_open = t.info.get('open')
+        
+        # 取得できた数値が有効かチェック
+        if todays_open is not None and todays_open > 0:
+            # 前場中(9:00-12:29)であればそのまま始値として採用
+            if now < time(12, 30):
+                return int(todays_open)
+            # 後場(12:30-)の場合は、後場寄付きを history から探す必要があるため続行
+
+        # --- 以下、既存の history を使った詳細取得ロジック (後場寄付き等のため保持) ---
+        is_afternoon = now >= time(12, 30)
         df = t.history(period="1d", interval="1m")
         if df.empty: return None
         
@@ -326,12 +339,10 @@ def get_realtime_opening_price(ticker_symbol):
         if is_afternoon:
             df_pm = df.between_time('12:30', '15:00')
             if not df_pm.empty:
-                # ★ ここで int() に変換して小数点を消す
                 return int(df_pm['Open'].iloc[0])
         else:
             df_am = df.between_time('09:00', '11:30')
             if not df_am.empty:
-                # ★ ここで int() に変換して小数点を消す
                 return int(df_am['Open'].iloc[0])
                 
     except Exception:
