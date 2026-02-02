@@ -876,24 +876,23 @@ with tab_strategy:
                 with c_top_r:
                     input_key = f"act_in_{t}"
                     
-                    # セッションから値を取り出し、存在すれば整数に変換
-                    raw_val = st.session_state.get(input_key)
-                    val_as_int = int(raw_val) if raw_val is not None else None
+                    # セッションにキーが存在しない場合のみ初期化
+                    if input_key not in st.session_state:
+                        st.session_state[input_key] = None
                     
-                    # --- 始値入力欄 (整数設定) ---
+                    # --- 始値入力欄 (警告回避のため value を削除) ---
                     actual_open_val = st.number_input(
                         f"始値を入力 ({t})", 
-                        value=val_as_int, 
-                        step=1,          # 整数ステップ
-                        format="%d",     # カンマなしの整数表示を強制
+                        # value=val_as_int を削除。システムは st.session_state[input_key] を自動参照します。
+                        step=1,
+                        format="%d",
                         key=input_key, 
                         label_visibility="collapsed", 
                         placeholder="始値を入力"
                     )
                     
-                    # ボタン名の変更
                     btn_calc = st.button(f"始値を更新する ({t})", use_container_width=True, type="primary")
-
+                
                 # 2. エラー修正：actual_open_val が None（空）でないことを確認する条件に変更します
                 if actual_open_val or btn_calc:
                     if not actual_open_val:
