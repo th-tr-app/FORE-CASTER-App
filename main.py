@@ -1037,18 +1037,17 @@ with tab_rank:
                 pb_r.progress((i+1)/len(all_tickers))
                 status.update(label=f"Scanning {i+1}/{len(all_tickers)}: {t}")
 
-
-                # 1. 前日比取得のための日足取得
-                df_d = yf.download(t, period="2d", interval="1d", progress=False)
+                # 1. 前日比取得のための日足取得 (5dに変更して週末の空白をカバー)
+                df_d = yf.download(t, period="5d", interval="1d", progress=False)
                 
-                # 【修正箇所】データが空、または2件（当日・前日）揃っていない場合はスキップ
+                # 直近2日分以上のデータがあるか確認
                 if df_d.empty or len(df_d) < 2: 
                     continue
                 
                 if isinstance(df_d.columns, pd.MultiIndex): 
                     df_d.columns = df_d.columns.get_level_values(0)
                 
-                # 前日比の計算（2件あることが確定したので安全にアクセス可能）
+                # 末尾2行を使って前日比を計算
                 # 計算式: $Day\_Gain = \frac{Close_{today} - Close_{yesterday}}{Close_{yesterday}} \times 100$
                 day_gain = ((df_d['Close'].iloc[-1] - df_d['Close'].iloc[-2]) / df_d['Close'].iloc[-2]) * 100
                 current_p = float(df_d['Close'].iloc[-1])
