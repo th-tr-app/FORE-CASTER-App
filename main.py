@@ -444,7 +444,7 @@ with tab_bt:
     if st.button("バックテスト実行", type="primary", use_container_width=True, key="bt_run_main"):
         t_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
         if not t_list:
-            st.error("⚠️銘柄コードを入力してください。")
+            st.error("⚠️ 銘柄コードを入力してください。")
         else:
             end_date = datetime.now()
             start_date = end_date - timedelta(days=days_back)
