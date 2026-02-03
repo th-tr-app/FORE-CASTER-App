@@ -349,3 +349,35 @@ def get_realtime_opening_price(ticker_symbol):
     except Exception:
         pass
     return None
+
+# --- 6. セカンドプラン用ロジック ---
+
+def get_gap_fill_probability(tdf, current_gap):
+    """
+    過去の統計から、現在のギャップが埋まる（反転落落する）確率を算出
+    """
+    if tdf.empty: return 0
+    # 同程度のギャップ幅（±0.5%）の取引を抽出
+    similar = tdf[(tdf['Gap(%)'] >= current_gap - 0.5) & (tdf['Gap(%)'] <= current_gap + 0.5)]
+    if len(similar) < 3: return 0
+    
+    # 窓埋め/反転の定義：エントリー後に損切り(負け)になった、または上昇しなかった割合
+    reversal_trades = similar[similar['PnL'] < 0]
+    return (len(reversal_trades) / len(similar)) * 100
+
+def get_morning_range(ticker_symbol):
+    """
+    前場（09:00-11:30）の高値と安値を自動取得
+    """
+    try:
+        t = yf.Ticker(ticker_symbol)
+        df = t.history(period="1d", interval="5m")
+        if df.empty: return None, None
+        df.index = df.index.tz_convert('Asia/Tokyo')
+        # 今日の前場のみに絞り込む
+        morning = df.between_time('09:00', '11:30')
+        if morning.empty: return None, None
+        return float(morning['High'].max()), float(morning['Low'].min())
+    except:
+        return None, None
+        
