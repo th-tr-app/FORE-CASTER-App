@@ -972,13 +972,23 @@ with tab_strategy:
                     """, unsafe_allow_html=True)
 
                     # --- 💡 セカンドプランの計算と表示 ---
-                    if actual_open_val and last_c > 0:
+                    # 1. まず、必要な変数を準備・取得する (既存コード)
+                    last_c = float(tdf['Close'].iloc[-1]) # 直近終値
+
+                    # 2. 始値が入力されている場合のみ、計算を開始する
+                    if actual_open_val is not None and last_c > 0:
+    
+                        # 【重要】まず today_gap を定義する (これを先に書く！)
+                        today_gap = (actual_open_val - last_c) / last_c
+    
+                        # --- 💡 セカンドプランの計算 ---
                         jst = timezone(timedelta(hours=9))
                         now_time = datetime.now(jst).time()
                         is_afternoon_mode = now_time >= time(12, 30)
-                        
-                        # ロジック呼び出し
+    
+                        # 定義した直後の today_gap を使って関数を呼び出す
                         gap_fill_prob = core.get_gap_fill_probability(tdf, today_gap * 100)
+    
                         m_high, m_low = core.get_morning_range(t) if is_afternoon_mode else (None, None)
 
                         # --- UI表示エリア ---
