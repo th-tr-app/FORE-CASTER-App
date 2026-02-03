@@ -1009,7 +1009,7 @@ with tab_strategy:
                                 if gap_fill_prob >= 30.0:
                                     p_color = "#ff3b30" if gap_fill_prob >= 60 else "#ffffff"
                                     st.markdown(f"""<div style="background: rgba(255,255,255,0.05); border-left: 3px solid #3498db; padding: 10px; border-radius: 4px;">
-                                        <span style="font-size: 0.8em; color: #aaa;">窓埋め(反転)確率</span><br>
+                                        <span style="font-size: 0.8em; color: #aaa;">寄付から下落する確率</span><br>
                                         <b style="font-size: 1.1em; color: {p_color};">{gap_fill_prob:.1f}%</b>
                                     </div>""", unsafe_allow_html=True)
                                 else:
@@ -1020,7 +1020,7 @@ with tab_strategy:
                                 if is_afternoon_mode and m_high and m_low:
                                     target_50 = (m_high + m_low) / 2
                                     st.markdown(f"""<div style="background: rgba(255,255,255,0.05); border-left: 3px solid #00f0a8; padding: 10px; border-radius: 4px;">
-                                        <span style="font-size: 0.8em; color: #aaa;">後場 半値押し目安</span><br>
+                                        <span style="font-size: 0.8em; color: #aaa;">後場の反発ポイント</span><br>
                                         <b style="font-size: 1.1em; color: #00f0a8;">{int(target_50):,}円</b>
                                     </div>""", unsafe_allow_html=True)
                                 else:
