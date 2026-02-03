@@ -836,6 +836,17 @@ with tab_strategy:
             if tdf.empty: continue
             t_name = ticker_names.get(t, t)
             
+            # --- 【修正】最新の価格データを取得して前日終値を確定させる ---
+            df_d = yf.download(t, period="5d", interval="1d", progress=False)
+            if df_d.empty: continue
+            
+            # マルチインデックス対策
+            if isinstance(df_d.columns, pd.MultiIndex):
+                df_d.columns = df_d.columns.get_level_values(0)
+            
+            # 前日終値を取得
+            last_c = float(df_d['Close'].iloc[-1])
+            
             with st.expander(f"[{t}] {t_name}", expanded=True):
                 with st.spinner("分析中..."):
                     ticker_live = yf.Ticker(t)
@@ -982,26 +993,28 @@ with tab_strategy:
                         today_gap = (actual_open_val - last_c) / last_c
     
                         # --- 💡 セカンドプランの計算 ---
-                        jst = timezone(timedelta(hours=9))
-                        now_time = datetime.now(jst).time()
-                        is_afternoon_mode = now_time >= time(12, 30)
-    
-                        # 定義した直後の today_gap を使って関数を呼び出す
-                        gap_fill_prob = core.get_gap_fill_probability(tdf, today_gap * 100)
-    
-                        m_high, m_low = core.get_morning_range(t) if is_afternoon_mode else (None, None)
+                        if actual_open_val and last_c > 0:
+                            # まずギャップを計算 (today_gap の定義)
+                            today_gap = (actual_open_val - last_c) / last_c
+                    
+                            jst = timezone(timedelta(hours=9))
+                            now_time = datetime.now(jst).time()
+                            is_afternoon_mode = now_time >= time(12, 30)
+                    
+                            # ロジック呼び出し（today_gap を引数に使用）
+                            gap_fill_prob = core.get_gap_fill_probability(tdf, today_gap * 100)
+                            m_high, m_low = core.get_morning_range(t) if is_afternoon_mode else (None, None)
 
-                        # --- UI表示エリア ---
-                        st.markdown("<div style='margin-top: 15px; margin-bottom: 5px; font-weight: bold; color: #3498db; font-size: 0.9em;'>💡 セカンドプラン発動 (逆張り・後場視点)</div>", unsafe_allow_html=True)
-                        
-                        c_sec_l, c_sec_r = st.columns(2)
-                        with c_sec_l:
-                            # 窓埋め確率の表示
-                            p_color = "#ff3b30" if gap_fill_prob >= 60 else "#ffffff"
-                            st.markdown(f"""<div style="background: rgba(255,255,255,0.05); border-left: 3px solid #3498db; padding: 10px; border-radius: 4px;">
-                                <span style="font-size: 0.8em; color: #aaa;">窓埋め(反転)確率</span><br>
-                                <b style="font-size: 1.1em; color: {p_color};">{gap_fill_prob:.1f}%</b>
-                            </div>""", unsafe_allow_html=True)
+                            # UI表示
+                            st.markdown("<div style='margin-top: 15px; margin-bottom: 5px; font-weight: bold; color: #3498db; font-size: 0.9em;'>💡 セカンドプラン発動 (逆張り・後場視点)</div>", unsafe_allow_html=True)
+                    
+                            c_sec_l, c_sec_r = st.columns(2)
+                            with c_sec_l:
+                                p_color = "#ff3b30" if gap_fill_prob >= 60 else "#ffffff"
+                                st.markdown(f"""<div style="background: rgba(255,255,255,0.05); border-left: 3px solid #3498db; padding: 10px; border-radius: 4px;">
+                                    <span style="font-size: 0.8em; color: #aaa;">窓埋め(反転)確率</span><br>
+                                    <b style="font-size: 1.1em; color: {p_color};">{gap_fill_prob:.1f}%</b>
+                                </div>""", unsafe_allow_html=True)
                             
                         with c_sec_r:
                             # 後場モード時の目安
