@@ -306,46 +306,45 @@ def check_opening_deviation(actual, expected, last_close):
     
     return is_large, dev_pct
 
-# --- 5. 始値の自動取得ロジック (Ver 4.6.2：高速取得版) ---
+# --- 5. 始値の自動取得ロジック (Ver 4.6.4：日付厳密フィルター版) ---
 def get_realtime_opening_price(ticker_symbol):
     try:
         jst = timezone(timedelta(hours=9))
-        now = datetime.now(jst).time()
+        now_dt = datetime.now(jst)
+        today = now_dt.date() # 今日の日付を取得
         
-        # 市場時間外は None を返す
-        if now < time(9, 0) or now > time(15, 30):
+        if now_dt.time() < time(9, 0) or now_dt.time() > time(15, 30):
             return None
             
         t = yf.Ticker(ticker_symbol)
-
-        # 【追加】まず Ticker.info から本日の始値を直接取得を試みる (historyより速い)
-        # yfinanceの仕様上、寄付き直後はここに最も早く数値が入ります
-        todays_open = t.info.get('open')
         
-        # 取得できた数値が有効かチェック
-        if todays_open is not None and todays_open > 0:
-            # 前場中(9:00-12:29)であればそのまま始値として採用
-            if now < time(12, 30):
-                return int(todays_open)
-            # 後場(12:30-)の場合は、後場寄付きを history から探す必要があるため続行
-
-        # --- 以下、既存の history を使った詳細取得ロジック (後場寄付き等のため保持) ---
-        is_afternoon = now >= time(12, 30)
+        # 直近の1分足を取得
         df = t.history(period="1d", interval="1m")
         if df.empty: return None
         
+        # 日本時間に変換
         df.index = df.index.tz_convert('Asia/Tokyo')
         
+        # 【重要】インデックスの日付が「今日」である行だけに絞り込む
+        df_today = df[df.index.date == today]
+        
+        if df_today.empty:
+            # 今日分がまだ届いていない場合は、昨日の値を返さず None にする
+            return None 
+            
+        is_afternoon = now_dt.time() >= time(12, 30)
+        
         if is_afternoon:
-            df_pm = df.between_time('12:30', '15:00')
-            if not df_pm.empty:
-                return int(df_pm['Open'].iloc[0])
+            # 後場寄付き：12:30以降の最初のOpen
+            df_target = df_today.between_time('12:30', '15:00')
         else:
-            df_am = df.between_time('09:00', '11:30')
-            if not df_am.empty:
-                return int(df_am['Open'].iloc[0])
+            # 前場寄付き：09:00以降の最初のOpen
+            df_target = df_today.between_time('09:00', '11:30')
+            
+        if not df_target.empty:
+            # その時間帯の最初の足の始値を返す
+            return int(df_target['Open'].iloc[0])
                 
     except Exception:
         pass
     return None
-    
