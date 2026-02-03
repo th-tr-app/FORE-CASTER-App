@@ -306,45 +306,44 @@ def check_opening_deviation(actual, expected, last_close):
     
     return is_large, dev_pct
 
-# --- 5. 始値の自動取得ロジック (Ver 4.6.5：最速・正確ハイブリッド版) ---
+# --- 5. 始値の自動取得ロジック (Ver 4.6.8：高精度・後場安定版) ---
 def get_realtime_opening_price(ticker_symbol):
     try:
         jst = timezone(timedelta(hours=9))
         now_dt = datetime.now(jst)
         today = now_dt.date()
         
-        # 市場時間外（9:00前 または 15:30以降）は None を返す
         if now_dt.time() < time(9, 0) or now_dt.time() > time(15, 30):
             return None
             
         t = yf.Ticker(ticker_symbol)
         is_afternoon = now_dt.time() >= time(12, 30)
 
-        # ⚡️ 【優先】前場(9:00-12:29)であれば、より速報性の高い info から取得を試みる
+        # 前場(9:00-12:29)は info から速報取得
         if not is_afternoon:
             todays_open = t.info.get('open')
             if todays_open and todays_open > 0:
                 return int(todays_open)
 
-        # 🛡️ 【バックアップ/後場用】history から厳密に今日の日付だけを抽出
-        df = t.history(period="1d", interval="1m")
+        # 後場、または info が空の場合：より確実に 2d 分の履歴を取りに行く
+        df = t.history(period="2d", interval="1m")
         if df.empty: return None
         
-        # 日本時間に変換し、今日の日付のみにフィルタリング
         df.index = df.index.tz_convert('Asia/Tokyo')
+        # 厳密に「今日」のデータだけに絞る
         df_today = df[df.index.date == today]
         
-        if df_today.empty: return None # 今日のデータが届いていなければ何もしない
+        if df_today.empty: return None
 
         if is_afternoon:
-            # 後場：12:30以降の最初のOpenを取得
-            df_target = df_today.between_time('12:30', '15:00')
+            # 12:30以降の最初の足を探す。もし12:30ちょうどがなければ、その直後の足を拾う
+            df_pm = df_today.between_time('12:30', '15:00')
+            if not df_pm.empty:
+                return int(df_pm['Open'].iloc[0])
         else:
-            # 前場：09:00以降の最初のOpenを取得
-            df_target = df_today.between_time('09:00', '11:30')
-            
-        if not df_target.empty:
-            return int(df_target['Open'].iloc[0])
+            df_am = df_today.between_time('09:00', '11:30')
+            if not df_am.empty:
+                return int(df_am['Open'].iloc[0])
                 
     except Exception:
         pass
