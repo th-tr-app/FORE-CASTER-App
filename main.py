@@ -996,29 +996,35 @@ with tab_strategy:
                         m_high, m_low = core.get_morning_range(t) if is_afternoon_mode else (None, None)
 
                         # UI表示
-                        st.markdown("<div style='margin-top: 15px; margin-bottom: 5px; font-weight: bold; color: #3498db; font-size: 0.9em;'>💡 セカンドプラン発動 (逆張り・後場視点)</div>", unsafe_allow_html=True)
+                        # 表示条件：窓埋め確率が30%以上ある、または後場モードで目安がある場合
+                        show_second_plan = (gap_fill_prob >= 30.0) or (is_afternoon_mode and m_high and m_low)
+
+                        if actual_open_val and show_second_plan:
+                            st.markdown("<div style='margin-top: 15px; margin-bottom: 5px; font-weight: bold; color: #3498db; font-size: 0.9em;'>💡 セカンドプラン発動 (逆張り・後場視点)</div>", unsafe_allow_html=True)
                     
-                        c_sec_l, c_sec_r = st.columns(2)
-                        with c_sec_l:
-                            p_color = "#ff3b30" if gap_fill_prob >= 60 else "#ffffff"
-                            st.markdown(f"""<div style="background: rgba(255,255,255,0.05); border-left: 3px solid #3498db; padding: 10px; border-radius: 4px;">
-                                <span style="font-size: 0.8em; color: #aaa;">窓埋め(反転)確率</span><br>
-                                <b style="font-size: 1.1em; color: {p_color};">{gap_fill_prob:.1f}%</b>
-                            </div>""", unsafe_allow_html=True)
+                            c_sec_l, c_sec_r = st.columns(2)
+                    
+                            # 1. 窓埋め確率 (30%以上の場合のみ左側に表示)
+                            with c_sec_l:
+                                if gap_fill_prob >= 30.0:
+                                    p_color = "#ff3b30" if gap_fill_prob >= 60 else "#ffffff"
+                                    st.markdown(f"""<div style="background: rgba(255,255,255,0.05); border-left: 3px solid #3498db; padding: 10px; border-radius: 4px;">
+                                        <span style="font-size: 0.8em; color: #aaa;">窓埋め(反転)確率</span><br>
+                                        <b style="font-size: 1.1em; color: {p_color};">{gap_fill_prob:.1f}%</b>
+                                    </div>""", unsafe_allow_html=True)
+                                else:
+                                    st.empty() # 30%未満なら何も表示しない
                             
-                        with c_sec_r:
-                            # 後場モード時の目安
-                            if is_afternoon_mode and m_high and m_low:
-                                target_50 = (m_high + m_low) / 2
-                                st.markdown(f"""<div style="background: rgba(255,255,255,0.05); border-left: 3px solid #00f0a8; padding: 10px; border-radius: 4px;">
-                                    <span style="font-size: 0.8em; color: #aaa;">後場 半値押し目安</span><br>
-                                    <b style="font-size: 1.1em; color: #00f0a8;">{int(target_50):,}円</b>
-                                </div>""", unsafe_allow_html=True)
-                            else:
-                                st.markdown(f"""<div style="background: rgba(255,255,255,0.05); border-left: 3px solid #666; padding: 10px; border-radius: 4px;">
-                                    <span style="font-size: 0.8em; color: #888;">後場目安</span><br>
-                                    <span style="font-size: 0.85em; color: #666;">12:30以降に表示</span>
-                                </div>""", unsafe_allow_html=True)
+                            # 2. 後場目安 (後場モードかつ価格がある場合のみ右側に表示)
+                            with c_sec_r:
+                                if is_afternoon_mode and m_high and m_low:
+                                    target_50 = (m_high + m_low) / 2
+                                    st.markdown(f"""<div style="background: rgba(255,255,255,0.05); border-left: 3px solid #00f0a8; padding: 10px; border-radius: 4px;">
+                                        <span style="font-size: 0.8em; color: #aaa;">後場 半値押し目安</span><br>
+                                        <b style="font-size: 1.1em; color: #00f0a8;">{int(target_50):,}円</b>
+                                    </div>""", unsafe_allow_html=True)
+                                else:
+                                    st.empty()
 
                     # --- 6. 最終判定 (乖離ガードロジック搭載版) ---
                     today_gap = (actual_open_val - last_c) / last_c
