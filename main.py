@@ -92,7 +92,6 @@ for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェン�
         st.session_state['preset'] = p
         st.rerun()
 
-
 # --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
 st.sidebar.header("🎲 戦略実行プリセット")
 
