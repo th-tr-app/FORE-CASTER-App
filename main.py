@@ -92,6 +92,37 @@ for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェン�
         st.session_state['preset'] = p
         st.rerun()
 
+
+# --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
+st.sidebar.header("🎲 戦略実行プリセット")
+
+# プリセット定義に PLAN_B を追加
+presets = [
+    ("NORMAL", "通常フィルター"), 
+    ("DEFENSIVE", "ディフェンシブ"), 
+    ("RANGE", "横ばい相場対応"),
+    ("PLAN_B", "プランB▶︎発動")
+]
+
+for p, l in presets:
+    is_sel = (st.session_state['preset'] == p)
+    if st.sidebar.button(l + (" [ 選択中 ]" if is_sel else ""), key=f"side_ps_btn_{p}", type="primary" if is_sel else "secondary", use_container_width=True):
+        st.session_state['preset'] = p
+        st.rerun()
+
+# --- プリセットに応じた動的なデフォルト値の設定 ---
+curr_p = st.session_state['preset']
+if curr_p == "PLAN_B":
+    d_g_max = 2.5      # プランBは窓開け上限を大幅拡張
+    d_ts_s = 0.8       # 少し深めに追う
+    d_sl = -0.8        # 許容リスクを広げる
+elif curr_p == "DEFENSIVE":
+    d_g_max = 0.5; d_ts_s = 0.3; d_sl = -0.3
+elif curr_p == "RANGE":
+    d_g_max = 1.5; d_ts_s = 0.5; d_sl = -0.5
+else: # NORMAL
+    d_g_max = 1.0; d_ts_s = 0.5; d_sl = -0.5
+
 st.sidebar.divider()
 st.sidebar.header("⚙️ バックテスト設定")
 days_back = st.sidebar.slider("過去何日分を取得", 10, 59, 59)
