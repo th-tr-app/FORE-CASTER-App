@@ -306,68 +306,46 @@ def check_opening_deviation(actual, expected, last_close):
     
     return is_large, dev_pct
 
-# --- 5. 始値の自動取得ロジック (Ver 4.6.5：最速・正確ハイブリッド版) ---
+# --- 5. 始値の自動取得ロジック (Ver 4.6.2：高速取得版) ---
 def get_realtime_opening_price(ticker_symbol):
     try:
         jst = timezone(timedelta(hours=9))
-        now_dt = datetime.now(jst)
-        today = now_dt.date()
+        now = datetime.now(jst).time()
         
-        # 市場時間外（9:00前 または 15:30以降）は None を返す
-        if now_dt.time() < time(9, 0) or now_dt.time() > time(15, 30):
+        # 市場時間外は None を返す
+        if now < time(9, 0) or now > time(15, 30):
             return None
             
         t = yf.Ticker(ticker_symbol)
-        is_afternoon = now_dt.time() >= time(12, 30)
 
-        # ⚡️ 【優先】前場(9:00-12:29)であれば、より速報性の高い info から取得を試みる
-        if not is_afternoon:
-            todays_open = t.info.get('open')
-            if todays_open and todays_open > 0:
+        # 【追加】まず Ticker.info から本日の始値を直接取得を試みる (historyより速い)
+        # yfinanceの仕様上、寄付き直後はここに最も早く数値が入ります
+        todays_open = t.info.get('open')
+        
+        # 取得できた数値が有効かチェック
+        if todays_open is not None and todays_open > 0:
+            # 前場中(9:00-12:29)であればそのまま始値として採用
+            if now < time(12, 30):
                 return int(todays_open)
+            # 後場(12:30-)の場合は、後場寄付きを history から探す必要があるため続行
 
-        # 🛡️ 【バックアップ/後場用】history から厳密に今日の日付だけを抽出
+        # --- 以下、既存の history を使った詳細取得ロジック (後場寄付き等のため保持) ---
+        is_afternoon = now >= time(12, 30)
         df = t.history(period="1d", interval="1m")
         if df.empty: return None
         
-        # 日本時間に変換し、今日の日付のみにフィルタリング
         df.index = df.index.tz_convert('Asia/Tokyo')
-        df_today = df[df.index.date == today]
         
-        if df_today.empty: return None # 今日のデータが届いていなければ何もしない
-
         if is_afternoon:
-            # 後場：12:30以降の最初のOpenを取得
-            df_target = df_today.between_time('12:30', '15:00')
+            df_pm = df.between_time('12:30', '15:00')
+            if not df_pm.empty:
+                return int(df_pm['Open'].iloc[0])
         else:
-            # 前場：09:00以降の最初のOpenを取得
-            df_target = df_today.between_time('09:00', '11:30')
-            
-        if not df_target.empty:
-            return int(df_target['Open'].iloc[0])
+            df_am = df.between_time('09:00', '11:30')
+            if not df_am.empty:
+                return int(df_am['Open'].iloc[0])
                 
     except Exception:
         pass
     return None
-
-# --- 6. セカンドプラン用ロジック (Ver 4.6.6) ---
-def get_gap_fill_probability(tdf, current_gap):
-    if tdf is None or tdf.empty: return 0.0
-    similar = tdf[(tdf['Gap(%)'] >= current_gap - 0.5) & (tdf['Gap(%)'] <= current_gap + 0.5)]
-    if len(similar) < 3: return 0.0
-
-    # 窓埋め/反転の定義：エントリー後に損切り(負け)になった、または上昇しなかった割合
-    reversal_trades = similar[similar['PnL'] < 0]
-    return (len(reversal_trades) / len(similar)) * 100
-
-def get_morning_range(ticker_symbol):
-    try:
-        t = yf.Ticker(ticker_symbol)
-        df = t.history(period="1d", interval="5m")
-        if df.empty: return None, None
-        df.index = df.index.tz_convert('Asia/Tokyo')
-        morning = df.between_time('09:00', '11:30')
-        if morning.empty: return None, None
-        return float(morning['High'].max()), float(morning['Low'].min())
-    except:
-        return None, None
+    
