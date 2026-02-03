@@ -893,131 +893,112 @@ with tab_strategy:
                     
                     btn_calc = st.button(f"始値を更新する ({t})", use_container_width=True, type="primary")
                 
-                # 2. エラー修正：actual_open_val が None（空）でないことを確認する条件に変更します
+                # --- 2. 始値入力後の診断ロジック ---
                 if actual_open_val or btn_calc:
                     if not actual_open_val:
                         st.error("始値を入力してください。") # 未入力でボタンを押した時の警告
                     else:
+                        # 【重要】計算の起点となる「today_gap」を最優先で定義
+                        today_gap = (actual_open_val - last_c) / last_c
+                        
                         with st.spinner("診断中..."):
+                            # 1分足を取得してテクニカル分析
                             df_m = ticker_live.history(interval="1m", period="1d")
                             rsi_slope = 0; ema_gap = 0; tech_warning = False
+                            
                             if len(df_m) >= 15:
                                 rsi_series = core.calculate_rsi(df_m['Close'])
-                                if not rsi_series.empty and not pd.isna(rsi_series.iloc[-1]):
+                                if len(rsi_series) >= 6:
+                                    curr_rsi_avg = rsi_series.tail(3).mean()
+                                    prev_rsi_avg = rsi_series.iloc[-6:-3].mean()
+                                    rsi_slope = curr_rsi_avg - prev_rsi_avg
+                                elif len(rsi_series) >= 2:
                                     rsi_slope = rsi_series.iloc[-1] - rsi_series.iloc[-2]
+
                                 ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
                                 ema_gap = ((actual_open_val - ema5) / ema5) * 100
-                                if rsi_slope < 0 or abs(ema_gap) > 1.5: tech_warning = True
+                                if rsi_slope < -0.2 or abs(ema_gap) > 1.5: tech_warning = True
 
-                        today_limit = actual_open_val * (1 + (avg_push / 100))
-                        avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
-                        target_price = today_limit * (1 + avg_profit)
-                        adj_sl = params['sl_fix'] * v_factor
-                        stop_price = today_limit * (1 + adj_sl)
+                            # 統計データから目標価格・損切価格を計算
+                            today_limit = actual_open_val * (1 + (avg_push / 100))
+                            avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
+                            target_price = today_limit * (1 + avg_profit)
+                            adj_sl = params['sl_fix'] * v_factor
+                            stop_price = today_limit * (1 + adj_sl)
 
-                    # --- 下段レイアウト (strat-card-bottom を使用：ボーダーなし) ---
-                    st.markdown(f"""
-                    <div class="mobile-flex-container" style="margin-top: 15px;">
-                        <div class="flex-item strat-card-bottom">
-                            <div class="card-label">今日の指値</div>
-                            <div class="strat-value">{int(today_limit):,}</div>
-                            <div class="strat-guide">で逆指値注文</div>
+                        # --- 3. 下段レイアウト表示 (価格パネル) ---
+                        st.markdown(f"""
+                        <div class="mobile-flex-container" style="margin-top: 15px;">
+                            <div class="flex-item strat-card-bottom">
+                                <div class="card-label">今日の指値</div>
+                                <div class="strat-value">{int(today_limit):,}</div>
+                                <div class="strat-guide">で逆指値注文</div>
+                            </div>
+                            <div class="flex-item strat-card-bottom">
+                                <div class="card-label">目標利確</div>
+                                <div class="strat-value">{int(target_price):,}</div>
+                                <div class="strat-delta rakuten-plus">{avg_profit:+.2%}</div>
+                            </div>
+                            <div class="flex-item strat-card-bottom">
+                                <div class="card-label">損切ライン</div>
+                                <div class="strat-value">{int(stop_price):,}</div>
+                                <div class="strat-delta rakuten-minus">{adj_sl:+.2%}</div>
+                            </div>
                         </div>
-                        <div class="flex-item strat-card-bottom">
-                            <div class="card-label">目標利確</div>
-                            <div class="strat-value">{int(target_price):,}</div>
-                            <div class="strat-delta rakuten-plus">{avg_profit:+.2%}</div>
-                        </div>
-                        <div class="flex-item strat-card-bottom">
-                            <div class="card-label">損切ライン</div>
-                            <div class="strat-value">{int(stop_price):,}</div>
-                            <div class="strat-delta rakuten-minus">{adj_sl:+.2%}</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # 3. テクニカル診断 (RSIスロープのマイルド化 & アイコン削除)
-                    with st.spinner("診断中..."):
-                        df_m = ticker_live.history(interval="1m", period="1d")
-                        rsi_slope = 0; ema_gap = 0; tech_warning = False
+                        """, unsafe_allow_html=True)
+
+                        # --- 4. テクニカル表示 ---
+                        r_cls = "rakuten-plus" if rsi_slope > -0.2 else "rakuten-minus"
+                        r_text = "上昇・維持" if rsi_slope > -0.2 else "低下中"
                         
-                        if len(df_m) >= 15:
-                            rsi_series = core.calculate_rsi(df_m['Close'])
-                            
-                            # --- マイルド判定ロジック：直近3分(平均) vs その前3分(平均) ---
-                            if len(rsi_series) >= 6:
-                                curr_rsi_avg = rsi_series.tail(3).mean()      # 最新3本の平均
-                                prev_rsi_avg = rsi_series.iloc[-6:-3].mean() # その前3本の平均
-                                rsi_slope = curr_rsi_avg - prev_rsi_avg
-                            elif len(rsi_series) >= 2:
-                                rsi_slope = rsi_series.iloc[-1] - rsi_series.iloc[-2]
+                        st.markdown(f"""
+                        <div class="strat-tech-flex">
+                            <div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{r_text}</span></div>
+                            <div class="strat-tech-item"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div>
+                        </div>
+                        """, unsafe_allow_html=True)
 
-                            # EMA5乖離の計算
-                            ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
-                            ema_gap = ((actual_open_val - ema5) / ema5) * 100
-                            
-                            # 判定しきい値：わずかなノイズを無視するため -0.2 以下を「低下」と定義
-                            if rsi_slope < -0.2 or abs(ema_gap) > 1.5: 
-                                tech_warning = True
+                        # --- 5. 最終判定ロジック (today_gap を使用) ---
+                        similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
+                        n_count = len(similar_trades)
+                        sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
 
-                    # --- テクニカル表示 (アイコンなし・マイルド判定反映) ---
-                    r_cls = "rakuten-plus" if rsi_slope > -0.2 else "rakuten-minus"
-                    r_text = "上昇・維持" if rsi_slope > -0.2 else "低下中"
-                    
-                    st.markdown(f"""
-                    <div class="strat-tech-flex">
-                        <div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{r_text}</span></div>
-                        <div class="strat-tech-item"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                        # 乖離チェック
+                        is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c)
 
-                    # --- 6. 最終判定 (乖離ガードロジック搭載版) ---
-                    today_gap = (actual_open_val - last_c) / last_c
-                    similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
-                    n_count = len(similar_trades)
-                    sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
+                        if is_dev_large:
+                            st.markdown(f"""<div class="strat-msg-box msg-bg-error">
+                                ⚠️ <b>見送り</b><br>
+                                予想乖離からのズレ: {dev_val:.2f}%<br>
+                                寄付き乖離が大きいため見送り推奨です。
+                            </div>""", unsafe_allow_html=True)
+                        elif m_curr_pct < -0.003 and sim_win_rate >= 0.55:
+                            st.markdown(f"""<div class="strat-msg-box msg-bg-warning">
+                                ⚠️ <b>CAUTION</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>
+                                地合い軟調。慎重に判断してください。
+                            </div>""", unsafe_allow_html=True)
+                        elif sim_win_rate >= 0.55:
+                            msg = "統計は良いが勢いが弱まっています。" if tech_warning else "統計・勢い共に良好。"
+                            st.markdown(f"""<div class="strat-msg-box msg-bg-success">
+                                🔥 <b>エントリー可能</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>
+                                {msg}
+                            </div>""", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"""<div class="strat-msg-box msg-bg-error">
+                                ❄️ <b>エントリーなし</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>
+                                期待値が不十分です。
+                            </div>""", unsafe_allow_html=True)
 
-                    # 新規追加：乖離チェックの実行
-                    is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c)
-
-                    if is_dev_large:
-                        # 🚫 乖離ガード発動 (最優先)
-                        st.markdown(f"""<div class="strat-msg-box msg-bg-error">
-                            ⚠️ <b>見送り</b><br>
-                            予想乖離からのズレ: {dev_val:.2f}%<br>
-                            寄付き乖離が大きいため見送り推奨です。
+                        # --- 6. トレイリング案 ---
+                        st.markdown(f"""<div class="strat-msg-box msg-bg-info">
+                            🚀 <b>トレイリング最適化</b><br>
+                            開始{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}
                         </div>""", unsafe_allow_html=True)
-                    elif m_curr_pct < -0.003 and sim_win_rate >= 0.55:
-                        # ⚠️ CAUTION
-                        st.markdown(f"""<div class="strat-msg-box msg-bg-warning">
-                            ⚠️ <b>CAUTION</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>
-                            地合い軟調。慎重に判断してください。
-                        </div>""", unsafe_allow_html=True)
-                    elif sim_win_rate >= 0.55:
-                        # 🔥 エントリー可能
-                        msg = "統計は良いが勢いが弱まっています。" if tech_warning else "統計・勢い共に良好。"
-                        st.markdown(f"""<div class="strat-msg-box msg-bg-success">
-                            🔥 <b>エントリー可能</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>
-                            {msg}
-                        </div>""", unsafe_allow_html=True)
+
+                        st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")                        
                     else:
-                        # ❄️ エントリーなし
-                        st.markdown(f"""<div class="strat-msg-box msg-bg-error">
-                            ❄️ <b>エントリーなし</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>
-                            期待値が不十分です。
-                        </div>""", unsafe_allow_html=True)
-
-                    # --- 7. トレイリング案 ( st.markdown に置き換え ) ---
-                    st.markdown(f"""<div class="strat-msg-box msg-bg-info">
-                        🚀 <b>トレイリング最適化</b><br>
-                        開始{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}
-                    </div>""", unsafe_allow_html=True)
-
-                    st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
-                    
-                else:
-                    st.caption("始値を入力して「更新ボタン」をタップして下さい")
-            st.divider()
+                        st.caption("始値を入力して「更新ボタン」をタップして下さい")
+                st.divider()
                     
 # --- タブ5: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
 with tab_rank:
