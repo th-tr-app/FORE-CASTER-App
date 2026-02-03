@@ -971,6 +971,46 @@ with tab_strategy:
                     </div>
                     """, unsafe_allow_html=True)
 
+                    # --- 💡 セカンドプランの計算 ---
+                    jst = timezone(timedelta(hours=9))
+                    now_time = datetime.now(jst).time()
+                    is_afternoon_mode = now_time >= time(12, 30)
+                    
+                    # 1. 窓埋め(空売り)確率の算出
+                    gap_fill_prob = core.get_gap_fill_probability(tdf, today_gap * 100)
+                    
+                    # 2. 後場モード時の前場高値/安値取得
+                    m_high, m_low = (None, None)
+                    if is_afternoon_mode:
+                        m_high, m_low = core.get_morning_range(t)
+
+                    # --- UI表示エリア ---
+                    st.markdown("<div style='margin-top: 10px; margin-bottom: 5px; font-weight: bold; color: #3498db;'>💡 セカンドプラン発動</div>", unsafe_allow_html=True)
+                    
+                    c_sec_l, c_sec_r = st.columns(2)
+                    with c_sec_l:
+                        # 窓埋め確率の表示
+                        prob_color = "#ff3b30" if gap_fill_prob >= 60 else "#ffffff"
+                        st.markdown(f"""<div class="strat-msg-box" style="background: rgba(255,255,255,0.05); border-left: 3px solid #3498db; padding: 10px;">
+                            <span style="font-size: 0.85em; color: #aaa;">窓埋め(空売り)期待値</span><br>
+                            <b style="font-size: 1.2em; color: {prob_color};">{gap_fill_prob:.1f}%</b>
+                        </div>""", unsafe_allow_html=True)
+                        
+                    with c_sec_r:
+                        # 後場モード時のリバウンド目安
+                        if is_afternoon_mode and m_high and m_low:
+                            # 押し目買いの目安：半値戻し(50%)と黄金比(61.8%戻し)
+                            target_50 = (m_high + m_low) / 2
+                            st.markdown(f"""<div class="strat-msg-box" style="background: rgba(255,255,255,0.05); border-left: 3px solid #00f0a8; padding: 10px;">
+                                <span style="font-size: 0.85em; color: #aaa;">後場 押し目目安(半値)</span><br>
+                                <b style="font-size: 1.2em; color: #00f0a8;">{int(target_50):,}円</b>
+                            </div>""", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"""<div class="strat-msg-box" style="background: rgba(255,255,255,0.05); border-left: 3px solid #888; padding: 10px;">
+                                <span style="font-size: 0.85em; color: #aaa;">後場モード</span><br>
+                                <b style="font-size: 0.9em; color: #888;">12:30以降に有効</b>
+                            </div>""", unsafe_allow_html=True)
+
                     # --- 6. 最終判定 (乖離ガードロジック搭載版) ---
                     today_gap = (actual_open_val - last_c) / last_c
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
