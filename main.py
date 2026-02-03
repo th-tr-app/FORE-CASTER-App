@@ -982,39 +982,29 @@ with tab_strategy:
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # --- 💡 セカンドプランの計算と表示 ---
-                    # 1. まず、必要な変数を準備・取得する (既存コード)
-                    last_c = float(tdf['Close'].iloc[-1]) # 直近終値
-
-                    # 2. 始値が入力されている場合のみ、計算を開始する
-                    if actual_open_val is not None and last_c > 0:
-    
-                        # 【重要】まず today_gap を定義する (これを先に書く！)
+                    # --- 💡 セカンドプランの計算 ---
+                    if actual_open_val and last_c > 0:
+                        # まずギャップを計算 (today_gap の定義)
                         today_gap = (actual_open_val - last_c) / last_c
-    
-                        # --- 💡 セカンドプランの計算 ---
-                        if actual_open_val and last_c > 0:
-                            # まずギャップを計算 (today_gap の定義)
-                            today_gap = (actual_open_val - last_c) / last_c
                     
-                            jst = timezone(timedelta(hours=9))
-                            now_time = datetime.now(jst).time()
-                            is_afternoon_mode = now_time >= time(12, 30)
+                        jst = timezone(timedelta(hours=9))
+                        now_time = datetime.now(jst).time()
+                        is_afternoon_mode = now_time >= time(12, 30)
                     
-                            # ロジック呼び出し（today_gap を引数に使用）
-                            gap_fill_prob = core.get_gap_fill_probability(tdf, today_gap * 100)
-                            m_high, m_low = core.get_morning_range(t) if is_afternoon_mode else (None, None)
+                        # ロジック呼び出し（today_gap を引数に使用）
+                        gap_fill_prob = core.get_gap_fill_probability(tdf, today_gap * 100)
+                        m_high, m_low = core.get_morning_range(t) if is_afternoon_mode else (None, None)
 
-                            # UI表示
-                            st.markdown("<div style='margin-top: 15px; margin-bottom: 5px; font-weight: bold; color: #3498db; font-size: 0.9em;'>💡 セカンドプラン発動 (逆張り・後場視点)</div>", unsafe_allow_html=True)
+                        # UI表示
+                        st.markdown("<div style='margin-top: 15px; margin-bottom: 5px; font-weight: bold; color: #3498db; font-size: 0.9em;'>💡 セカンドプラン発動 (逆張り・後場視点)</div>", unsafe_allow_html=True)
                     
-                            c_sec_l, c_sec_r = st.columns(2)
-                            with c_sec_l:
-                                p_color = "#ff3b30" if gap_fill_prob >= 60 else "#ffffff"
-                                st.markdown(f"""<div style="background: rgba(255,255,255,0.05); border-left: 3px solid #3498db; padding: 10px; border-radius: 4px;">
-                                    <span style="font-size: 0.8em; color: #aaa;">窓埋め(反転)確率</span><br>
-                                    <b style="font-size: 1.1em; color: {p_color};">{gap_fill_prob:.1f}%</b>
-                                </div>""", unsafe_allow_html=True)
+                        c_sec_l, c_sec_r = st.columns(2)
+                        with c_sec_l:
+                            p_color = "#ff3b30" if gap_fill_prob >= 60 else "#ffffff"
+                            st.markdown(f"""<div style="background: rgba(255,255,255,0.05); border-left: 3px solid #3498db; padding: 10px; border-radius: 4px;">
+                                <span style="font-size: 0.8em; color: #aaa;">窓埋め(反転)確率</span><br>
+                                <b style="font-size: 1.1em; color: {p_color};">{gap_fill_prob:.1f}%</b>
+                            </div>""", unsafe_allow_html=True)
                             
                         with c_sec_r:
                             # 後場モード時の目安
