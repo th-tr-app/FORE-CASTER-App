@@ -43,25 +43,49 @@ def fetch_market_info(indices_dict):
 
 @st.cache_data(ttl=300)
 def analyze_market_environment():
-    """主要指数から今日の相場環境をプロ視点で診断する (時系列・Ver 4.1修正版)"""
+    """主要指数から今日の相場環境をプロ視点で診断する (Ver 4.6.9：大引け同期版)"""
     indices = {"N225": "^N225", "VIX": "^VIX", "SOX": "^SOX", "WTI": "CL=F", "CME": "NIY=F", "USDJPY": "JPY=X", "GOLD": "GC=F"}
     data_map = {}
+    
+    # 今日の日付を取得 (JST)
+    jst = timezone(timedelta(hours=9))
+    today = datetime.now(jst).date()
+
     for k, ticker in indices.items():
         try:
+            # 1. 履歴データを取得
             df = yf.download(ticker, period="40d", interval="1d", progress=False)
-            if not df.empty and len(df) >= 2:
-                if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-                data_map[k] = df.dropna(subset=['Close'])
+            if df.empty: continue
+            if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+
+            # --- 【重要】ここから大引け値の同期処理 ---
+            # 履歴の最後が今日でない場合、最新価格(info)を今日分として追加する
+            if df.index[-1].date() != today:
+                t_obj = yf.Ticker(ticker)
+                # regularMarketPriceが取れない場合は昨日の終値を暫定使用
+                current_p = t_obj.info.get('regularMarketPrice') or t_obj.info.get('previousClose')
+                
+                if current_p:
+                    # 今日の行を作成
+                    new_row = pd.DataFrame(
+                        [[current_p] * 4 + [0, 0, 0]], 
+                        columns=df.columns, 
+                        index=[pd.Timestamp(today)]
+                    )
+                    df = pd.concat([df, new_row])
+            # ---------------------------------------
+            
+            data_map[k] = df.dropna(subset=['Close'])
         except: continue
 
     # --- 1. 基礎データの抽出 ---
     n225_close = 0; n225_prev_close = 0; n225_ma25 = 0; cme_val = 0
     if "N225" in data_map:
         df_n = data_map["N225"]
-        n225_close = float(df_n['Close'].values.ravel()[-1])
-        n225_prev_close = float(df_n['Close'].values.ravel()[-2]) # 前日終値を取得
-        n225_ma25 = float(df_n['Close'].rolling(25).mean().values.ravel()[-1])
-    
+        n225_close = float(df_n['Close'].iloc[-1])
+        n225_prev_close = float(df_n['Close'].iloc[-2]) # これで「今日」と「昨日」が正しく並ぶ
+        n225_ma25 = float(df_n['Close'].rolling(25).mean().iloc[-1])
+        
     # 日経平均の現在の騰落率 (地合いフィルターの核)
     market_pct = (n225_close - n225_prev_close) / n225_prev_close if n225_prev_close > 0 else 0
     
