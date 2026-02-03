@@ -306,43 +306,44 @@ def check_opening_deviation(actual, expected, last_close):
     
     return is_large, dev_pct
 
-# --- 5. 始値の自動取得ロジック (Ver 4.6.4：日付厳密フィルター版) ---
+# --- 5. 始値の自動取得ロジック (Ver 4.6.5：最速・正確ハイブリッド版) ---
 def get_realtime_opening_price(ticker_symbol):
     try:
         jst = timezone(timedelta(hours=9))
         now_dt = datetime.now(jst)
-        today = now_dt.date() # 今日の日付を取得
+        today = now_dt.date()
         
+        # 市場時間外（9:00前 または 15:30以降）は None を返す
         if now_dt.time() < time(9, 0) or now_dt.time() > time(15, 30):
             return None
             
         t = yf.Ticker(ticker_symbol)
-        
-        # 直近の1分足を取得
+        is_afternoon = now_dt.time() >= time(12, 30)
+
+        # ⚡️ 【優先】前場(9:00-12:29)であれば、より速報性の高い info から取得を試みる
+        if not is_afternoon:
+            todays_open = t.info.get('open')
+            if todays_open and todays_open > 0:
+                return int(todays_open)
+
+        # 🛡️ 【バックアップ/後場用】history から厳密に今日の日付だけを抽出
         df = t.history(period="1d", interval="1m")
         if df.empty: return None
         
-        # 日本時間に変換
+        # 日本時間に変換し、今日の日付のみにフィルタリング
         df.index = df.index.tz_convert('Asia/Tokyo')
-        
-        # 【重要】インデックスの日付が「今日」である行だけに絞り込む
         df_today = df[df.index.date == today]
         
-        if df_today.empty:
-            # 今日分がまだ届いていない場合は、昨日の値を返さず None にする
-            return None 
-            
-        is_afternoon = now_dt.time() >= time(12, 30)
-        
+        if df_today.empty: return None # 今日のデータが届いていなければ何もしない
+
         if is_afternoon:
-            # 後場寄付き：12:30以降の最初のOpen
+            # 後場：12:30以降の最初のOpenを取得
             df_target = df_today.between_time('12:30', '15:00')
         else:
-            # 前場寄付き：09:00以降の最初のOpen
+            # 前場：09:00以降の最初のOpenを取得
             df_target = df_today.between_time('09:00', '11:30')
             
         if not df_target.empty:
-            # その時間帯の最初の足の始値を返す
             return int(df_target['Open'].iloc[0])
                 
     except Exception:
