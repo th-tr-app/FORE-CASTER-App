@@ -119,14 +119,17 @@ def analyze_market_environment():
     l_s, l_e = time(11, 30), time(12, 30); a_s, a_e = time(15, 0), time(19, 0)
     forecast_title = "寄付予測"; bias_list = []
 
-    # --- 4. 時間帯別の展望生成 (強化版ロジック) ---
+    # --- 4. 時間帯別の展望生成 (Ver 4.7.0 矛盾解消版) ---
     if l_s <= now <= l_e:
+        # (前場総括はそのまま)
         forecast_title = "前場総括"
         forecast_txt = f"前場は {base_forecast} で推移。現在の乖離率は {dev_25:.1f}% です。"
-        phase_txt = "前場トレンドを再確認。後場はVWAP付近の攻防や前場高値更新に注目。"
+        
     elif a_s <= now <= a_e:
         forecast_title = "今日の結果"
-        forecast_txt = f"本日は {base_forecast} で終了。大引け時点の乖離率は {dev_25:.1f}% です。"
+        # 【修正】base_forecast（先物比較）ではなく、market_pct（今日の実績）で言葉を選ぶ
+        actual_result = "上昇" if market_pct > 0 else "下落" if market_pct < 0 else "変わらず"
+        forecast_txt = f"本日は {actual_result} で終了。大引け時点の乖離率は {dev_25:.1f}% です。"
         phase_txt = "お疲れ様でした。明日に向け期待値の高い銘柄をランキングで精査しましょう。"
     else:
         # 通常・夜間
