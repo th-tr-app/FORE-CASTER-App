@@ -847,10 +847,10 @@ with tab_strategy:
                     hist_live = ticker_live.history(period="30d")
                     if len(hist_live) >= 15:
                         # 【修正】空のデータを除外してから、最新の確定値（昨日分）を取得
-			valid_hist = hist_live['Close'].dropna()
-			if not valid_hist.empty:
-			    last_c = valid_hist.iloc[-1]
-			else:
+					valid_hist = hist_live['Close'].dropna()
+					if not valid_hist.empty:
+			    		last_c = valid_hist.iloc[-1]
+					else:
 			    # 履歴が全滅の場合のセーフティ
 			    last_c = tdf['PrevClose'].iloc[-1]
                         hl = hist_live['High'] - hist_live['Low']
