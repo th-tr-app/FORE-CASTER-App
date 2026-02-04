@@ -220,19 +220,19 @@ with tab_top:
 
     # --- 4. ワンタッチ判定エリア ---
     if st.session_state['preset'] == "PLAN_B":
-        # --- 【プランB専用】緑色ボタンのスタイル定義 ---
+        # --- プランB専用：緑色ボタンの強力なCSS ---
         st.markdown("""
             <style>
-            div.stButton > button[key*="plan_b_exec_btn"] {
+            /* ボタンを包むdiv(id=plan-b-wrap)の中のボタンだけを緑にする */
+            div#plan-b-wrap button {
                 background-color: #28a745 !important;
                 color: white !important;
                 border: 2px solid #1e7e34 !important;
-                font-weight: bold !important;
-                height: 3.5em !important;
-                font-size: 1.1em !important;
                 border-radius: 10px !important;
+                height: 3.5em !important;
+                font-weight: bold !important;
             }
-            div.stButton > button[key*="plan_b_exec_btn"]:hover {
+            div#plan-b-wrap button:hover {
                 background-color: #218838 !important;
                 border-color: #1c7430 !important;
             }
@@ -241,10 +241,12 @@ with tab_top:
 
         st.markdown("### 🚧 プランB を発動しました。")
         st.write("現時点で期待値が高く、エントリー可能な銘柄トップ５を抽出します。このまま指値戦略タブを確認してください。")
-
-        # プランB専用：緑色のボタン
+        
+        # --- ボタンを <div id="plan-b-wrap"> で囲む ---
+        st.markdown('<div id="plan-b-wrap">', unsafe_allow_html=True)
         if st.button("🚀 プランB専用ワンタッチボタン (TOP5抽出)", key="plan_b_exec_btn", use_container_width=True):
             with st.status("🚀 プランB：市場の精鋭銘柄を選抜中...", expanded=True) as status:
+
                 # 1. 精鋭銘柄をスキャン
                 all_codes = list(TICKER_DETAILS.keys())
                 top_5_results = core.scan_plan_b_candidates(all_codes, params, TICKER_DETAILS)
@@ -278,7 +280,9 @@ with tab_top:
                     st.rerun() 
                 else:
                     st.error("現在、条件（勝率55%＋勢い）に合致する銘柄が見つかりませんでした。")
-
+                    
+        st.markdown('</div>', unsafe_allow_html=True)
+        
     else:
         # --- 4. 通常時のワンタッチ判定：全自動スキャン開始ボタン ---
         # ↓ここから下の行が else の下にインデントされている必要があります
