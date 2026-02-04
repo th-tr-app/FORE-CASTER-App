@@ -884,19 +884,38 @@ with tab_strategy:
 
                 with c_top_r:
                     input_key = f"act_in_{t}"
+                    
+                    # セッション状態の初期化
                     if input_key not in st.session_state:
                         st.session_state[input_key] = None
-                    
-                    actual_open_val = st.number_input(
-                        f"始値を入力 ({t})", step=1, format="%d", key=input_key, 
-                        label_visibility="collapsed", placeholder="始値を入力"
-                    )
-                    
-                    if st.button(f"始値を更新する ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
-                        new_val = core.get_realtime_opening_price(t)
+
+                    # --- 1. 更新用コールバック関数の定義 (エラー回避の鍵) ---
+                    # ボタンが押された直後、Widgetが描画される前に値を書き換えます
+                    def update_opening_callback(k=input_key, ticker=t):
+                        new_val = core.get_realtime_opening_price(ticker)
                         if new_val:
-                            st.session_state[input_key] = new_val
-                            st.rerun()
+                            st.session_state[k] = new_val
+                        else:
+                            st.toast(f"{ticker} の始値がまだ取得できません", icon="⏳")
+
+                    # --- 2. 始値更新ボタン (コールバックを登録) ---
+                    st.button(
+                        f"始値を更新する ({t})", 
+                        key=f"btn_upd_{t}", 
+                        on_click=update_opening_callback, # ここで関数を呼び出す
+                        use_container_width=True, 
+                        type="primary"
+                    )
+
+                    # --- 3. 始値入力欄 ---
+                    actual_open_val = st.number_input(
+                        f"始値を入力 ({t})", 
+                        step=1,
+                        format="%d",
+                        key=input_key, 
+                        label_visibility="collapsed", 
+                        placeholder="始値を入力"
+                    )
 
                 # --- 2. 始値確定後の詳細診断ロジック ---
                 if actual_open_val:
