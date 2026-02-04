@@ -908,10 +908,17 @@ with tab_strategy:
         st.markdown(f"<div class='strat-market-header'><b>日経平均／前日比:</b> <span class='{m_cls}' style='font-size:1.2em; font-weight:bold;'>{m_curr_pct:+.2%}</span></div>", unsafe_allow_html=True)
         st.divider()
 
+        # --- main.py タブ4 内のループに追加 ---
         for t in t_list:
             tdf = res_df[res_df['Ticker'] == t].copy()
             if tdf.empty: continue
-            t_name = ticker_names.get(t, t)
+    
+            # 勝率の算出
+            win_rate = len(tdf[tdf['PnL'] > 0]) / len(tdf) if not tdf.empty else 0
+    
+            # 【追加】プランB発動中は、期待値不足（勝率55%未満）を非表示にする
+            if st.session_state.get('preset') == "PLAN_B" and win_rate < 0.55:
+                continue
             
             with st.expander(f"[{t}] {t_name}", expanded=True):
                 with st.spinner("データ同期中..."):
