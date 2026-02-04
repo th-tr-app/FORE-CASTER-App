@@ -268,9 +268,8 @@ with tab_top:
                 else:
                     st.error("現在、条件（勝率55%＋勢い）に合致する銘柄が見つかりませんでした。")
 
-        else:
-        
-        # 4. ワンタッチ判定：全自動スキャン開始ボタン
+    else:
+         # 4. ワンタッチ判定：全自動スキャン開始ボタン
         if st.button("👉 ワンタッチ／銘柄候補を自動で選出", type="primary", use_container_width=True, key="ot_full_scan_btn"):
             current_preset = st.session_state['preset'] 
             p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
