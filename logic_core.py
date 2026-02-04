@@ -333,22 +333,45 @@ def check_opening_deviation(actual, expected, last_close):
     
     return is_large, dev_pct
 
-# --- logic_core.py：始値取得の厳密化 ---
+# --- 5. 始値の自動取得ロジック (Ver 4.6.8：高精度・後場安定版) ---
 def get_realtime_opening_price(ticker_symbol):
     try:
-        t = yf.Ticker(ticker_symbol)
         jst = timezone(timedelta(hours=9))
-        today = datetime.now(jst).date()
+        now_dt = datetime.now(jst)
+        today = now_dt.date()
+        
+        if now_dt.time() < time(9, 0) or now_dt.time() > time(15, 30):
+            return None
+            
+        t = yf.Ticker(ticker_symbol)
+        is_afternoon = now_dt.time() >= time(12, 30)
 
-        # info['open'] は昨日の値が残るため使用禁止
-        # period="1d", interval="1m" で「今日の最初の1分足」を狙い撃つ
-        df = t.history(period="1d", interval="1m")
-        if not df.empty:
-            df.index = df.index.tz_convert('Asia/Tokyo')
-            df_today = df[df.index.date == today]
-            if not df_today.empty:
-                # 今日の最初の1分足のOpen＝本物の始値
-                return int(df_today['Open'].iloc[0])
-        return None
-    except:
-        return None
+        # 前場(9:00-12:29)は info から速報取得
+        if not is_afternoon:
+            todays_open = t.info.get('open')
+            if todays_open and todays_open > 0:
+                return int(todays_open)
+
+        # 後場、または info が空の場合：より確実に 2d 分の履歴を取りに行く
+        df = t.history(period="2d", interval="1m")
+        if df.empty: return None
+        
+        df.index = df.index.tz_convert('Asia/Tokyo')
+        # 厳密に「今日」のデータだけに絞る
+        df_today = df[df.index.date == today]
+        
+        if df_today.empty: return None
+
+        if is_afternoon:
+            # 12:30以降の最初の足を探す。もし12:30ちょうどがなければ、その直後の足を拾う
+            df_pm = df_today.between_time('12:30', '15:00')
+            if not df_pm.empty:
+                return int(df_pm['Open'].iloc[0])
+        else:
+            df_am = df_today.between_time('09:00', '11:30')
+            if not df_am.empty:
+                return int(df_am['Open'].iloc[0])
+                
+    except Exception:
+        pass
+    return None
