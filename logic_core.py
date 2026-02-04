@@ -333,22 +333,22 @@ def check_opening_deviation(actual, expected, last_close):
     
     return is_large, dev_pct
 
-# --- logic_core.py：get_realtime_opening_price を以下に差し替え ---
+# --- logic_core.py：始値取得の厳密化 ---
 def get_realtime_opening_price(ticker_symbol):
     try:
         t = yf.Ticker(ticker_symbol)
         jst = timezone(timedelta(hours=9))
         today = datetime.now(jst).date()
 
-        # history(1d)で今日の日付を厳密チェック
+        # info['open'] は昨日の値が残るため使用禁止
+        # period="1d", interval="1m" で「今日の最初の1分足」を狙い撃つ
         df = t.history(period="1d", interval="1m")
         if not df.empty:
             df.index = df.index.tz_convert('Asia/Tokyo')
             df_today = df[df.index.date == today]
             if not df_today.empty:
-                return int(df_today['Open'].iloc[0]) # 今日の本当の始値
-
-        # infoは遅延しやすいため、historyで取れない場合は一旦 None
-        return None 
+                # 今日の最初の1分足のOpen＝本物の始値
+                return int(df_today['Open'].iloc[0])
+        return None
     except:
         return None
