@@ -82,9 +82,14 @@ def analyze_market_environment():
     n225_close = 0; n225_prev_close = 0; n225_ma25 = 0; cme_val = 0
     if "N225" in data_map:
         df_n = data_map["N225"]
-        n225_close = float(df_n['Close'].iloc[-1])
-        n225_prev_close = float(df_n['Close'].iloc[-2]) # これで「今日」と「昨日」が正しく並ぶ
-        n225_ma25 = float(df_n['Close'].rolling(25).mean().iloc[-1])
+        # 【重要】終値が存在する行だけを抜き出す（ザラ場中の空の「今日」の行を除外）
+        valid_df = df_n.dropna(subset=['Close'])
+        
+        if len(valid_df) >= 2:
+            # 確実に値が入っている最新2日分を取得
+            n225_close = float(valid_df['Close'].iloc[-1])
+            n225_prev_close = float(valid_df['Close'].iloc[-2])
+            n225_ma25 = float(valid_df['Close'].rolling(25).mean().iloc[-1])
         
     # 日経平均の現在の騰落率 (地合いフィルターの核)
     market_pct = (n225_close - n225_prev_close) / n225_prev_close if n225_prev_close > 0 else 0
