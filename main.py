@@ -122,8 +122,19 @@ u_rsi = st.sidebar.checkbox("RSIが45以上or上向き", value=True)
 u_macd = st.sidebar.checkbox("MACDが上向き", value=True)
 st.sidebar.write("")
 st.sidebar.write("")
-g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, -3.0, 0.05) / 100
-g_max = st.sidebar.slider("寄付アップ上限 (%)", -5.0, 5.0, 1.0, 0.05) / 100
+
+# --- 修正後：プランB連動型に書き換え ---
+curr_p = st.session_state.get('preset', 'NORMAL')
+d_g_max = 1.0 # 通常時のデフォルト
+
+if curr_p == "PLAN_B":
+    d_g_max = 2.5 # プランB発動時は2.5%に自動セット
+    st.sidebar.warning("⚡️ プランB発動：寄付アップ上限を2.5%に拡張")
+
+g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, -3.0, 0.05, key="g_min_slider") / 100
+# value=d_g_max にすることで、プリセットに応じて初期値が変わります
+g_max = st.sidebar.slider("寄付アップ上限 (%)", -5.0, 5.0, d_g_max, 0.05, key="g_max_slider") / 100
+
 st.sidebar.divider()
 st.sidebar.header("💰 決済ルール")
 ts_s = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5, 0.05) / 100
