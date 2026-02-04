@@ -92,63 +92,27 @@ for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェン�
         st.session_state['preset'] = p
         st.rerun()
 
-# --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
-st.sidebar.header("🎲 戦略実行プリセット")
-
-# プリセット定義に PLAN_B を追加
-presets = [
-    ("NORMAL", "通常フィルター"), 
-    ("DEFENSIVE", "ディフェンシブ"), 
-    ("RANGE", "横ばい相場対応"),
-    ("PLAN_B", "プランB▶︎発動")
-]
-
-for p, l in presets:
-    is_sel = (st.session_state['preset'] == p)
-    if st.sidebar.button(l + (" [ 選択中 ]" if is_sel else ""), key=f"side_ps_btn_{p}", type="primary" if is_sel else "secondary", use_container_width=True):
-        st.session_state['preset'] = p
-        st.rerun()
-
 st.sidebar.divider()
-
-# --- プリセットに応じた動的なデフォルト値の設定 ---
-curr_p = st.session_state['preset']
-if curr_p == "PLAN_B":
-    d_g_max = 2.5      # プランBは窓開け上限を大幅拡張
-    d_ts_s = 0.8       # 少し深めに追う
-    d_sl = -0.8        # 許容リスクを広げる
-elif curr_p == "DEFENSIVE":
-    d_g_max = 0.5; d_ts_s = 0.3; d_sl = -0.3
-elif curr_p == "RANGE":
-    d_g_max = 1.5; d_ts_s = 0.5; d_sl = -0.5
-else: # NORMAL
-    d_g_max = 1.0; d_ts_s = 0.5; d_sl = -0.5
-
 st.sidebar.header("⚙️ バックテスト設定")
 days_back = st.sidebar.slider("過去何日分を取得", 10, 59, 59)
-s_t = st.sidebar.time_input("開始時間", time(9, 0), step=300)
-e_t = st.sidebar.time_input("終了時間", time(9, 15), step=300)
-
+s_t = st.sidebar.time_input("開始時間", time(9, 0), step=300); e_t = st.sidebar.time_input("終了時間", time(9, 15), step=300)
 st.sidebar.write("")
 st.sidebar.header("📈 エントリー条件")
 u_vwap = st.sidebar.checkbox("VWAPより上でエントリー", value=True)
 u_ema = st.sidebar.checkbox("EMA5より上でエントリー", value=True)
 u_rsi = st.sidebar.checkbox("RSIが45以上or上向き", value=True)
 u_macd = st.sidebar.checkbox("MACDが上向き", value=True)
-
+st.sidebar.write("")
 st.sidebar.write("")
 g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, -3.0, 0.05) / 100
-# valueにプリセット連動の d_g_max を適用
-g_max = st.sidebar.slider("寄付アップ上限 (%)", -5.0, 5.0, d_g_max, 0.05) / 100
-
+g_max = st.sidebar.slider("寄付アップ上限 (%)", -5.0, 5.0, 1.0, 0.05) / 100
 st.sidebar.divider()
 st.sidebar.header("💰 決済ルール")
-ts_s = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, d_ts_s, 0.05) / 100
+ts_s = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5, 0.05) / 100
 ts_w = st.sidebar.number_input("トレイリング幅 (%)", 0.1, 5.0, 0.2, 0.05) / 100
-sl_f = st.sidebar.number_input("損切り (%)", -5.0, -0.1, d_sl, 0.05) / 100
-
+sl_f = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.5, 0.05) / 100
 st.sidebar.divider()
-st.sidebar.header("📉 動動的損切り設定")
+st.sidebar.header("📉 動的損切り設定")
 u_atr = st.sidebar.checkbox("ATR損切りを使用", value=True)
 a_mul = st.sidebar.number_input("ATR倍率", 0.5, 5.0, 1.5, 0.1)
 a_min = st.sidebar.number_input("最低損切り (%)", 0.1, 5.0, 0.5, 0.1) / 100
