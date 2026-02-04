@@ -884,32 +884,34 @@ with tab_strategy:
 
                 with c_top_r:
                     input_key = f"act_in_{t}"
-                    if input_key not in st.session_state:
-                        st.session_state[input_key] = None
-
-                    # --- 修正：コールバック関数を定義 (競合を避ける) ---
-                    def update_val_callback(k=input_key, ticker=t):
-                        val = core.get_realtime_opening_price(ticker)
-                        if val:
-                            st.session_state[k] = val
-                        else:
-                            st.toast(f"{ticker}: 始値がまだ配信されていません", icon="⏳")
-
-                    # ボタンにコールバックを登録
-                    st.button(
-                        f"始値を更新する ({t})", 
-                        key=f"btn_upd_{t}", 
-                        on_click=update_val_callback, 
-                        use_container_width=True, 
-                        type="primary"
-                    )
                     
-                    # 始値入力欄 (keyを指定することで、手入力した値も session_state に保存されます)
+                    # 1. 状態の初期化
+                    if input_key not in st.session_state:
+                        st.session_state[input_key] = 0
+
+                    # 2. 更新ボタンのコールバック（ここだけで値を上書きする）
+                    def sync_opening_callback(k=input_key, ticker=t):
+                        new_val = core.get_realtime_opening_price(ticker)
+                        if new_val:
+                            st.session_state[k] = int(new_val)
+                        else:
+                            st.toast("データ取得中...", icon="⏳")
+
+                    st.button(f"始値を更新 ({t})", key=f"btn_sync_{t}", on_click=sync_opening_callback, use_container_width=True, type="primary")
+
+                    # 3. 入力欄（重要：valueを指定せずkeyのみで管理することで、手入力を維持）
                     actual_open_val = st.number_input(
-                        f"始値を入力 ({t})", 
-                        step=1, format="%d", key=input_key, 
-                        label_visibility="collapsed", placeholder="始値を入力"
+                        f"始値を入力 ({t})", step=1, format="%d", key=input_key,
+                        label_visibility="collapsed"
                     )
+
+                # --- 4. 【重要】0円エラー回避ロジック ---
+                # 寄り付き予想(pred_o)が0にならないよう、last_cを確実に再計算
+                if last_c == 0 or pd.isna(last_c):
+                    last_c = tdf['PrevClose'].iloc[-1]
+                
+                pred_o = last_c * (1 + m_gap) if last_c > 0 else 0
+
                 # --- 2. 始値確定後の詳細診断ロジック ---
                 if actual_open_val:
                     # 【重要】最優先で gap を定義
