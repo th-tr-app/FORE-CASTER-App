@@ -96,6 +96,10 @@ for p, l in preset_options:
     is_sel = (st.session_state['preset'] == p)
     if st.sidebar.button(l + (" [ 選択中 ]" if is_sel else ""), key=f"side_ps_btn_{p}", type="primary" if is_sel else "secondary"):
         st.session_state['preset'] = p
+        
+        # 【追加】プリセットを切り替えたら、プランBの完了表示フラグを一旦オフにする
+        st.session_state['plan_b_active'] = False
+        
         # ボタンを押した瞬間にスライダーの値を直接書き換える
         if p == "PLAN_B":
             st.session_state["g_max_slider"] = 2.5
@@ -222,16 +226,16 @@ with tab_top:
         """
         st.markdown(diag_html, unsafe_allow_html=True)
 
-    # --- 4. ワンタッチ判定エリア ---
-    if st.session_state['preset'] == "PLAN_B":    
-        st.markdown("### 🚧 プランＢを発動します。")
-        st.caption("期待値が高く、エントリー可能な銘柄トップ５を選出します。選出後に指値戦略タブを確認してください。")
+    # --- 4. ワンタッチ判定エリア (main.py：タブ1) ---
+    if st.session_state['preset'] == "PLAN_B":
+        # 【修正】最初は表示せず、抽出成功後のみ表示させる
+        if st.session_state.get('plan_b_active'):
+            st.markdown("### 🚧 プランＢを発動しました。")
+            st.caption("期待値が高く、エントリー可能な銘柄トップ５を選出しました。このまま指値戦略タブを確認してください。")
 
-        # 標準の primary ボタン（オレンジ赤系）に変更
+        # プランB専用：標準ボタン（オレンジ赤系）
         if st.button("🚀 プランＢ 発動／TOP5を自動で選出", key="plan_b_exec_btn", use_container_width=True, type="primary"):
             with st.status("エントリー可能な銘柄を選出中...", expanded=True) as status:
-
-                # 1. 精鋭銘柄をスキャン
                 all_codes = list(TICKER_DETAILS.keys())
                 top_5_results = core.scan_plan_b_candidates(all_codes, params, TICKER_DETAILS)
                 
@@ -239,11 +243,11 @@ with tab_top:
                     codes = [r['code'] for r in top_5_results]
                     st.session_state['target_tickers'] = ", ".join(codes)
                     
-                    # 2. 始値を自動取得して保存 (指値戦略タブ用)
+                    # 始値を自動取得して保存
                     for r in top_5_results:
                         st.session_state[f"act_in_{r['code']}"] = r['open']
                     
-                    # 3. バックテストを一括実行
+                    # バックテストを一括実行
                     status.update(label="📈 選抜銘柄のバックテストを開始...", state="running")
                     end_date = datetime.now()
                     start_date = end_date - timedelta(days=days_back)
@@ -260,10 +264,16 @@ with tab_top:
                     
                     st.session_state['res_df'] = pd.DataFrame(all_trades)
                     st.session_state['t_names'] = t_names
+                    
+                    # 【重要】抽出が完了したのでフラグをオンにする
+                    st.session_state['plan_b_active'] = True
+                    
                     status.update(label="✅ 完了！戦略タブへ移動します", state="complete")
                     st.rerun() 
                 else:
-                    st.error("現在、条件（勝率55%＋勢い）に合致する銘柄が見つかりませんでした。")
+                    # 失敗時はフラグをオフのままにする
+                    st.session_state['plan_b_active'] = False
+                    st.error("現在、条件（勝率55%＋勢い）に合致する銘柄が見つかりませんでした。"
                             
     else:
         # --- 4. 通常時のワンタッチ判定：全自動スキャン開始ボタン ---
