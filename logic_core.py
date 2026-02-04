@@ -357,3 +357,63 @@ def get_realtime_opening_price(ticker_symbol):
     except Exception:
         pass
     return None
+
+# --- 6. プランBのロジック ---
+def scan_plan_b_candidates(ticker_list, params, ticker_details_map):
+    """【プランB】全銘柄から期待値TOP5を選出する（リアルタイム勢いフィルター付）"""
+    results = []
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=params['days'])
+    
+    for t in ticker_list:
+        try:
+            # 1. リアルタイム・テクニカル判定 (今の勢いをチェック)
+            t_obj = yf.Ticker(t)
+            df_m = t_obj.history(interval="1m", period="1d")
+            if df_m.empty: continue
+            
+            # 直近終値とEMA5の関係
+            curr_p = df_m['Close'].iloc[-1]
+            ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
+            if curr_p <= ema5: continue # EMA5より下なら除外
+
+            # RSIの方向性 (直近の傾き)
+            rsi_series = calculate_rsi(df_m['Close'])
+            if len(rsi_series) >= 6:
+                rsi_slope = rsi_series.tail(3).mean() - rsi_series.iloc[-6:-3].mean()
+                if rsi_slope < -0.2: continue # RSIが下向きなら除外
+
+            # 2. ギャップ判定 (プランB：2.5%以内)
+            hist_d = t_obj.history(period="2d")
+            if len(hist_d) < 2: continue
+            last_close = hist_d['Close'].iloc[-2]
+            # 始値は get_realtime_opening_price を流用
+            opening_p = get_realtime_opening_price(t)
+            if not opening_p: continue
+            
+            today_gap = (opening_p - last_close) / last_close
+            if not (params['g_min'] <= today_gap <= params['g_max']): continue
+
+            # 3. 過去統計の計算 (指値戦略での勝率)
+            df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
+            if df_5m.empty: continue
+            if isinstance(df_5m.columns, pd.MultiIndex): df_5m.columns = df_5m.columns.get_level_values(0)
+            
+            p_map, o_map, a_map = fetch_daily_stats_maps(t, start_date)
+            trades = run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
+            score = get_one_touch_score(trades)
+            
+            # 【重要】勝率 55% 以上の精鋭のみを候補へ
+            if score and score['win_rate'] >= 0.55:
+                results.append({
+                    'code': t,
+                    'score': score['score'],
+                    'open': opening_p
+                })
+        except:
+            continue
+            
+    # 期待値が高い順に上位5銘柄を返す
+    top_5 = sorted(results, key=lambda x: x['score'], reverse=True)[:5]
+    return top_5
+    
