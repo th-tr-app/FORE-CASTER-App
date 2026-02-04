@@ -915,19 +915,40 @@ with tab_strategy:
         st.markdown(f"<div class='strat-market-header'><b>日経平均／前日比:</b> <span class='{m_cls}' style='font-size:1.2em; font-weight:bold;'>{m_curr_pct:+.2%}</span></div>", unsafe_allow_html=True)
         st.divider()
 
-        # --- main.py タブ4 内のループに追加 ---
+        # --- ループ内のフィルタリング強化 ---
         for t in t_list:
             tdf = res_df[res_df['Ticker'] == t].copy()
             if tdf.empty: continue
             
-            # --- 【プランB専用】勝率フィルタリング ---
-            # バックテスト結果から勝率を計算
+            # --- 1. 勝率の計算 ---
             win_rate = len(tdf[tdf['PnL'] > 0]) / len(tdf) if len(tdf) > 0 else 0
             
-            # プランB発動中かつ勝率が55%未満の銘柄は、パネルを表示せずスキップする
-            if st.session_state.get('preset') == "PLAN_B" and win_rate < 0.55:
+            # --- 2. テクニカル勢いの事前チェック (プランB用) ---
+            # プランBの時は、勢いがない銘柄を最初から表示しない
+            tech_ok = True
+            if st.session_state.get('preset') == "PLAN_B":
+                # 勝率55%未満ならスキップ
+                if win_rate < 0.55: continue
+                
+                # リアルタイムの勢いを再確認
+                t_obj = yf.Ticker(t)
+                df_now = t_obj.history(interval="1m", period="1d")
+                if not df_now.empty:
+                    # RSIの傾き判定
+                    rsi_s = core.calculate_rsi(df_now['Close'])
+                    if len(rsi_s) >= 6:
+                        slope = rsi_s.tail(3).mean() - rsi_s.iloc[-6:-3].mean()
+                        if slope < -0.2: tech_ok = False # RSI低下中は非表示
+                    
+                    # EMA5との位置関係
+                    ema5_val = df_now['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
+                    if df_now['Close'].iloc[-1] <= ema5_val: tech_ok = False # EMA5以下の時は非表示
+
+            # 【重要】プランBモードかつ、勢い判定に失敗した銘柄はスキップ
+            if st.session_state.get('preset') == "PLAN_B" and not tech_ok:
                 continue
-            # ---------------------------------------
+
+            # --- 3. 表示対象となった銘柄のみパネルを生成 ---
             t_name = ticker_names.get(t, t)
             
             with st.expander(f"[{t}] {t_name}", expanded=True):
