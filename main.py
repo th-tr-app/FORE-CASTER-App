@@ -909,13 +909,16 @@ with tab_strategy:
         for t in t_list:
             tdf = res_df[res_df['Ticker'] == t].copy()
             if tdf.empty: continue
-    
-            # 勝率の算出
-            win_rate = len(tdf[tdf['PnL'] > 0]) / len(tdf) if not tdf.empty else 0
-    
-            # 【追加】プランB発動中は、期待値不足（勝率55%未満）を非表示にする
+            
+            # --- 【プランB専用】勝率フィルタリング ---
+            # バックテスト結果から勝率を計算
+            win_rate = len(tdf[tdf['PnL'] > 0]) / len(tdf) if len(tdf) > 0 else 0
+            
+            # プランB発動中かつ勝率が55%未満の銘柄は、パネルを表示せずスキップする
             if st.session_state.get('preset') == "PLAN_B" and win_rate < 0.55:
                 continue
+            # ---------------------------------------
+            t_name = ticker_names.get(t, t)
             
             with st.expander(f"[{t}] {t_name}", expanded=True):
                 with st.spinner("データ同期中..."):
