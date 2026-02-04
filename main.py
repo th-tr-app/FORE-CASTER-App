@@ -92,9 +92,6 @@ preset_options = [
     ("PLAN_B", "[プランB] ▶︎発動")
 ]
 
-# --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
-st.sidebar.header("🎲 戦略実行プリセット")
-# (中略：プリセットボタンのループ)
 for p, l in preset_options:
     is_sel = (st.session_state['preset'] == p)
     if st.sidebar.button(l + (" [ 選択中 ]" if is_sel else ""), key=f"side_ps_btn_{p}", type="primary" if is_sel else "secondary"):
