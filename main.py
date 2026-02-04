@@ -885,32 +885,31 @@ with tab_strategy:
                 with c_top_r:
                     input_key = f"act_in_{t}"
                     if input_key not in st.session_state:
-                        st.session_state[input_key] = 0 # 初期値を0に設定
+                        st.session_state[input_key] = None
 
-                    # --- 【修正】コールバック関数：画面描画前に状態を確定させる ---
-                    def handle_update(k=input_key, ticker=t):
-                        new_val = core.get_realtime_opening_price(ticker)
-                        if new_val:
-                            st.session_state[k] = new_val
+                    # --- 修正：コールバック関数を定義 (競合を避ける) ---
+                    def update_val_callback(k=input_key, ticker=t):
+                        val = core.get_realtime_opening_price(ticker)
+                        if val:
+                            st.session_state[k] = val
                         else:
-                            st.toast(f"{ticker} の本日の始値はまだ配信されていません", icon="⏳")
+                            st.toast(f"{ticker}: 始値がまだ配信されていません", icon="⏳")
 
                     # ボタンにコールバックを登録
                     st.button(
                         f"始値を更新する ({t})", 
                         key=f"btn_upd_{t}", 
-                        on_click=handle_update, 
+                        on_click=update_val_callback, 
                         use_container_width=True, 
                         type="primary"
                     )
-
-                    # 始値入力欄（keyを指定することで session_state と完全同期）
+                    
+                    # 始値入力欄 (keyを指定することで、手入力した値も session_state に保存されます)
                     actual_open_val = st.number_input(
                         f"始値を入力 ({t})", 
                         step=1, format="%d", key=input_key, 
                         label_visibility="collapsed", placeholder="始値を入力"
                     )
-
                 # --- 2. 始値確定後の詳細診断ロジック ---
                 if actual_open_val:
                     # 【重要】最優先で gap を定義
