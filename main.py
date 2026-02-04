@@ -89,7 +89,7 @@ preset_options = [
     ("NORMAL","通常フィルター"), 
     ("DEFENSIVE","ディフェンシブ"), 
     ("RANGE","横ばい相場対応"),
-    ("PLAN_B", "[プランB] ▶︎発動")
+    ("PLAN_B", "【プランB】▶︎発動")
 ]
 
 for p, l in preset_options:
@@ -120,7 +120,7 @@ st.sidebar.write("")
 # --- プランB発動時の警告ボックス (これは残します) ---
 curr_p = st.session_state.get('preset', 'NORMAL')
 if curr_p == "PLAN_B":
-    st.sidebar.warning("⚡️ プランB発動：寄付アップ上限を2.5%に拡張")
+    st.sidebar.warning("⚡️ プランB発動：寄付アップ上限2.5%に拡張中")
 
 # --- スライダー設定 (エラー回避版) ---
 # アプリ起動時のみ初期値をセット
@@ -224,12 +224,12 @@ with tab_top:
 
     # --- 4. ワンタッチ判定エリア ---
     if st.session_state['preset'] == "PLAN_B":    
-        st.markdown("### 🚧 プランB を発動しました。")
-        st.write("現時点で期待値が高く、エントリー可能な銘柄トップ５を抽出します。このまま指値戦略タブを確認してください。")
+        st.markdown("### 🚧 プランB を発動します。")
+        st.caption("現時点で期待値が高く、エントリー可能な銘柄トップ５を抽出します。抽出後に指値戦略タブを確認してください。")
 
         # 標準の primary ボタン（オレンジ赤系）に変更
-        if st.button("🚀 プランB専用ワンタッチボタン (TOP5抽出)", key="plan_b_exec_btn", use_container_width=True, type="primary"):
-            with st.status("🚀 プランB：市場の精鋭銘柄を選抜中...", expanded=True) as status:
+        if st.button("🚀 プランB 発動／TOP5を自動で選出", key="plan_b_exec_btn", use_container_width=True, type="primary"):
+            with st.status("エントリー可能な銘柄を抽出中...", expanded=True) as status:
 
                 # 1. 精鋭銘柄をスキャン
                 all_codes = list(TICKER_DETAILS.keys())
