@@ -92,18 +92,18 @@ preset_options = [
     ("PLAN_B", "[プランB] ▶︎発動")
 ]
 
+# --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
+st.sidebar.header("🎲 戦略実行プリセット")
+# (中略：プリセットボタンのループ)
 for p, l in preset_options:
     is_sel = (st.session_state['preset'] == p)
     if st.sidebar.button(l + (" [ 選択中 ]" if is_sel else ""), key=f"side_ps_btn_{p}", type="primary" if is_sel else "secondary"):
         st.session_state['preset'] = p
-        
-        # 【追加】プランBが選ばれた瞬間に、スライダーの値を2.5%に強制上書きする
+        # ボタンを押した瞬間にスライダーの値を直接書き換える
         if p == "PLAN_B":
             st.session_state["g_max_slider"] = 2.5
         else:
-            # 他のプリセットに戻った時は1.0%に戻す
             st.session_state["g_max_slider"] = 1.0
-            
         st.rerun()
 
 st.sidebar.divider()
@@ -120,17 +120,26 @@ u_rsi = st.sidebar.checkbox("RSIが45以上or上向き", value=True)
 u_macd = st.sidebar.checkbox("MACDが上向き", value=True)
 st.sidebar.write("")
 
-# --- プランB連動ロジック (ここに集約) ---
+# --- プランB発動時の警告ボックス (これは残します) ---
 curr_p = st.session_state.get('preset', 'NORMAL')
-d_g_max = 1.0 # 通常時のデフォルト値
-
 if curr_p == "PLAN_B":
-    d_g_max = 2.5 # プランB発動時は2.5%に自動セット
     st.sidebar.warning("⚡️ プランB発動：寄付アップ上限を2.5%に拡張")
 
+# --- スライダー設定 (エラー回避版) ---
+# アプリ起動時のみ初期値をセット
+if "g_max_slider" not in st.session_state:
+    st.session_state["g_max_slider"] = 1.0
+
 g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, -3.0, 0.05, key="g_min_slider") / 100
-# value に d_g_max を指定することで、プリセットに応じて初期値が変わります
-g_max = st.sidebar.slider("寄付アップ上限 (%)", -5.0, 5.0, d_g_max, 0.05, key="g_max_slider") / 100
+
+# 【修正】value引数(d_g_max)を消して、keyだけにすることで警告を消します
+g_max = st.sidebar.slider(
+    "寄付アップ上限 (%)", 
+    min_value=-5.0, 
+    max_value=5.0, 
+    step=0.05, 
+    key="g_max_slider"
+) / 100
 
 st.sidebar.divider()
 st.sidebar.header("💰 決済ルール")
