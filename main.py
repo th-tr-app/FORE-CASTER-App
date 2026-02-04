@@ -85,12 +85,11 @@ local_css("style.css")
 
 # --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
 st.sidebar.header("🎲 戦略実行プリセット")
-# リストを更新
 preset_options = [
     ("NORMAL","通常フィルター"), 
     ("DEFENSIVE","ディフェンシブ"), 
     ("RANGE","横ばい相場対応"),
-    ("PLAN_B", "プランB ▶︎発動") # 追加
+    ("PLAN_B", "[プランB] ▶︎発動")
 ]
 
 for p, l in preset_options:
@@ -101,38 +100,28 @@ for p, l in preset_options:
 
 st.sidebar.divider()
 
-# --- プランB連動のデフォルト値設定 ---
-curr_p = st.session_state.get('preset', 'NORMAL')
-d_g_max = 1.0 # デフォルト
-if curr_p == "PLAN_B":
-    d_g_max = 2.5 # プランBは2.5%に自動変更
-    st.sidebar.warning("⚡️ プランB発動：寄付アップ上限を2.5%に拡張")
-
-# スライダーの初期値(value)を d_g_max に連動させる
-g_max = st.sidebar.slider("寄付アップ上限 (%)", -5.0, 5.0, d_g_max, 0.05) / 100
-
+# --- バックテスト・エントリー条件の設定 ---
 st.sidebar.header("⚙️ バックテスト設定")
 days_back = st.sidebar.slider("過去何日分を取得", 10, 59, 59)
 s_t = st.sidebar.time_input("開始時間", time(9, 0), step=300); e_t = st.sidebar.time_input("終了時間", time(9, 15), step=300)
-st.sidebar.write("")
+
 st.sidebar.header("📈 エントリー条件")
 u_vwap = st.sidebar.checkbox("VWAPより上でエントリー", value=True)
 u_ema = st.sidebar.checkbox("EMA5より上でエントリー", value=True)
 u_rsi = st.sidebar.checkbox("RSIが45以上or上向き", value=True)
 u_macd = st.sidebar.checkbox("MACDが上向き", value=True)
 st.sidebar.write("")
-st.sidebar.write("")
 
-# --- 修正後：プランB連動型に書き換え ---
+# --- プランB連動ロジック (ここに集約) ---
 curr_p = st.session_state.get('preset', 'NORMAL')
-d_g_max = 1.0 # 通常時のデフォルト
+d_g_max = 1.0 # 通常時のデフォルト値
 
 if curr_p == "PLAN_B":
     d_g_max = 2.5 # プランB発動時は2.5%に自動セット
     st.sidebar.warning("⚡️ プランB発動：寄付アップ上限を2.5%に拡張")
 
 g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, -3.0, 0.05, key="g_min_slider") / 100
-# value=d_g_max にすることで、プリセットに応じて初期値が変わります
+# value に d_g_max を指定することで、プリセットに応じて初期値が変わります
 g_max = st.sidebar.slider("寄付アップ上限 (%)", -5.0, 5.0, d_g_max, 0.05, key="g_max_slider") / 100
 
 st.sidebar.divider()
@@ -146,6 +135,7 @@ u_atr = st.sidebar.checkbox("ATR損切りを使用", value=True)
 a_mul = st.sidebar.number_input("ATR倍率", 0.5, 5.0, 1.5, 0.1)
 a_min = st.sidebar.number_input("最低損切り (%)", 0.1, 5.0, 0.5, 0.1) / 100
 
+# 最終的なパラメータセット
 params = {
     'days': days_back, 'start_t': s_t, 'end_t': e_t, 'u_vwap': u_vwap, 'u_ema': u_ema, 'u_rsi': u_rsi, 'u_macd': u_macd,
     'g_min': g_min, 'g_max': g_max, 'ts_start': ts_s, 'ts_width': ts_w, 'sl_fix': sl_f, 'u_atr': u_atr, 'atr_mul': a_mul, 'atr_min': a_min
@@ -219,32 +209,12 @@ with tab_top:
         st.markdown(diag_html, unsafe_allow_html=True)
 
     # --- 4. ワンタッチ判定エリア ---
-    if st.session_state['preset'] == "PLAN_B":
-        # --- プランB専用：緑色ボタンの強力なCSS ---
-        st.markdown("""
-            <style>
-            /* ボタンを包むdiv(id=plan-b-wrap)の中のボタンだけを緑にする */
-            div#plan-b-wrap button {
-                background-color: #28a745 !important;
-                color: white !important;
-                border: 2px solid #1e7e34 !important;
-                border-radius: 10px !important;
-                height: 3.5em !important;
-                font-weight: bold !important;
-            }
-            div#plan-b-wrap button:hover {
-                background-color: #218838 !important;
-                border-color: #1c7430 !important;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-
+    if st.session_state['preset'] == "PLAN_B":    
         st.markdown("### 🚧 プランB を発動しました。")
         st.write("現時点で期待値が高く、エントリー可能な銘柄トップ５を抽出します。このまま指値戦略タブを確認してください。")
-        
-        # --- ボタンを <div id="plan-b-wrap"> で囲む ---
-        st.markdown('<div id="plan-b-wrap">', unsafe_allow_html=True)
-        if st.button("🚀 プランB専用ワンタッチボタン (TOP5抽出)", key="plan_b_exec_btn", use_container_width=True):
+
+        # 標準の primary ボタン（オレンジ赤系）に変更
+        if st.button("🚀 プランB専用ワンタッチボタン (TOP5抽出)", key="plan_b_exec_btn", use_container_width=True, type="primary"):
             with st.status("🚀 プランB：市場の精鋭銘柄を選抜中...", expanded=True) as status:
 
                 # 1. 精鋭銘柄をスキャン
@@ -280,9 +250,7 @@ with tab_top:
                     st.rerun() 
                 else:
                     st.error("現在、条件（勝率55%＋勢い）に合致する銘柄が見つかりませんでした。")
-                    
-        st.markdown('</div>', unsafe_allow_html=True)
-        
+                            
     else:
         # --- 4. 通常時のワンタッチ判定：全自動スキャン開始ボタン ---
         # ↓ここから下の行が else の下にインデントされている必要があります
