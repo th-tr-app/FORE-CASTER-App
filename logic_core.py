@@ -43,69 +43,55 @@ def fetch_market_info(indices_dict):
 
 @st.cache_data(ttl=300)
 def analyze_market_environment():
-    """主要指数から今日の相場環境をプロ視点で診断する (Ver 4.6.9：大引け同期版)"""
+    """主要指数から今日の相場環境をプロ視点で診断する (Ver 4.7.2：エラー解消版)"""
     indices = {"N225": "^N225", "VIX": "^VIX", "SOX": "^SOX", "WTI": "CL=F", "CME": "NIY=F", "USDJPY": "JPY=X", "GOLD": "GC=F"}
     data_map = {}
     
-    # 今日の日付を取得 (JST)
     jst = timezone(timedelta(hours=9))
-    today = datetime.now(jst).date()
+    now_dt = datetime.now(jst)
+    today = now_dt.date()
 
     for k, ticker in indices.items():
         try:
-            # 1. 履歴データを取得
             df = yf.download(ticker, period="40d", interval="1d", progress=False)
             if df.empty: continue
             if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
 
-            # --- 【重要】ここから大引け値の同期処理 ---
-            # 履歴の最後が今日でない場合、最新価格(info)を今日分として追加する
             if df.index[-1].date() != today:
                 t_obj = yf.Ticker(ticker)
-                # regularMarketPriceが取れない場合は昨日の終値を暫定使用
                 current_p = t_obj.info.get('regularMarketPrice') or t_obj.info.get('previousClose')
-                
                 if current_p:
-                    # 今日の行を作成
-                    new_row = pd.DataFrame(
-                        [[current_p] * 4 + [0, 0, 0]], 
-                        columns=df.columns, 
-                        index=[pd.Timestamp(today)]
-                    )
+                    new_row = pd.DataFrame([[current_p] * 4 + [0, 0, 0]], columns=df.columns, index=[pd.Timestamp(today)])
                     df = pd.concat([df, new_row])
-            # ---------------------------------------
             
             data_map[k] = df.dropna(subset=['Close'])
         except: continue
 
-    # --- 1. 基礎データの抽出 ---
+    # --- 1. 基礎データの抽出 (0円回避ガード) ---
     n225_close = 0; n225_prev_close = 0; n225_ma25 = 0; cme_val = 0
     if "N225" in data_map:
         df_n = data_map["N225"]
-        # 終値がある行だけを抽出（空の今日を除外）
         valid_df = df_n.dropna(subset=['Close'])
-        
         if len(valid_df) >= 2:
             n225_close = float(valid_df['Close'].iloc[-1])
             n225_prev_close = float(valid_df['Close'].iloc[-2])
             n225_ma25 = float(valid_df['Close'].rolling(25).mean().iloc[-1])
     
-    # 【重要】CMEデータの取得と0円回避ガード
+    # 日経平均が0なら昨日の値を代入してエラーを防ぐ
+    if n225_close == 0: n225_close = n225_prev_close if n225_prev_close > 0 else 39000
+
+    # CMEデータの取得 (0円・NaNの時は現物を代入して乖離0%にする)
     if "CME" in data_map: 
         cme_val = float(data_map["CME"]['Close'].values.ravel()[-1])
-        # CMEが0やNaNの場合は、現物(N225)を代用して乖離0%とする
-        if cme_val == 0 or pd.isna(cme_val):
-            cme_val = n225_close
+        if cme_val == 0 or pd.isna(cme_val): cme_val = n225_close
     else:
         cme_val = n225_close
-    
-    # 日経平均の現在の騰落率 (地合いフィルターの核)
-    market_pct = (n225_close - n225_prev_close) / n225_prev_close if n225_prev_close > 0 else 0
-    
-    if "CME" in data_map: cme_val = float(data_map["CME"]['Close'].values.ravel()[-1])
 
-    # --- 2. 地合い判定 (ここを時間判定の前に移動) ---
+    market_pct = (n225_close - n225_prev_close) / n225_prev_close if n225_prev_close > 0 else 0
     dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 > 0 else 0
+    gap_pct = (cme_val - n225_close) / n225_close if n225_close > 0 else 0
+
+    # 地合い判定の文字化
     if dev_25 > 3:
         balance_txt = f"買われ過ぎ / 25日線乖離 +{dev_25:.1f}%"; alert_lvl = "▶︎▶︎高値警戒（過熱）"
     elif dev_25 < -3:
@@ -113,77 +99,60 @@ def analyze_market_environment():
     else:
         balance_txt = f"均衡しています / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎正常範囲（ニュートラル）"
 
-    # --- 3. 時刻と外部指標の判定 ---
-    gap_pct = (cme_val - n225_close) / n225_close if n225_close > 0 else 0
+    # 変数の初期化 (UnboundLocalError 回避用)
+    forecast_title = "寄付予測"; forecast_txt = "分析中..."; phase_txt = "分析中..."
+    strategy_idx = 2; base_forecast = "フラット"
+
     if gap_pct <= -0.0015:
         strategy_idx = 1; base_forecast = "ギャップダウン" if gap_pct <= -0.01 else "下落"
     elif gap_pct >= 0.0015:
         strategy_idx = 0; base_forecast = "ギャップアップ" if gap_pct >= 0.01 else "上昇"
-    else:
-        strategy_idx = 2; base_forecast = "フラット"
 
     vix_val = 15; sox_pct = 0; fx_pct = 0
     if "VIX" in data_map: vix_val = float(data_map["VIX"]['Close'].values.ravel()[-1])
     if "SOX" in data_map: sox_pct = (data_map["SOX"]['Close'].values.ravel()[-1] / data_map["SOX"]['Close'].values.ravel()[-2]) - 1
     if "USDJPY" in data_map: fx_pct = (data_map["USDJPY"]['Close'].values.ravel()[-1] / data_map["USDJPY"]['Close'].values.ravel()[-2]) - 1
 
-    jst = timezone(timedelta(hours=9))
-    now = datetime.now(jst).time()
+    now = now_dt.time()
     l_s, l_e = time(11, 30), time(12, 30); a_s, a_e = time(15, 0), time(19, 0)
-    forecast_title = "寄付予測"; bias_list = []
+    bias_list = []
 
-    # --- 4. 時間帯別の展望生成 (Ver 4.7.0 矛盾解消版) ---
+    # --- 時間帯別の展望生成 ---
     if l_s <= now <= l_e:
-        # (前場総括はそのまま)
         forecast_title = "前場総括"
         forecast_txt = f"前場は {base_forecast} で推移。現在の乖離率は {dev_25:.1f}% です。"
+        phase_txt = "前場が終了しました。後場の寄り付きまで待機、または前場の振り返りを行いましょう。"
         
     elif a_s <= now <= a_e:
         forecast_title = "今日の結果"
-        # 【修正】base_forecast（先物比較）ではなく、market_pct（今日の実績）で言葉を選ぶ
         actual_result = "上昇" if market_pct > 0 else "下落" if market_pct < 0 else "変わらず"
         forecast_txt = f"本日は {actual_result} で終了。大引け時点の乖離率は {dev_25:.1f}% です。"
         phase_txt = "お疲れ様でした。明日に向け期待値の高い銘柄をランキングで精査しましょう。"
     else:
-        # 通常・夜間
         if fx_pct <= -0.003: bias_list.append("円高バイアス")
         elif fx_pct >= 0.003: bias_list.append("円安バイアス")
         forecast_txt = f"{base_forecast} ({' / '.join(bias_list)})" if bias_list else f"{base_forecast}"
 
         if "高値警戒" in alert_lvl:
-            if "上昇" in base_forecast or "アップ" in base_forecast:
-                phase_txt = "加熱圏のギャップアップ。利確をこなしつつ、ボリンジャー+2σ付近の攻防に警戒。"
-            else:
-                phase_txt = "高値警戒感から上値が重い展開。押し目買い意欲はあるが反転確認を優先。"
+            phase_txt = "加熱圏のギャップアップ。利確をこなしつつ、ボリンジャー+2σ付近の攻防に警戒。" if "上昇" in base_forecast else "高値警戒感から上値が重い展開。"
         elif "底打ち待ち" in alert_lvl:
-            if "下落" in base_forecast or "ダウン" in base_forecast:
-                phase_txt = "売られすぎ圏での寄り付き。パニック売り後の反発に妙味。RCIの底打ちを待つ。"
-            else:
-                phase_txt = "底堅い動き。悪材料を出尽くしたリバウンドを想定。逆張り戦略が有効な地合い。"
+            phase_txt = "売られすぎ圏での寄り付き。パニック売り後の反発に妙味。" if "下落" in base_forecast else "底堅い動き。リバウンドを想定。"
         else:
-            if "上昇" in base_forecast or "アップ" in base_forecast:
-                phase_txt = "堅調なスタート。VWAPを支持線にできるか、前場高値の更新を注視。"
-            elif "下落" in base_forecast or "ダウン" in base_forecast:
-                phase_txt = "売り先行。主要な節目や直近安値での下げ止まりを確認して資金流入を待ちましょう。"
-            else:
-                phase_txt = "方向感なし。指数に惑わされず個別材料株や分足のテクニカルに絞る短期決戦が有効。"
+            phase_txt = "堅調なスタート。VWAPを支持線にできるか注視。" if "上昇" in base_forecast else "売り先行。主要な節目での下げ止まりを確認。"
 
     us_impact = "米国株の変動は限定的。"
     if vix_val >= 20 or sox_pct <= -0.015: us_impact = "半導体安。指数主導の下落に警戒。"
     elif sox_pct >= 0.005: us_impact = "ハイテク株への買い波及を期待。"
 
     tips = []
-    if "WTI" in data_map and (data_map["WTI"]['Close'].values.ravel()[-1] / data_map["WTI"]['Close'].values.ravel()[-2]) - 1 >= 0.005: tips.append("1:鉱業 / 10:石油・石炭")
-    if "GOLD" in data_map and (data_map["GOLD"]['Close'].values.ravel()[-1] / data_map["GOLD"]['Close'].values.ravel()[-2]) - 1 >= 0.005: tips.append("9:非金属")
+    if "WTI" in data_map and (data_map["WTI"]['Close'].iloc[-1] / data_map["WTI"]['Close'].iloc[-2]) - 1 >= 0.005: tips.append("1:鉱業 / 10:石油・石炭")
     if sox_pct >= 0.005: tips.append("17:電気機器 / 16:機械")
-    if fx_pct >= 0.003: tips.append("19:輸送機器 / 25:卸売業 / 27:銀行")
     
     return {
         "strategy": strategy_idx, "opening_forecast": forecast_txt, "forecast_title": forecast_title,
         "balance": balance_txt, "phase_comment": phase_txt, "us_impact": us_impact, "alert_level": alert_lvl, 
         "tips": " / ".join(tips) if tips else "個別材料株（全業種対象）",
-        "gap_pct": gap_pct,
-        "market_pct": market_pct  # ← これを追加
+        "gap_pct": gap_pct, "market_pct": market_pct
     }
     
 # --- 3. スクリーニング・シミュレーション ---
