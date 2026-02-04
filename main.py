@@ -213,7 +213,7 @@ with tab_top:
         st.markdown("""
             <style>
             div.stButton > button[key*="plan_b_exec_btn"] {
-                background-color: #28a745 !important; /* 鮮やかな緑 */
+                background-color: #28a745 !important;
                 color: white !important;
                 border: 2px solid #1e7e34 !important;
                 font-weight: bold !important;
@@ -242,7 +242,7 @@ with tab_top:
                     codes = [r['code'] for r in top_5_results]
                     st.session_state['target_tickers'] = ", ".join(codes)
                     
-                    # 2. 始値を自動取得して保存 (指値戦略タブの入力欄を埋める)
+                    # 2. 始値を自動取得して保存 (指値戦略タブ用)
                     for r in top_5_results:
                         st.session_state[f"act_in_{r['code']}"] = r['open']
                     
@@ -264,17 +264,18 @@ with tab_top:
                     st.session_state['res_df'] = pd.DataFrame(all_trades)
                     st.session_state['t_names'] = t_names
                     status.update(label="✅ 完了！戦略タブへ移動します", state="complete")
-                    st.rerun() # 状態を確定
+                    st.rerun() 
                 else:
                     st.error("現在、条件（勝率55%＋勢い）に合致する銘柄が見つかりませんでした。")
 
     else:
-         # 4. ワンタッチ判定：全自動スキャン開始ボタン
+        # --- 4. 通常時のワンタッチ判定：全自動スキャン開始ボタン ---
+        # ↓ここから下の行が else の下にインデントされている必要があります
         if st.button("👉 ワンタッチ／銘柄候補を自動で選出", type="primary", use_container_width=True, key="ot_full_scan_btn"):
             current_preset = st.session_state['preset'] 
             p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
             p = st.session_state['sc_params'][p_idx]
-        
+            
             s_logic_params = {
                 'c_gain': p.get('c_gain'), 'gain_range': p.get('gain_rng'),
                 'c_p': p.get('c_p'), 'p_range': p.get('p_rng'), 'c_v': p.get('c_v'), 'v_min': p.get('v_min'), 
@@ -284,22 +285,21 @@ with tab_top:
                 'c_vup': p.get('c_vup'), 'vup_min': p.get('vup_min'), 'c_ma25': p.get('c_ma25'), 'ma25_range': p.get('ma25_rng'),
                 'c_bb': p.get('c_bb'), 'bb_range': p.get('bb_rng')
             }
-        
-            # 【修正】業種フィルターの適用
+            
             selected_sids = p.get('sector', [0])
             if 0 in selected_sids or not selected_sids:
                 all_tickers = list(TICKER_DETAILS.keys())
             else:
                 all_tickers = [t for t, d in TICKER_DETAILS.items() if d[1] in selected_sids]
-            
+                
             ot_results = []
-        
+            
             with st.status(f"🔍 {current_preset} 戦略で全銘柄をフル分析中...", expanded=True) as status:
                 pb_ot = st.progress(0)
                 for idx, t in enumerate(all_tickers):
                     pb_ot.progress((idx+1)/len(all_tickers))
                     status.update(label=f"分析中 ({idx+1}/{len(all_tickers)}): {t}")
-                
+                    
                     df_d = yf.download(t, period="3mo", interval="1d", progress=False)
                     if not df_d.empty:
                         if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
@@ -307,14 +307,13 @@ with tab_top:
                         if scr_res:
                             end_date = datetime.now(); start_date = end_date - timedelta(days=days_back)
                             df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
-                        
+                            
                             if not df_5m.empty:
                                 if isinstance(df_5m.columns, pd.MultiIndex): df_5m.columns = df_5m.columns.get_level_values(0)
                                 p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
                                 trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
                                 score_data = core.get_one_touch_score(trades)
                                 if score_data:
-                                    # 【修正】項目の追加
                                     ot_results.append({
                                         'コード': t, '銘柄名': TICKER_DETAILS.get(t, [t])[0],
                                         '前日比': scr_res.get('前日比', 0), '回数': score_data['count'],
@@ -322,16 +321,14 @@ with tab_top:
                                         '損失平均': score_data['avg_loss'], 'PF': score_data['pf'],
                                         '期待値': score_data['ev'], '総合スコア': score_data['score']
                                     })
-                                
+                                    
                 status.update(label="✅ 分析完了！", state="complete")
 
-            # 結果の保存と0件フラグ制御
             if ot_results:
                 top_5_df = pd.DataFrame(ot_results).sort_values('総合スコア', ascending=False).head(5)
                 st.session_state['ot_last_top5'] = top_5_df
                 st.session_state['ot_no_results'] = False
-            
-                # 監視リスト反映
+                
                 current_str = st.session_state.get('target_tickers', "")
                 current_list = [t.strip() for t in current_str.split(",") if t.strip()]
                 combined_list = sorted(list(set(current_list + top_5_df['コード'].tolist())))
