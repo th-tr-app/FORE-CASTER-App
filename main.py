@@ -884,37 +884,31 @@ with tab_strategy:
 
                 with c_top_r:
                     input_key = f"act_in_{t}"
-                    
-                    # セッション状態の初期化
                     if input_key not in st.session_state:
-                        st.session_state[input_key] = None
+                        st.session_state[input_key] = 0 # 初期値を0に設定
 
-                    # --- 1. 更新用コールバック関数の定義 (エラー回避の鍵) ---
-                    # ボタンが押された直後、Widgetが描画される前に値を書き換えます
-                    def update_opening_callback(k=input_key, ticker=t):
+                    # --- 【修正】コールバック関数：画面描画前に状態を確定させる ---
+                    def handle_update(k=input_key, ticker=t):
                         new_val = core.get_realtime_opening_price(ticker)
                         if new_val:
                             st.session_state[k] = new_val
                         else:
-                            st.toast(f"{ticker} の始値がまだ取得できません", icon="⏳")
+                            st.toast(f"{ticker} の本日の始値はまだ配信されていません", icon="⏳")
 
-                    # --- 2. 始値更新ボタン (コールバックを登録) ---
+                    # ボタンにコールバックを登録
                     st.button(
                         f"始値を更新する ({t})", 
                         key=f"btn_upd_{t}", 
-                        on_click=update_opening_callback, # ここで関数を呼び出す
+                        on_click=handle_update, 
                         use_container_width=True, 
                         type="primary"
                     )
 
-                    # --- 3. 始値入力欄 ---
+                    # 始値入力欄（keyを指定することで session_state と完全同期）
                     actual_open_val = st.number_input(
                         f"始値を入力 ({t})", 
-                        step=1,
-                        format="%d",
-                        key=input_key, 
-                        label_visibility="collapsed", 
-                        placeholder="始値を入力"
+                        step=1, format="%d", key=input_key, 
+                        label_visibility="collapsed", placeholder="始値を入力"
                     )
 
                 # --- 2. 始値確定後の詳細診断ロジック ---
