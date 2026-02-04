@@ -453,11 +453,7 @@ with tab_bt:
             
             for i, t in enumerate(t_list):
                 st_text.text(f"分析中 {t}..."); pb.progress((i+1)/len(t_list))
-                
-                # --- ⚡️ 重要：本日の始値を自動取得してセッションに保存 ---
-                # 指値戦略タブの入力欄（act_in_銘柄コード）とキーを同期させます
-                st.session_state[f"act_in_{t}"] = core.get_realtime_opening_price(t)
-                
+                                
                 # データのダウンロードとMultiIndex対策
                 df = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
                 if df.empty: continue
@@ -894,16 +890,16 @@ with tab_strategy:
                     if input_key not in st.session_state:
                         st.session_state[input_key] = None
                     
+                    # 始値入力欄
                     actual_open_val = st.number_input(
                         f"始値を入力 ({t})", step=1, format="%d", key=input_key, 
                         label_visibility="collapsed", placeholder="始値を入力"
                     )
                     
+                    # 【変更】API取得を廃止し、手入力確定用のボタン（Enterキー代わり）として利用
+                    # ボタンを押すと st.rerun() が走り、上の actual_open_val の値で診断が即座に開始されます
                     if st.button(f"始値を更新する ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
-                        new_val = core.get_realtime_opening_price(t)
-                        if new_val:
-                            st.session_state[input_key] = new_val
-                            st.rerun()
+                        st.rerun()
 
                 # --- 2. 始値確定後の詳細診断ロジック ---
                 if actual_open_val:
