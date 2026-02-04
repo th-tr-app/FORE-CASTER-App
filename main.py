@@ -835,31 +835,31 @@ with tab_strategy:
         st.markdown(f"<div class='strat-market-header'><b>日経平均／前日比:</b> <span class='{m_cls}' style='font-size:1.2em; font-weight:bold;'>{m_curr_pct:+.2%}</span></div>", unsafe_allow_html=True)
         st.divider()
 
-        for t in t_list:
+		for t in t_list:
             tdf = res_df[res_df['Ticker'] == t].copy()
             if tdf.empty: continue
             t_name = ticker_names.get(t, t)
-
+            
             with st.expander(f"[{t}] {t_name}", expanded=True):
                 with st.spinner("データ同期中..."):
                     ticker_live = yf.Ticker(t)
-                    # 最新の終値とボラティリティ(ATR)の計算
                     hist_live = ticker_live.history(period="30d")
+					if len(hist_live) >= 15:
+                    
+                    # --- 【修正】空の今日を無視して、確実に「昨日」の終値を取得 ---
+                    valid_hist = hist_live['Close'].dropna()
+                    if not valid_hist.empty:
+                        last_c = valid_hist.iloc[-1]
+                    else:
+                        last_c = float(tdf['PrevClose'].iloc[-1]) if 'PrevClose' in tdf.columns else 0.0
+
                     if len(hist_live) >= 15:
-                        # 【修正】空のデータを除外してから、最新の確定値（昨日分）を取得
-						valid_hist = hist_live['Close'].dropna()
-						if not valid_hist.empty:
-			    			last_c = valid_hist.iloc[-1]
-						else:
-			    			# 履歴が全滅の場合のセーフティ
-			    			last_c = tdf['PrevClose'].iloc[-1]
                         hl = hist_live['High'] - hist_live['Low']
                         hc = np.abs(hist_live['High'] - hist_live['Close'].shift())
                         lc = np.abs(hist_live['Low'] - hist_live['Close'].shift())
                         tr = pd.concat([hl, hc, lc], axis=1).max(axis=1)
-                        atr_p = (tr.rolling(14).mean().iloc[-1] / last_c) * 100                    
+                        atr_p = (tr.rolling(14).mean().iloc[-1] / last_c) * 100 if last_c > 0 else 1.5
                     else: 
-                        last_c = tdf['PrevClose'].iloc[-1]
                         atr_p = 1.5
 	
                 # 共通変数の計算
