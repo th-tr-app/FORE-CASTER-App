@@ -225,11 +225,11 @@ with tab_top:
     # --- 4. ワンタッチ判定エリア ---
     if st.session_state['preset'] == "PLAN_B":    
         st.markdown("### 🚧 プランＢ を発動します。")
-        st.caption("期待値が高く、エントリー可能な銘柄トップ５を抽出します。抽出後に指値戦略タブを確認してください。")
+        st.caption("期待値が高く、エントリー可能な銘柄トップ５を選出します。選出後に指値戦略タブを確認してください。")
 
         # 標準の primary ボタン（オレンジ赤系）に変更
-        if st.button("🚀 プランB 発動／TOP5を自動で選出", key="plan_b_exec_btn", use_container_width=True, type="primary"):
-            with st.status("エントリー可能な銘柄を抽出中...", expanded=True) as status:
+        if st.button("🚀 プランＢ 発動／TOP5を自動で選出", key="plan_b_exec_btn", use_container_width=True, type="primary"):
+            with st.status("エントリー可能な銘柄を選出中...", expanded=True) as status:
 
                 # 1. 精鋭銘柄をスキャン
                 all_codes = list(TICKER_DETAILS.keys())
