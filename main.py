@@ -224,7 +224,7 @@ with tab_top:
 
     # --- 4. ワンタッチ判定エリア ---
     if st.session_state['preset'] == "PLAN_B":    
-        st.markdown("### 🚧 プランＢ を発動します。")
+        st.markdown("### 🚧 プランＢを発動します。")
         st.caption("期待値が高く、エントリー可能な銘柄トップ５を選出します。選出後に指値戦略タブを確認してください。")
 
         # 標準の primary ボタン（オレンジ赤系）に変更
