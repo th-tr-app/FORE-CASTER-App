@@ -89,7 +89,7 @@ preset_options = [
     ("NORMAL","通常フィルター"), 
     ("DEFENSIVE","ディフェンシブ"), 
     ("RANGE","横ばい相場対応"),
-    ("PLAN_B", "プランＢ▶︎発動")
+    ("PLAN_B", "プランＢ ▶︎ 発動")
 ]
 
 for p, l in preset_options:
