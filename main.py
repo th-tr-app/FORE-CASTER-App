@@ -96,6 +96,14 @@ for p, l in preset_options:
     is_sel = (st.session_state['preset'] == p)
     if st.sidebar.button(l + (" [ 選択中 ]" if is_sel else ""), key=f"side_ps_btn_{p}", type="primary" if is_sel else "secondary"):
         st.session_state['preset'] = p
+        
+        # 【追加】プランBが選ばれた瞬間に、スライダーの値を2.5%に強制上書きする
+        if p == "PLAN_B":
+            st.session_state["g_max_slider"] = 2.5
+        else:
+            # 他のプリセットに戻った時は1.0%に戻す
+            st.session_state["g_max_slider"] = 1.0
+            
         st.rerun()
 
 st.sidebar.divider()
