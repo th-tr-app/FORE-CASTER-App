@@ -892,7 +892,7 @@ with tab_bt:
 # --- タブ4: 指値戦略 (Ver 4.7.0：計算順序最適化 & 構造クリーンアップ) ---
 with tab_strategy:
     st.markdown("### ✨ 指値戦略プランナー")
-    st.caption("統計的勝率・市場地合い・リアルタイムの勢いを統合した最終判断用パネルです。始値確定後の利用を推奨します。")
+    st.caption("統計的勝率・地合い・リアルタイムの勢いを統合した最終判断用パネルです。始値確定後の利用を推奨します。")
     
     res_df = st.session_state.get('res_df', pd.DataFrame())
     ticker_names = st.session_state.get('t_names', {})
@@ -1095,7 +1095,7 @@ with tab_strategy:
                         st.markdown(f"""<div class="strat-msg-box msg-bg-info">🚀 <b>トレイリング最適化</b><br>開始{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}</div>""", unsafe_allow_html=True)
                         st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
                 else:
-                    st.info("始値を入力して更新ボタンを押すと診断結果が表示されます。")
+                    st.info("始値を入力して更新ボタンを押すと、今日の戦略が表示されます。")
             st.divider()
                     
 # --- タブ5: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
