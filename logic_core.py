@@ -333,30 +333,34 @@ def check_opening_deviation(actual, expected, last_close):
     
     return is_large, dev_pct
 
-# --- logic_core.py：始値取得ロジックの強化版 (Ver 4.7.1) ---
+# --- logic_core.py：get_realtime_opening_price を以下に差し替え ---
 def get_realtime_opening_price(ticker_symbol):
     try:
         jst = timezone(timedelta(hours=9))
-        today = datetime.now(jst).date()
+        now_dt = datetime.now(jst)
+        today = now_dt.date()
+        
+        # 9:00前は動かさない
+        if now_dt.time() < time(9, 0): return None
+            
         t = yf.Ticker(ticker_symbol)
-
-        # 1. まず日足データ(1d)で「今日の始値」があるか確認
-        df_d = t.history(period="1d")
-        if not df_d.empty and df_d.index[-1].date() == today:
-            return int(df_d['Open'].iloc[-1])
-
-        # 2. まだ日足が確定していない場合、1分足から今日の最初の足を探す
+        
+        # 1. まず1分足で「今日」の最初のOpenを探す (最も確実)
         df_m = t.history(period="1d", interval="1m")
         if not df_m.empty:
             df_m.index = df_m.index.tz_convert('Asia/Tokyo')
             df_today = df_m[df_m.index.date == today]
             if not df_today.empty:
-                # 9:00以降の最初のOpenを採用
                 return int(df_today['Open'].iloc[0])
-
-        # 3. それでもダメな場合のみ info を参照（ただし日付チェックができないため最終手段）
-        todays_open = t.info.get('open')
-        # infoのopenは昨日のものが残っていることが多いため、慎重に扱う
-        return int(todays_open) if todays_open else None
+        
+        # 2. 取れない場合は日足履歴を確認
+        df_d = t.history(period="2d")
+        if not df_d.empty:
+            df_d.index = df_d.index.tz_convert('Asia/Tokyo')
+            today_row = df_d[df_d.index.date == today]
+            if not today_row.empty:
+                return int(today_row['Open'].iloc[-1])
+                
     except:
-        return None
+        pass
+    return None
