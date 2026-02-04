@@ -92,27 +92,63 @@ for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェン�
         st.session_state['preset'] = p
         st.rerun()
 
+# --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
+st.sidebar.header("🎲 戦略実行プリセット")
+
+# プリセット定義に PLAN_B を追加
+presets = [
+    ("NORMAL", "通常フィルター"), 
+    ("DEFENSIVE", "ディフェンシブ"), 
+    ("RANGE", "横ばい相場対応"),
+    ("PLAN_B", "プランB▶︎発動")
+]
+
+for p, l in presets:
+    is_sel = (st.session_state['preset'] == p)
+    if st.sidebar.button(l + (" [ 選択中 ]" if is_sel else ""), key=f"side_ps_btn_{p}", type="primary" if is_sel else "secondary", use_container_width=True):
+        st.session_state['preset'] = p
+        st.rerun()
+
 st.sidebar.divider()
+
+# --- プリセットに応じた動的なデフォルト値の設定 ---
+curr_p = st.session_state['preset']
+if curr_p == "PLAN_B":
+    d_g_max = 2.5      # プランBは窓開け上限を大幅拡張
+    d_ts_s = 0.8       # 少し深めに追う
+    d_sl = -0.8        # 許容リスクを広げる
+elif curr_p == "DEFENSIVE":
+    d_g_max = 0.5; d_ts_s = 0.3; d_sl = -0.3
+elif curr_p == "RANGE":
+    d_g_max = 1.5; d_ts_s = 0.5; d_sl = -0.5
+else: # NORMAL
+    d_g_max = 1.0; d_ts_s = 0.5; d_sl = -0.5
+
 st.sidebar.header("⚙️ バックテスト設定")
 days_back = st.sidebar.slider("過去何日分を取得", 10, 59, 59)
-s_t = st.sidebar.time_input("開始時間", time(9, 0), step=300); e_t = st.sidebar.time_input("終了時間", time(9, 15), step=300)
+s_t = st.sidebar.time_input("開始時間", time(9, 0), step=300)
+e_t = st.sidebar.time_input("終了時間", time(9, 15), step=300)
+
 st.sidebar.write("")
 st.sidebar.header("📈 エントリー条件")
 u_vwap = st.sidebar.checkbox("VWAPより上でエントリー", value=True)
 u_ema = st.sidebar.checkbox("EMA5より上でエントリー", value=True)
 u_rsi = st.sidebar.checkbox("RSIが45以上or上向き", value=True)
 u_macd = st.sidebar.checkbox("MACDが上向き", value=True)
-st.sidebar.write("")
+
 st.sidebar.write("")
 g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, -3.0, 0.05) / 100
-g_max = st.sidebar.slider("寄付アップ上限 (%)", -5.0, 5.0, 1.0, 0.05) / 100
+# valueにプリセット連動の d_g_max を適用
+g_max = st.sidebar.slider("寄付アップ上限 (%)", -5.0, 5.0, d_g_max, 0.05) / 100
+
 st.sidebar.divider()
 st.sidebar.header("💰 決済ルール")
-ts_s = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5, 0.05) / 100
+ts_s = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, d_ts_s, 0.05) / 100
 ts_w = st.sidebar.number_input("トレイリング幅 (%)", 0.1, 5.0, 0.2, 0.05) / 100
-sl_f = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.5, 0.05) / 100
+sl_f = st.sidebar.number_input("損切り (%)", -5.0, -0.1, d_sl, 0.05) / 100
+
 st.sidebar.divider()
-st.sidebar.header("📉 動的損切り設定")
+st.sidebar.header("📉 動動的損切り設定")
 u_atr = st.sidebar.checkbox("ATR損切りを使用", value=True)
 a_mul = st.sidebar.number_input("ATR倍率", 0.5, 5.0, 1.5, 0.1)
 a_min = st.sidebar.number_input("最低損切り (%)", 0.1, 5.0, 0.5, 0.1) / 100
@@ -123,7 +159,7 @@ params = {
 }
 
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
-st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>All-in-one Day trade manager | ver 4.70</p></div>", unsafe_allow_html=True)
+st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>All-in-one Day trade manager | ver 4.68</p></div>", unsafe_allow_html=True)
 
 # 【修正ポイント】key="target_tickers" を削除し、value= を使用します
 ticker_input_val = st.text_input(
@@ -809,7 +845,7 @@ with tab_bt:
 
                 st.divider()
 
-# --- タブ4: 指値戦略 (Ver 4.7.2：確実性重視・完全手動版) ---
+# --- タブ4: 指値戦略 (Ver 4.7.0：計算順序最適化 & 構造クリーンアップ) ---
 with tab_strategy:
     st.markdown("### ✨ 指値戦略プランナー")
     st.caption("統計的勝率・市場地合い・リアルタイムの勢いを統合した最終判断用パネルです。始値確定後の利用を推奨します。")
@@ -817,6 +853,7 @@ with tab_strategy:
     res_df = st.session_state.get('res_df', pd.DataFrame())
     ticker_names = st.session_state.get('t_names', {})
     
+    # 重複を除去してリスト化
     raw_tickers = [t.strip() for t in st.session_state.get('target_tickers', "").split(",") if t.strip()]
     t_list = list(dict.fromkeys(raw_tickers)) 
 
@@ -825,6 +862,7 @@ with tab_strategy:
     elif res_df.empty:
         st.info("💡 まずは「バックテスト」を実行してください。過去の統計データが必要です。")
     else:
+        # 地合い情報の取得
         diag = core.analyze_market_environment()
         m_curr_pct = diag.get('market_pct', 0.0)
         m_gap = diag.get('gap_pct', 0.0)
@@ -839,39 +877,36 @@ with tab_strategy:
             t_name = ticker_names.get(t, t)
             
             with st.expander(f"[{t}] {t_name}", expanded=True):
-                # --- 1. 基準データの確定 (0円エラー回避) ---
-                # yfinanceに頼らず、バックテストの統計ベースとなった終値を基準にします
-                last_c = float(tdf['PrevClose'].iloc[-1]) if 'PrevClose' in tdf.columns else 0.0
-                pred_o = last_c * (1 + m_gap) if last_c > 0 else 0.0
-
-                with st.spinner("勢い分析中..."):
+                with st.spinner("データ同期中..."):
                     ticker_live = yf.Ticker(t)
-                    # ATR計算 (ここだけ外部参照、失敗しても計算は続行)
-                    try:
-                        hist_live = ticker_live.history(period="20d")
-                        if len(hist_live) >= 10:
-                            tr = pd.concat([
-                                hist_live['High'] - hist_live['Low'],
-                                np.abs(hist_live['High'] - hist_live['Close'].shift()),
-                                np.abs(hist_live['Low'] - hist_live['Close'].shift())
-                            ], axis=1).max(axis=1)
-                            atr_p = (tr.rolling(14).mean().iloc[-1] / last_c) * 100 if last_c > 0 else 1.5
-                        else: atr_p = 1.5
-                    except: atr_p = 1.5
+                    # 最新の終値とボラティリティ(ATR)の計算
+                    hist_live = ticker_live.history(period="30d")
+                    if len(hist_live) >= 15:
+                        last_c = hist_live['Close'].iloc[-1]
+                        hl = hist_live['High'] - hist_live['Low']
+                        hc = np.abs(hist_live['High'] - hist_live['Close'].shift())
+                        lc = np.abs(hist_live['Low'] - hist_live['Close'].shift())
+                        tr = pd.concat([hl, hc, lc], axis=1).max(axis=1)
+                        atr_p = (tr.rolling(14).mean().iloc[-1] / last_c) * 100
+                    else: 
+                        last_c = tdf['PrevClose'].iloc[-1]
+                        atr_p = 1.5
 
+                # 共通変数の計算
                 v_factor = max(0.6, min(2.5, atr_p / 1.5))
                 tdf['Entry_Push'] = ((tdf['In'] - tdf['DayOpen']) / tdf['DayOpen']) * 100
                 win_tdf = tdf[tdf['PnL'] > 0]
                 avg_push = win_tdf['Entry_Push'].mean() if not win_tdf.empty else 0
+                pred_o = last_c * (1 + m_gap)
 
-                # --- 2. 上段レイアウト (基本情報) ---
+                # --- 1. 上段レイアウト (基本情報) ---
                 c_top_l, c_top_r = st.columns([2, 1])
                 with c_top_l:
                     g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
                     st.markdown(f"""
                     <div class="mobile-flex-container">
                         <div class="flex-item strat-card-top">
-                            <div class="card-label">基準終値(昨日)</div>
+                            <div class="card-label">基準終値</div>
                             <div class="strat-value">{last_c:,.0f}</div>
                             <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div>
                         </div>
@@ -884,19 +919,28 @@ with tab_strategy:
                     """, unsafe_allow_html=True)
 
                 with c_top_r:
-                    # 【手動入力の完全化】keyのみで管理し、自動同期ボタンを廃止
-                    input_key = f"manual_open_val_{t}"
+                    input_key = f"act_in_{t}"
+                    if input_key not in st.session_state:
+                        st.session_state[input_key] = None
+                    
                     actual_open_val = st.number_input(
-                        f"始値を入力 ({t})", step=1, format="%d", key=input_key,
-                        label_visibility="collapsed", placeholder="今日の始値"
+                        f"始値を入力 ({t})", step=1, format="%d", key=input_key, 
+                        label_visibility="collapsed", placeholder="始値を入力"
                     )
+                    
+                    if st.button(f"始値を更新する ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
+                        new_val = core.get_realtime_opening_price(t)
+                        if new_val:
+                            st.session_state[input_key] = new_val
+                            st.rerun()
 
-                # --- 3. 始値確定後の詳細診断ロジック ---
-                if actual_open_val > 0:
-                    today_gap = (actual_open_val - last_c) / last_c if last_c > 0 else 0
+                # --- 2. 始値確定後の詳細診断ロジック ---
+                if actual_open_val:
+                    # 【重要】最優先で gap を定義
+                    today_gap = (actual_open_val - last_c) / last_c
                     
                     with st.spinner("リアルタイム診断中..."):
-                        # 勢いチェック(1分足)
+                        # テクニカル指標の計算 (1分足)
                         df_m = ticker_live.history(interval="1m", period="1d")
                         rsi_slope = 0; ema_gap = 0; tech_warning = False
                         
@@ -911,14 +955,14 @@ with tab_strategy:
                             ema_gap = ((actual_open_val - ema5) / ema5) * 100
                             if rsi_slope < -0.2 or abs(ema_gap) > 1.5: tech_warning = True
 
-                        # 指値・利確・損切の計算
+                        # 各種価格の計算
                         today_limit = actual_open_val * (1 + (avg_push / 100))
                         avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
                         target_price = today_limit * (1 + avg_profit)
                         adj_sl = params['sl_fix'] * v_factor
                         stop_price = today_limit * (1 + adj_sl)
 
-                        # 下段表示
+                        # --- 3. 下段レイアウト (目標価格) ---
                         st.markdown(f"""
                         <div class="mobile-flex-container" style="margin-top: 15px;">
                             <div class="flex-item strat-card-bottom">
@@ -939,7 +983,7 @@ with tab_strategy:
                         </div>
                         """, unsafe_allow_html=True)
 
-                        # テクニカル状態表示
+                        # --- 4. テクニカル状態表示 ---
                         r_cls = "rakuten-plus" if rsi_slope > -0.2 else "rakuten-minus"
                         r_text = "上昇・維持" if rsi_slope > -0.2 else "低下中"
                         st.markdown(f"""
@@ -949,7 +993,7 @@ with tab_strategy:
                         </div>
                         """, unsafe_allow_html=True)
 
-                        # 最終判定
+                        # --- 5. 最終統計判定 ---
                         similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
                         n_count = len(similar_trades)
                         sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
@@ -965,9 +1009,11 @@ with tab_strategy:
                         else:
                             st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>エントリーなし</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>期待値が不十分です。</div>""", unsafe_allow_html=True)
 
+                        # --- 6. トレイリング停止案 ---
                         st.markdown(f"""<div class="strat-msg-box msg-bg-info">🚀 <b>トレイリング最適化</b><br>開始{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}</div>""", unsafe_allow_html=True)
+                        st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
                 else:
-                    st.info("👆 今日の始値を入力してください。")
+                    st.info("始値を入力、または「更新ボタン」を押して診断を開始してください。")
             st.divider()
                     
 # --- タブ5: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
