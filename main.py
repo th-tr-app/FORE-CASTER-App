@@ -85,14 +85,32 @@ local_css("style.css")
 
 # --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
 st.sidebar.header("🎲 戦略実行プリセット")
-for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェンシブ"), ("RANGE","横ばい相場対応")]:
+# リストを更新
+preset_options = [
+    ("NORMAL","通常フィルター"), 
+    ("DEFENSIVE","ディフェンシブ"), 
+    ("RANGE","横ばい相場対応"),
+    ("PLAN_B", "プランB ▶︎発動") # 追加
+]
+
+for p, l in preset_options:
     is_sel = (st.session_state['preset'] == p)
-    # 重複エラーを防ぐためキーを一意にする
     if st.sidebar.button(l + (" [ 選択中 ]" if is_sel else ""), key=f"side_ps_btn_{p}", type="primary" if is_sel else "secondary"):
         st.session_state['preset'] = p
         st.rerun()
 
 st.sidebar.divider()
+
+# --- プランB連動のデフォルト値設定 ---
+curr_p = st.session_state.get('preset', 'NORMAL')
+d_g_max = 1.0 # デフォルト
+if curr_p == "PLAN_B":
+    d_g_max = 2.5 # プランBは2.5%に自動変更
+    st.sidebar.warning("⚡️ プランB発動：寄付アップ上限を2.5%に拡張")
+
+# スライダーの初期値(value)を d_g_max に連動させる
+g_max = st.sidebar.slider("寄付アップ上限 (%)", -5.0, 5.0, d_g_max, 0.05) / 100
+
 st.sidebar.header("⚙️ バックテスト設定")
 days_back = st.sidebar.slider("過去何日分を取得", 10, 59, 59)
 s_t = st.sidebar.time_input("開始時間", time(9, 0), step=300); e_t = st.sidebar.time_input("終了時間", time(9, 15), step=300)
@@ -123,7 +141,7 @@ params = {
 }
 
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
-st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>All-in-one Day trade manager | ver 4.68</p></div>", unsafe_allow_html=True)
+st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>All-in-one Day trade manager | ver 4.72</p></div>", unsafe_allow_html=True)
 
 # 【修正ポイント】key="target_tickers" を削除し、value= を使用します
 ticker_input_val = st.text_input(
@@ -189,6 +207,69 @@ with tab_top:
         """
         st.markdown(diag_html, unsafe_allow_html=True)
 
+    # --- 4. ワンタッチ判定エリア ---
+    if st.session_state['preset'] == "PLAN_B":
+        # --- 【プランB専用】緑色ボタンのスタイル定義 ---
+        st.markdown("""
+            <style>
+            div.stButton > button[key*="plan_b_exec_btn"] {
+                background-color: #28a745 !important; /* 鮮やかな緑 */
+                color: white !important;
+                border: 2px solid #1e7e34 !important;
+                font-weight: bold !important;
+                height: 3.5em !important;
+                font-size: 1.1em !important;
+                border-radius: 10px !important;
+            }
+            div.stButton > button[key*="plan_b_exec_btn"]:hover {
+                background-color: #218838 !important;
+                border-color: #1c7430 !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
+        st.markdown("### 🚧 プランB を発動しました。")
+        st.write("現時点で期待値が高く、エントリー可能な銘柄トップ５を抽出します。このまま指値戦略タブを確認してください。")
+
+        # プランB専用：緑色のボタン
+        if st.button("🚀 プランB専用ワンタッチボタン (TOP5抽出)", key="plan_b_exec_btn", use_container_width=True):
+            with st.status("🚀 プランB：市場の精鋭銘柄を選抜中...", expanded=True) as status:
+                # 1. 精鋭銘柄をスキャン
+                all_codes = list(TICKER_DETAILS.keys())
+                top_5_results = core.scan_plan_b_candidates(all_codes, params, TICKER_DETAILS)
+                
+                if top_5_results:
+                    codes = [r['code'] for r in top_5_results]
+                    st.session_state['target_tickers'] = ", ".join(codes)
+                    
+                    # 2. 始値を自動取得して保存 (指値戦略タブの入力欄を埋める)
+                    for r in top_5_results:
+                        st.session_state[f"act_in_{r['code']}"] = r['open']
+                    
+                    # 3. バックテストを一括実行
+                    status.update(label="📈 選抜銘柄のバックテストを開始...", state="running")
+                    end_date = datetime.now()
+                    start_date = end_date - timedelta(days=days_back)
+                    all_trades = []; t_names = {}
+                    
+                    for t in codes:
+                        df = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
+                        if not df.empty:
+                            if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+                            p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
+                            trades = core.run_ticker_simulation(t, df, p_map, o_map, a_map, params)
+                            all_trades.extend(trades)
+                            t_names[t] = TICKER_DETAILS.get(t, [t])[0]
+                    
+                    st.session_state['res_df'] = pd.DataFrame(all_trades)
+                    st.session_state['t_names'] = t_names
+                    status.update(label="✅ 完了！戦略タブへ移動します", state="complete")
+                    st.rerun() # 状態を確定
+                else:
+                    st.error("現在、条件（勝率55%＋勢い）に合致する銘柄が見つかりませんでした。")
+
+    else:
+        
     # 4. ワンタッチ判定：全自動スキャン開始ボタン
     if st.button("👉 ワンタッチ／銘柄候補を自動で選出", type="primary", use_container_width=True, key="ot_full_scan_btn"):
         current_preset = st.session_state['preset'] 
