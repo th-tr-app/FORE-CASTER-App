@@ -82,13 +82,22 @@ def analyze_market_environment():
     n225_close = 0; n225_prev_close = 0; n225_ma25 = 0; cme_val = 0
     if "N225" in data_map:
         df_n = data_map["N225"]
-        # 【重要】終値がある行だけを抽出（空の今日を除外）
+        # 終値がある行だけを抽出（空の今日を除外）
         valid_df = df_n.dropna(subset=['Close'])
         
         if len(valid_df) >= 2:
             n225_close = float(valid_df['Close'].iloc[-1])
             n225_prev_close = float(valid_df['Close'].iloc[-2])
             n225_ma25 = float(valid_df['Close'].rolling(25).mean().iloc[-1])
+    
+    # 【重要】CMEデータの取得と0円回避ガード
+    if "CME" in data_map: 
+        cme_val = float(data_map["CME"]['Close'].values.ravel()[-1])
+        # CMEが0やNaNの場合は、現物(N225)を代用して乖離0%とする
+        if cme_val == 0 or pd.isna(cme_val):
+            cme_val = n225_close
+    else:
+        cme_val = n225_close
     
     # 日経平均の現在の騰落率 (地合いフィルターの核)
     market_pct = (n225_close - n225_prev_close) / n225_prev_close if n225_prev_close > 0 else 0
