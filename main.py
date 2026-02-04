@@ -122,6 +122,7 @@ u_ema = st.sidebar.checkbox("EMA5より上でエントリー", value=True)
 u_rsi = st.sidebar.checkbox("RSIが45以上or上向き", value=True)
 u_macd = st.sidebar.checkbox("MACDが上向き", value=True)
 st.sidebar.write("")
+st.sidebar.write("")
 
 # --- プランB発動時の警告ボックス (これは残します) ---
 curr_p = st.session_state.get('preset', 'NORMAL')
