@@ -89,7 +89,7 @@ preset_options = [
     ("NORMAL","通常フィルター"), 
     ("DEFENSIVE","ディフェンシブ"), 
     ("RANGE","横ばい相場対応"),
-    ("PLAN_B", "【プランB】▶︎発動")
+    ("PLAN_B", "プランＢ▶︎発動")
 ]
 
 for p, l in preset_options:
@@ -224,7 +224,7 @@ with tab_top:
 
     # --- 4. ワンタッチ判定エリア ---
     if st.session_state['preset'] == "PLAN_B":    
-        st.markdown("### 🚧 プランB を発動します。")
+        st.markdown("### 🚧 プランＢ を発動します。")
         st.caption("現時点で期待値が高く、エントリー可能な銘柄トップ５を抽出します。抽出後に指値戦略タブを確認してください。")
 
         # 標準の primary ボタン（オレンジ赤系）に変更
