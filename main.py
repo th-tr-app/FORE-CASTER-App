@@ -861,7 +861,7 @@ with tab_strategy:
                     else: 
                         last_c = tdf['PrevClose'].iloc[-1]
                         atr_p = 1.5
-
+	
                 # 共通変数の計算
                 v_factor = max(0.6, min(2.5, atr_p / 1.5))
                 tdf['Entry_Push'] = ((tdf['In'] - tdf['DayOpen']) / tdf['DayOpen']) * 100
