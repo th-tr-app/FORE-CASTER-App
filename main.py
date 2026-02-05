@@ -235,55 +235,78 @@ with tab_top:
         st.markdown("### 🛠️ セカンドプラン：出撃基準の選択")
         st.caption("相場のボラティリティに合わせて、B（厳選）〜 D（緩和）を選択してください。")
         
-        # --- スマホでも横並びにするためのカスタムUI ---
-        active_tier = st.session_state.get('plan_active_tier', 'B')
-        
-        # 3つのボタンをCSSで横並びにするためのコンテナ
-        # st.radio の横並び設定 (st.segmented_control が使えるStreamlitバージョンならそれが最適です)
-        # ここでは互換性を重視し、st.columns を使いつつ CSS で横並びを維持します
-        
+        # --- スマホ横並び ＆ 色付き枠線ボタンの CSS ---
         st.markdown("""
             <style>
-            /* st.columns をスマホでも強制的に横並びにする */
+            /* 1. スマホでも強制的に横並びにする設定 */
             [data-testid="column"] {
                 width: 31% !important;
                 flex: 1 1 31% !important;
                 min-width: 31% !important;
             }
+            
+            /* 2. ボタンの共通デザイン設定（枠線ボックス化） */
+            div[data-testid="stHorizontalBlock"] button {
+                height: 3.5rem !important;
+                border-radius: 8px !important;
+                background-color: transparent !important; /* 背景は透明 */
+                font-weight: bold !important;
+                border: 2px solid !important; /* 枠線を太く */
+            }
+
+            /* 3. 各プラン個別の色設定 */
+            /* プランB: 赤 */
+            div[data-testid="stHorizontalBlock"] button[key*="tier_b"] {
+                border-color: #ff4b4b !important;
+                color: #ff4b4b !important;
+            }
+            /* プランC: 水色 */
+            div[data-testid="stHorizontalBlock"] button[key*="tier_c"] {
+                border-color: #00d4ff !important;
+                color: #00d4ff !important;
+            }
+            /* プランD: 緑 */
+            div[data-testid="stHorizontalBlock"] button[key*="tier_d"] {
+                border-color: #77ff00 !important;
+                color: #77ff00 !important;
+            }
+            
+            /* 選択中のボタンの背景を少し塗る設定 */
+            div[data-testid="stHorizontalBlock"] button[style*="background-color: rgb(255, 75, 75)"] { background-color: rgba(255, 75, 75, 0.2) !important; }
             </style>
         """, unsafe_allow_html=True)
-        
+            
         col_b, col_c, col_d = st.columns(3)
         
-        # 【安全策】セッション状態を確認し、未設定や None なら 'B' を初期値にする
         if 'plan_active_tier' not in st.session_state or st.session_state['plan_active_tier'] is None:
             st.session_state['plan_active_tier'] = 'B'
-                
+        
+        active_tier = st.session_state['plan_active_tier']
+        
+        # type="primary" の時に背景が少し塗られるように設定
         with col_b:
-            if st.button("🚀 プランＢ", use_container_width=True, type="primary" if active_tier == 'B' else "secondary"):
+            if st.button("🚀 B", key="tier_b", use_container_width=True, type="primary" if active_tier == 'B' else "secondary"):
                 st.session_state['plan_active_tier'] = 'B'
                 st.session_state['plan_b_active'] = False
                 st.rerun()
         with col_c:
-            if st.button("✈️ プランＣ", use_container_width=True, type="primary" if active_tier == 'C' else "secondary"):
+            if st.button("✈️ C", key="tier_c", use_container_width=True, type="primary" if active_tier == 'C' else "secondary"):
                 st.session_state['plan_active_tier'] = 'C'
                 st.session_state['plan_b_active'] = False
                 st.rerun()
         with col_d:
-            if st.button("🚁 プランＤ", use_container_width=True, type="primary" if active_tier == 'D' else "secondary"):
+            if st.button("🚁 D", key="tier_d", use_container_width=True, type="primary" if active_tier == 'D' else "secondary"):
                 st.session_state['plan_active_tier'] = 'D'
                 st.session_state['plan_b_active'] = False
                 st.rerun()
 
-        # (以下、これまでのスキャンロジックとメッセージ表示)
-        # --- 2. 選択されたティアに基づく設定の定義 (ここでエラーが起きないよう確定させる) ---
+        # (以下、設定の定義と実行ボタン)
         tier_configs = {
             'B': {"win": 0.55, "rsi": -0.2, "label": "🚀 プランＢ 発動／TOP5を自動で選出"},
             'C': {"win": 0.52, "rsi": -0.2, "label": "✈️ プランＣ 発動／TOP5を自動で選出"},
             'D': {"win": 0.50, "rsi": -0.5, "label": "🚁 プランＤ 発動／TOP5を自動で選出"}
         }
         conf = tier_configs.get(active_tier, tier_configs['B'])
-
         st.divider()
 
         # --- 3. 抽出成功後のメッセージ表示 (以前ご指定いただいたテキスト) ---
