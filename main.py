@@ -128,7 +128,7 @@ st.sidebar.write("")
 # --- プランB発動時の警告ボックス (これは残します) ---
 curr_p = st.session_state.get('preset', 'NORMAL')
 if curr_p == "SECOND_PLAN":
-    st.sidebar.warning("⚡️セカンドプラン: 寄付アップ上限2.5%に拡張中")
+    st.sidebar.warning("⚡️セカンドプラン : 寄付アップ上限2.5%に拡張中")
 
 # --- スライダー設定 (エラー回避版) ---
 # アプリ起動時のみ初期値をセット
