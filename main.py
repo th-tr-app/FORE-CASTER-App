@@ -232,53 +232,36 @@ with tab_top:
 
     # --- 4. ワンタッチ判定エリア (main.py：タブ1) ---
     if st.session_state['preset'] == "SECOND_PLAN":
-        st.markdown("### 🛠️ セカンドプラン：出撃基準の選択")
+        st.markdown("### 🛠️ セカンドプラン：出撃基準")
         st.caption("相場のボラティリティに合わせて、B（厳選）〜 D（緩和）を選択してください。")
         
-        # --- スマホ画面幅に100%収める CSSグリッド版 ---
-        st.markdown("""
-            <style>
-            /* 1. カラムの親コンテナを3等分のグリッドに強制変更 */
-            [data-testid="stHorizontalBlock"] {
-                display: grid !important;
-                grid-template-columns: repeat(3, 1fr) !important; /* 厳密に3等分 */
-                gap: 6px !important;    /* カラム間の隙間 */
-                width: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
-            }
+        # 1. セグメントコントロール（これだけでスマホ横並びが完結！）
+        # 選択肢とアイコンをセット。選択された値（B/C/D）が直接返ってきます。
+        selected_tier = st.segmented_control(
+            "プランを選択", 
+            options=["プランB", "プランC", "プランD"], 
+            format_func=lambda x: f"🚀 {x}" if x=="B" else f"✈️ {x}" if x=="C" else f"🚁 {x}",
+            selection_mode="single",
+            default=st.session_state.get('plan_active_tier', 'B'),
+            label_visibility="collapsed" # ラベルを消してさらにスッキリ
+        )
+        
+        # 選択が変わったらセッション状態を更新
+        if selected_tier != st.session_state.get('plan_active_tier'):
+            st.session_state['plan_active_tier'] = selected_tier
+            st.session_state['plan_b_active'] = False
+            st.rerun()
 
-            /* 2. 各カラムの余計なマージンや幅指定をすべてリセット */
-            [data-testid="column"] {
-                width: 100% !important;
-                min-width: 0 !important;
-                padding: 0 !important;
-                margin: 0 !important;
-            }
-            
-            /* 3. ボタン本体：枠を突き抜けないよう制御 */
-            div[data-testid="stHorizontalBlock"] button {
-                width: 100% !important;
-                height: 3.2rem !important;
-                border-radius: 8px !important;
-                background-color: transparent !important;
-                font-weight: bold !important;
-                border: 2px solid !important;
-                font-size: 0.7rem !important; /* スマホ用に小さく(重要) */
-                padding: 0 !important;
-                overflow: hidden !important;   /* はみ出しを隠す */
-                text-overflow: ellipsis !important; /* 長い場合は「...」にする */
-                white-space: nowrap !important;
-            }
+        # 2. 実行ボタン（選択中のプランに合わせてラベルが動的に変わる）
+        tier_configs = {
+            'B': {"win": 0.55, "rsi": -0.2, "label": "🚀 プランＢ を発動"},
+            'C': {"win": 0.52, "rsi": -0.2, "label": "✈️ プランＣ を発動"},
+            'D': {"win": 0.50, "rsi": -0.5, "label": "🚁 プランＤ を発動"}
+        }
+        conf = tier_configs.get(selected_tier, tier_configs['B'])
 
-            /* 各プラン個別の色設定 (維持) */
-            button[key*="tier_b"] { border-color: #ff4b4b !important; color: #ff4b4b !important; }
-            button[key*="tier_c"] { border-color: #00d4ff !important; color: #00d4ff !important; }
-            button[key*="tier_d"] { border-color: #77ff00 !important; color: #77ff00 !important; }
-            </style>
-        """, unsafe_allow_html=True)
-            
-        col_b, col_c, col_d = st.columns(3)
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button(conf['label'], key="second_plan_exec_btn", use_container_width=True, type="primary"):
         
         if 'plan_active_tier' not in st.session_state or st.session_state['plan_active_tier'] is None:
             st.session_state['plan_active_tier'] = 'B'
