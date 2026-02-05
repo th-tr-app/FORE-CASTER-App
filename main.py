@@ -232,15 +232,15 @@ with tab_top:
 
     # --- 4. ワンタッチ判定エリア (main.py：タブ1) ---
     if st.session_state['preset'] == "SECOND_PLAN":
-        st.markdown("### 🔮 SECOND PLAN 発動")
+        st.markdown("### 🔮 セカンドプランを発動します。")
         st.caption("当初の戦略が崩れた時に発動します、B(厳選)・C(普通)・D(緩和)からプランを選択してください。")
                 
         # 1. セグメントコントロール（選択UIの一本化）
         # options と format_func の中身を一致させています
         active_tier = st.segmented_control(
             "プランを選択", 
-            options=["B", "C", "D"], 
-            format_func=lambda x: f"🚀 プラン-{x}" if x=="B" else f"✈️ プラン-{x}" if x=="C" else f"🚁 プラン-{x}",
+            options=["【B】", "【C】", "【D】"], 
+            format_func=lambda x: f"🚀 プラン{x}" if x=="B" else f"✈️ プラン{x}" if x=="C" else f"🚁 プラン{x}",
             selection_mode="single",
             default=st.session_state.get('plan_active_tier', 'B'),
             label_visibility="collapsed"
@@ -254,9 +254,9 @@ with tab_top:
 
         # 2. 実行用パラメーターの定義（B/C/D に紐づく数値設定）
         tier_configs = {
-            'B': {"win": 0.55, "rsi": -0.2, "label": "🚀 プランＢ を発動"},
-            'C': {"win": 0.52, "rsi": -0.2, "label": "✈️ プランＣ を発動"},
-            'D': {"win": 0.50, "rsi": -0.5, "label": "🚁 プランＤ を発動"}
+            'B': {"win": 0.55, "rsi": -0.2, "label": "🚀 プランＢ 発動／TOP5を自動で選出"},
+            'C': {"win": 0.52, "rsi": -0.2, "label": "✈️ プランＣ 発動／TOP5を自動で選出"},
+            'D': {"win": 0.50, "rsi": -0.5, "label": "🚁 プランＤ 発動／TOP5を自動で選出"}
         }
         conf = tier_configs.get(active_tier, tier_configs['B'])
 
@@ -264,7 +264,7 @@ with tab_top:
         
         # 3. 抽出成功後のメッセージ表示 (実行後にのみ出現)
         if st.session_state.get('plan_b_active'):
-            st.info(f"🚧 {active_tier} を発動しました。指値戦略タブを確認してください。")
+            st.info(f"🚧 プラン {active_tier} を発動しました。指値戦略タブを確認してください。")
 
         # 4. 実行ボタン
         if st.button(conf['label'], key="second_plan_exec_btn", use_container_width=True, type="primary"):
