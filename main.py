@@ -252,28 +252,7 @@ with tab_top:
             }
             </style>
         """, unsafe_allow_html=True)
-        
-        col_b, col_c, col_d = st.columns(3)
-        
-        with col_b:
-            if st.button("🚀 B", use_container_width=True, type="primary" if active_tier == 'B' else "secondary"):
-                st.session_state['plan_active_tier'] = 'B'
-                st.session_state['plan_b_active'] = False
-                st.rerun()
-        with col_c:
-            if st.button("✈️ C", use_container_width=True, type="primary" if active_tier == 'C' else "secondary"):
-                st.session_state['plan_active_tier'] = 'C'
-                st.session_state['plan_b_active'] = False
-                st.rerun()
-        with col_d:
-            if st.button("🚁 D", use_container_width=True, type="primary" if active_tier == 'D' else "secondary"):
-                st.session_state['plan_active_tier'] = 'D'
-                st.session_state['plan_b_active'] = False
-                st.rerun()
-
-        # (以下、これまでのスキャンロジックとメッセージ表示)
-
-        # --- 1. サブプラン選択用の横並びボタン ---
+           
         col_b, col_c, col_d = st.columns(3)
         
         # 【安全策】セッション状態を確認し、未設定や None なら 'B' を初期値にする
@@ -281,11 +260,11 @@ with tab_top:
             st.session_state['plan_active_tier'] = 'B'
         
         active_tier = st.session_state['plan_active_tier']
-
+        
         with col_b:
             if st.button("🚀 プランＢ", use_container_width=True, type="primary" if active_tier == 'B' else "secondary"):
                 st.session_state['plan_active_tier'] = 'B'
-                st.session_state['plan_b_active'] = False # モード切替時はメッセージを消す
+                st.session_state['plan_b_active'] = False
                 st.rerun()
         with col_c:
             if st.button("✈️ プランＣ", use_container_width=True, type="primary" if active_tier == 'C' else "secondary"):
@@ -298,6 +277,7 @@ with tab_top:
                 st.session_state['plan_b_active'] = False
                 st.rerun()
 
+        # (以下、これまでのスキャンロジックとメッセージ表示)
         # --- 2. 選択されたティアに基づく設定の定義 (ここでエラーが起きないよう確定させる) ---
         tier_configs = {
             'B': {"win": 0.55, "rsi": -0.2, "label": "🚀 プランＢ 発動／TOP5を自動で選出"},
