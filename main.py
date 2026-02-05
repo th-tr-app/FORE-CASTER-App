@@ -235,46 +235,43 @@ with tab_top:
         st.markdown("### 🛠️ セカンドプラン：出撃基準の選択")
         st.caption("相場のボラティリティに合わせて、B（厳選）〜 D（緩和）を選択してください。")
         
-        # --- スマホ横並び ＆ 色付き枠線ボタンの CSS ---
+        # --- スマホ画面幅に完全フィットさせるCSS ---
         st.markdown("""
             <style>
-            /* 1. st.columnsの親要素(コンテナ)をフレックスボックスにして横並びを強制 */
+            /* 1. 親コンテナを画面幅100%に固定し、はみ出しを禁止する */
             [data-testid="stHorizontalBlock"] {
                 display: flex !important;
                 flex-direction: row !important;
-                flex-wrap: nowrap !important; /* 絶対に折り返さない */
-                align-items: center !important;
-                gap: 5px !important;
+                flex-wrap: nowrap !important;
+                width: 100% !important;
+                gap: 4px !important; /* 余白を最小限に */
             }
 
-            /* 2. 各カラムの幅を3等分に固定 */
+            /* 2. 各カラムの計算を「余白を引いた3等分」にする */
             [data-testid="column"] {
-                width: 32% !important;
-                flex: 1 1 32% !important;
-                min-width: 32% !important;
-                padding: 0 !important;
+                flex: 1 !important; /* 均等に分配 */
+                min-width: 0 !important; /* 縮小を許可 */
+                width: auto !important;
             }
             
-            /* 3. ボタンの共通デザイン (文字を少し小さくして収まりを良くする) */
+            /* 3. ボタン内の余白を極限まで削り、文字溢れを防ぐ */
             div[data-testid="stHorizontalBlock"] button {
+                width: 100% !important;
                 height: 3.2rem !important;
                 border-radius: 8px !important;
                 background-color: transparent !important;
                 font-weight: bold !important;
                 border: 2px solid !important;
-                font-size: 0.85rem !important; /* スマホ用に少し小さく */
-                padding: 0 !important;         /* 余白を詰める */
+                font-size: 0.75rem !important; /* 文字サイズをさらに一段階小さく */
+                padding: 0 2px !important;    /* 左右の余白をほぼゼロに */
+                white-space: nowrap !important; /* 改行禁止 */
+                text-overflow: clip !important; /* はみ出しても切る */
             }
 
-            /* 4. 各プラン個別の色設定 */
+            /* 各プラン個別の色設定 (維持) */
             button[key*="tier_b"] { border-color: #ff4b4b !important; color: #ff4b4b !important; }
             button[key*="tier_c"] { border-color: #00d4ff !important; color: #00d4ff !important; }
             button[key*="tier_d"] { border-color: #77ff00 !important; color: #77ff00 !important; }
-            
-            /* 5. 選択中の背景色 (各色に合わせる) */
-            button[key*="tier_b"][style*="background-color: rgb(255, 75, 75)"] { background-color: rgba(255, 75, 75, 0.2) !important; }
-            button[key*="tier_c"][style*="background-color: rgb(255, 75, 75)"] { background-color: rgba(0, 212, 255, 0.2) !important; }
-            button[key*="tier_d"][style*="background-color: rgb(255, 75, 75)"] { background-color: rgba(119, 255, 0, 0.2) !important; }
             </style>
         """, unsafe_allow_html=True)
             
