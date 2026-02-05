@@ -235,78 +235,38 @@ with tab_top:
         st.markdown("### 🛠️ セカンドプラン：出撃基準")
         st.caption("相場のボラティリティに合わせて、B（厳選）〜 D（緩和）を選択してください。")
         
-        # 1. セグメントコントロール（これだけでスマホ横並びが完結！）
-        # 選択肢とアイコンをセット。選択された値（B/C/D）が直接返ってきます。
-        selected_tier = st.segmented_control(
+        # 1. セグメントコントロール（選択UIの一本化）
+        # options と format_func の中身を一致させています
+        active_tier = st.segmented_control(
             "プランを選択", 
-            options=["プランB", "プランC", "プランD"], 
-            format_func=lambda x: f"🚀 {x}" if x=="B" else f"✈️ {x}" if x=="C" else f"🚁 {x}",
+            options=["B", "C", "D"], 
+            format_func=lambda x: f"🚀 プラン{x}" if x=="B" else f"✈️ プラン{x}" if x=="C" else f"🚁 プラン{x}",
             selection_mode="single",
             default=st.session_state.get('plan_active_tier', 'B'),
-            label_visibility="collapsed" # ラベルを消してさらにスッキリ
+            label_visibility="collapsed"
         )
         
-        # 選択が変わったらセッション状態を更新
-        if selected_tier != st.session_state.get('plan_active_tier'):
-            st.session_state['plan_active_tier'] = selected_tier
-            st.session_state['plan_b_active'] = False
+        # 選択が変わったらリロードして設定を反映
+        if active_tier != st.session_state.get('plan_active_tier'):
+            st.session_state['plan_active_tier'] = active_tier
+            st.session_state['plan_b_active'] = False # 新しいプランを選んだら結果をリセット
             st.rerun()
 
-        # 2. 実行ボタン（選択中のプランに合わせてラベルが動的に変わる）
+        # 2. 実行用パラメーターの定義（B/C/D に紐づく数値設定）
         tier_configs = {
             'B': {"win": 0.55, "rsi": -0.2, "label": "🚀 プランＢ を発動"},
             'C': {"win": 0.52, "rsi": -0.2, "label": "✈️ プランＣ を発動"},
             'D': {"win": 0.50, "rsi": -0.5, "label": "🚁 プランＤ を発動"}
         }
-        conf = tier_configs.get(selected_tier, tier_configs['B'])
+        conf = tier_configs.get(active_tier, tier_configs['B'])
 
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button(conf['label'], key="second_plan_exec_btn", use_container_width=True, type="primary"):
         
-        if 'plan_active_tier' not in st.session_state or st.session_state['plan_active_tier'] is None:
-            st.session_state['plan_active_tier'] = 'B'
-        
-        active_tier = st.session_state['plan_active_tier']
-        
-        # type="primary" の時に背景が少し塗られるように設定
-        with col_b:
-            if st.button("🚀 B", key="tier_b", use_container_width=True, type="primary" if active_tier == 'B' else "secondary"):
-                st.session_state['plan_active_tier'] = 'B'
-                st.session_state['plan_b_active'] = False
-                st.rerun()
-        with col_c:
-            if st.button("✈️ C", key="tier_c", use_container_width=True, type="primary" if active_tier == 'C' else "secondary"):
-                st.session_state['plan_active_tier'] = 'C'
-                st.session_state['plan_b_active'] = False
-                st.rerun()
-        with col_d:
-            if st.button("🚁 D", key="tier_d", use_container_width=True, type="primary" if active_tier == 'D' else "secondary"):
-                st.session_state['plan_active_tier'] = 'D'
-                st.session_state['plan_b_active'] = False
-                st.rerun()
-
-        # (以下、設定の定義と実行ボタン)
-        tier_configs = {
-            'B': {"win": 0.55, "rsi": -0.2, "label": "🚀 プランＢ 発動／TOP5を自動で選出"},
-            'C': {"win": 0.52, "rsi": -0.2, "label": "✈️ プランＣ 発動／TOP5を自動で選出"},
-            'D': {"win": 0.50, "rsi": -0.5, "label": "🚁 プランＤ 発動／TOP5を自動で選出"}
-        }
-        conf = tier_configs.get(active_tier, tier_configs['B'])
-        st.divider()
-
-        # --- 3. 抽出成功後のメッセージ表示 (以前ご指定いただいたテキスト) ---
+        # 3. 抽出成功後のメッセージ表示 (実行後にのみ出現)
         if st.session_state.get('plan_b_active'):
-            if active_tier == 'B':
-                st.markdown("### 🚧 プランＢを発動しました。")
-                st.caption("期待値が高く、エントリー可能な銘柄トップ５を選出しました。このまま指値戦略タブを確認してください。")
-            elif active_tier == 'C':
-                st.markdown("### 🚧 プランＣを発動しました。")
-                st.caption(f"勝率{conf['win']:.0%}以上で、エントリー可能な銘柄トップ５を選出しました。このまま指値戦略タブを確認してください。")
-            elif active_tier == 'D':
-                st.markdown("### 🚧 プランＤを発動しました。")
-                st.caption("エントリー基準を少し下げた銘柄トップ５を選出しました。このまま指値戦略タブを確認してください。")
+            st.info(f"🚧 {active_tier} を発動しました。指値戦略タブを確認してください。")
 
-        # --- 4. 実行ボタン & スキャンロジック ---
+        # 4. 実行ボタン
         if st.button(conf['label'], key="second_plan_exec_btn", use_container_width=True, type="primary"):
             with st.status(f"🔍 {active_tier}基準で銘柄を選出中...", expanded=True) as status:
                 all_codes = list(TICKER_DETAILS.keys())
@@ -322,7 +282,7 @@ with tab_top:
                     codes = [r['code'] for r in top_5_results]
                     st.session_state['target_tickers'] = ", ".join(codes)
                     
-                    # 始値をセッションに保存 (指値戦略タブでの自動入力用)
+                    # 始値をセッションに保存
                     for r in top_5_results:
                         st.session_state[f"act_in_{r['code']}"] = r['open']
                     
@@ -344,14 +304,14 @@ with tab_top:
                     st.session_state['res_df'] = pd.DataFrame(all_trades)
                     st.session_state['t_names'] = t_names
                     
-                    # 完了フラグをオンにしてメッセージを表示させる
+                    # 完了フラグをオンにする
                     st.session_state['plan_b_active'] = True
                     
                     status.update(label=f"✅ {active_tier}完了！戦略タブへ移動します", state="complete")
                     st.rerun() 
                 else:
                     st.session_state['plan_b_active'] = False
-                    st.error(f"現在、{active_tier}の条件（勝率{conf['win']:.0%}+RSI{conf['rsi']}）に合致する銘柄は見つかりませんでした。")
+                    st.error(f"現在、{active_tier}の基準に合致する銘柄は見つかりませんでした。")
                              
     else:
         # --- 4. 通常時のワンタッチ判定：全自動スキャン開始ボタン ---
