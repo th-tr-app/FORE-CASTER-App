@@ -235,26 +235,28 @@ with tab_top:
         st.markdown("### 🛠️ セカンドプラン：出撃基準の選択")
         st.caption("相場のボラティリティに合わせて、B（厳選）〜 D（緩和）を選択してください。")
         
-        # --- スマホ画面幅に完全フィットさせるCSS ---
+        # --- スマホ画面幅に100%収める CSSグリッド版 ---
         st.markdown("""
             <style>
-            /* 1. 親コンテナを画面幅100%に固定し、はみ出しを禁止する */
+            /* 1. カラムの親コンテナを3等分のグリッドに強制変更 */
             [data-testid="stHorizontalBlock"] {
-                display: flex !important;
-                flex-direction: row !important;
-                flex-wrap: nowrap !important;
+                display: grid !important;
+                grid-template-columns: repeat(3, 1fr) !important; /* 厳密に3等分 */
+                gap: 6px !important;    /* カラム間の隙間 */
                 width: 100% !important;
-                gap: 4px !important; /* 余白を最小限に */
+                margin: 0 !important;
+                padding: 0 !important;
             }
 
-            /* 2. 各カラムの計算を「余白を引いた3等分」にする */
+            /* 2. 各カラムの余計なマージンや幅指定をすべてリセット */
             [data-testid="column"] {
-                flex: 1 !important; /* 均等に分配 */
-                min-width: 0 !important; /* 縮小を許可 */
-                width: auto !important;
+                width: 100% !important;
+                min-width: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
             }
             
-            /* 3. ボタン内の余白を極限まで削り、文字溢れを防ぐ */
+            /* 3. ボタン本体：枠を突き抜けないよう制御 */
             div[data-testid="stHorizontalBlock"] button {
                 width: 100% !important;
                 height: 3.2rem !important;
@@ -262,10 +264,11 @@ with tab_top:
                 background-color: transparent !important;
                 font-weight: bold !important;
                 border: 2px solid !important;
-                font-size: 0.75rem !important; /* 文字サイズをさらに一段階小さく */
-                padding: 0 2px !important;    /* 左右の余白をほぼゼロに */
-                white-space: nowrap !important; /* 改行禁止 */
-                text-overflow: clip !important; /* はみ出しても切る */
+                font-size: 0.7rem !important; /* スマホ用に小さく(重要) */
+                padding: 0 !important;
+                overflow: hidden !important;   /* はみ出しを隠す */
+                text-overflow: ellipsis !important; /* 長い場合は「...」にする */
+                white-space: nowrap !important;
             }
 
             /* 各プラン個別の色設定 (維持) */
