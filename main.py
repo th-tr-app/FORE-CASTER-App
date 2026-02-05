@@ -235,7 +235,7 @@ with tab_top:
     # --- 4. ワンタッチ判定エリア (main.py：タブ1) ---
     if st.session_state['preset'] == "SECOND_PLAN":
         st.markdown("### ⚡️ セカンドプラン／発動")
-        st.caption("当初の戦略が崩れた時に発動します、B(厳選)・C(普通)・D(緩和)からプランを選択してください。")
+        st.caption("当初の戦略が崩れた時に発動します。B(厳選)・C(普通)・D(緩和)からプランを選択してください。")
                 
         # 1. セグメントコントロール（UIの一本化）
         active_tier = st.segmented_control(
