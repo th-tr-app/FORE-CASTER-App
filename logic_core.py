@@ -67,15 +67,39 @@ def analyze_market_environment():
             data_map[k] = df.dropna(subset=['Close'])
         except: continue
 
-    # --- 1. 基礎データの抽出 (0円回避ガード) ---
+    # --- 1. 基礎データの抽出 (時間帯別基準値制御) ---
     n225_close = 0; n225_prev_close = 0; n225_ma25 = 0; cme_val = 0
+    
+    # 現在が前場引け(11:30)以降かどうかを判定
+    jst = timezone(timedelta(hours=9))
+    now_jst = datetime.now(jst)
+    is_after_zenba = now_jst.time() >= time(11, 30)
+
     if "N225" in data_map:
         df_n = data_map["N225"]
-        valid_df = df_n.dropna(subset=['Close'])
-        if len(valid_df) >= 2:
-            n225_close = float(valid_df['Close'].iloc[-1])
-            n225_prev_close = float(valid_df['Close'].iloc[-2])
-            n225_ma25 = float(valid_df['Close'].rolling(25).mean().iloc[-1])
+        today_date = now_jst.date()
+        
+        # 確実に「昨日以前」のデータのみを抽出（ザラ場中の未確定行を排除）
+        past_df = df_n[df_n.index.date < today_date].dropna(subset=['Close'])
+        
+        if not past_df.empty:
+            n225_prev_close = float(past_df['Close'].iloc[-1]) # 前日終値
+            n225_ma25 = float(past_df['Close'].rolling(25).mean().iloc[-1])
+
+        # 条件に合わせた基準終値の決定
+        if not is_after_zenba:
+            # 【条件1】11:30まで：前日終値を使用
+            n225_close = n225_prev_close
+        else:
+            # 【条件2】11:30以降：前場の終値(11:30)を自動取得
+            # yfinanceで今日の前場データを取得
+            t_n225 = yf.Ticker("^N225")
+            df_today = t_n225.history(period="1d", interval="30m")
+            zenba_df = df_today.between_time('09:00', '11:40') # 11:30の足を狙う
+            if not zenba_df.empty:
+                n225_close = float(zenba_df['Close'].iloc[-1])
+            else:
+                n225_close = n225_prev_close # 取得失敗時は前日終値
     
     # 日経平均が0なら昨日の値を代入してエラーを防ぐ
     if n225_close == 0: n225_close = n225_prev_close if n225_prev_close > 0 else 39000
