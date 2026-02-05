@@ -311,7 +311,7 @@ with tab_top:
 
             # 3. 抽出成功後のメッセージ表示 (実行後にのみ出現)
         if st.session_state.get('plan_b_active'):
-            st.success(f"⚡️ プラン {active_tier} の銘柄を選出しました。**[ 指値戦略 ]**タブを確認してください。")
+            st.info(f"⚡️ プラン {active_tier} の銘柄を選出しました。指値戦略タブを確認してください。")
                              
     else:
         # --- 4. 通常時のワンタッチ判定：全自動スキャン開始ボタン ---
