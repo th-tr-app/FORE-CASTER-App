@@ -237,6 +237,7 @@ with tab_top:
         
         # --- スマホでも横並びにするためのカスタムUI ---
         active_tier = st.session_state.get('plan_active_tier', 'B')
+        col_b, col_c, col_d = st.columns(3)
         
         # 3つのボタンをCSSで横並びにするためのコンテナ
         # st.radio の横並び設定 (st.segmented_control が使えるStreamlitバージョンならそれが最適です)
@@ -252,15 +253,11 @@ with tab_top:
             }
             </style>
         """, unsafe_allow_html=True)
-           
-        col_b, col_c, col_d = st.columns(3)
         
         # 【安全策】セッション状態を確認し、未設定や None なら 'B' を初期値にする
         if 'plan_active_tier' not in st.session_state or st.session_state['plan_active_tier'] is None:
             st.session_state['plan_active_tier'] = 'B'
-        
-        active_tier = st.session_state['plan_active_tier']
-        
+                
         with col_b:
             if st.button("🚀 プランＢ", use_container_width=True, type="primary" if active_tier == 'B' else "secondary"):
                 st.session_state['plan_active_tier'] = 'B'
