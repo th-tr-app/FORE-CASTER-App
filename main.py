@@ -947,14 +947,17 @@ with tab_strategy:
         st.info("💡 まずは「バックテスト」を実行してください。過去の統計データが必要です。")
     else:
         # 地合い情報の取得
+        m_info = core.fetch_market_info(MARKET_INDICES) # 指標ウォッチと同じデータを取得
         diag = core.analyze_market_environment()
-        m_curr_pct = diag.get('market_pct', 0.0)
+        
+        # 指標ウォッチの数値（例: -0.88）を取得し、表示形式（:.2%）に合わせて小数に変換
+        m_curr_pct = m_info.get("日経平均", {}).get("pct", 0.0) / 100
         m_gap = diag.get('gap_pct', 0.0)
 
         m_cls = "rakuten-plus" if m_curr_pct >= 0 else "rakuten-minus"
         st.markdown(f"<div class='strat-market-header'><b>日経平均／前日比:</b> <span class='{m_cls}' style='font-size:1.2em; font-weight:bold;'>{m_curr_pct:+.2%}</span></div>", unsafe_allow_html=True)
         st.divider()
-
+        
         # --- ループ内のフィルタリング強化 ---
         for t in t_list:
             tdf = res_df[res_df['Ticker'] == t].copy()
