@@ -238,41 +238,43 @@ with tab_top:
         # --- スマホ横並び ＆ 色付き枠線ボタンの CSS ---
         st.markdown("""
             <style>
-            /* 1. スマホでも強制的に横並びにする設定 */
-            [data-testid="column"] {
-                width: 31% !important;
-                flex: 1 1 31% !important;
-                min-width: 31% !important;
-            }
-            
-            /* 2. ボタンの共通デザイン設定（枠線ボックス化） */
-            div[data-testid="stHorizontalBlock"] button {
-                height: 3.5rem !important;
-                border-radius: 8px !important;
-                background-color: transparent !important; /* 背景は透明 */
-                font-weight: bold !important;
-                border: 2px solid !important; /* 枠線を太く */
+            /* 1. st.columnsの親要素(コンテナ)をフレックスボックスにして横並びを強制 */
+            [data-testid="stHorizontalBlock"] {
+                display: flex !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important; /* 絶対に折り返さない */
+                align-items: center !important;
+                gap: 5px !important;
             }
 
-            /* 3. 各プラン個別の色設定 */
-            /* プランB: 赤 */
-            div[data-testid="stHorizontalBlock"] button[key*="tier_b"] {
-                border-color: #ff4b4b !important;
-                color: #ff4b4b !important;
-            }
-            /* プランC: 水色 */
-            div[data-testid="stHorizontalBlock"] button[key*="tier_c"] {
-                border-color: #00d4ff !important;
-                color: #00d4ff !important;
-            }
-            /* プランD: 緑 */
-            div[data-testid="stHorizontalBlock"] button[key*="tier_d"] {
-                border-color: #77ff00 !important;
-                color: #77ff00 !important;
+            /* 2. 各カラムの幅を3等分に固定 */
+            [data-testid="column"] {
+                width: 32% !important;
+                flex: 1 1 32% !important;
+                min-width: 32% !important;
+                padding: 0 !important;
             }
             
-            /* 選択中のボタンの背景を少し塗る設定 */
-            div[data-testid="stHorizontalBlock"] button[style*="background-color: rgb(255, 75, 75)"] { background-color: rgba(255, 75, 75, 0.2) !important; }
+            /* 3. ボタンの共通デザイン (文字を少し小さくして収まりを良くする) */
+            div[data-testid="stHorizontalBlock"] button {
+                height: 3.2rem !important;
+                border-radius: 8px !important;
+                background-color: transparent !important;
+                font-weight: bold !important;
+                border: 2px solid !important;
+                font-size: 0.85rem !important; /* スマホ用に少し小さく */
+                padding: 0 !important;         /* 余白を詰める */
+            }
+
+            /* 4. 各プラン個別の色設定 */
+            button[key*="tier_b"] { border-color: #ff4b4b !important; color: #ff4b4b !important; }
+            button[key*="tier_c"] { border-color: #00d4ff !important; color: #00d4ff !important; }
+            button[key*="tier_d"] { border-color: #77ff00 !important; color: #77ff00 !important; }
+            
+            /* 5. 選択中の背景色 (各色に合わせる) */
+            button[key*="tier_b"][style*="background-color: rgb(255, 75, 75)"] { background-color: rgba(255, 75, 75, 0.2) !important; }
+            button[key*="tier_c"][style*="background-color: rgb(255, 75, 75)"] { background-color: rgba(0, 212, 255, 0.2) !important; }
+            button[key*="tier_d"][style*="background-color: rgb(255, 75, 75)"] { background-color: rgba(119, 255, 0, 0.2) !important; }
             </style>
         """, unsafe_allow_html=True)
             
