@@ -370,30 +370,3 @@ div[data-testid="stExpander"] {
     border-left-color: #ffc107;
     color: #ffffff;
 }
-
-/* セカンドプラン用のカスタムタイルボタン */
-.plan-tile-container {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 15px;
-}
-
-.plan-tile {
-    flex: 1;
-    text-align: center;
-    padding: 10px 5px;
-    border-radius: 8px;
-    border: 2px solid #555555; /* 基本の縁取り */
-    cursor: pointer;
-    transition: all 0.3s;
-    background-color: transparent;
-    color: #ffffff;
-    font-weight: bold;
-    font-size: 0.9em;
-}
-
-/* 選択中のスタイル（プランごとに色を変える場合） */
-.plan-tile.active-b { border-color: #ff4b4b; background-color: rgba(255, 75, 75, 0.1); color: #ff4b4b; }
-.plan-tile.active-c { border-color: #00d4ff; background-color: rgba(0, 212, 255, 0.1); color: #00d4ff; }
-.plan-tile.active-d { border-color: #77ff00; background-color: rgba(119, 255, 0, 0.1); color: #77ff00; }
