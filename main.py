@@ -234,27 +234,7 @@ with tab_top:
     if st.session_state['preset'] == "SECOND_PLAN":
         st.markdown("### 🛠️ セカンドプラン：出撃基準")
         st.caption("相場のボラティリティに合わせて、B（厳選）〜 D（緩和）を選択してください。")
-        
-        # --- セグメントコントロールを横幅いっぱいに広げる魔法のCSS ---
-        st.markdown("""
-            <style>
-            /* セグメントコントロール全体の幅を100%にする */
-            div[data-testid="stSegmentedControl"] {
-                width: 100% !important;
-            }
-            /* 中のボタンコンテナをフレックスボックスにして均等配分 */
-            div[data-testid="stSegmentedControl"] > div {
-                display: flex !important;
-                width: 100% !important;
-            }
-            /* 各ボタン（ラベル）を等幅に広げる */
-            div[data-testid="stSegmentedControl"] label {
-                flex: 1 !important;
-                text-align: center !important;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-        
+                
         # 1. セグメントコントロール（選択UIの一本化）
         # options と format_func の中身を一致させています
         active_tier = st.segmented_control(
