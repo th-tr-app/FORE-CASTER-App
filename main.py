@@ -262,10 +262,6 @@ with tab_top:
 
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # 3. 抽出成功後のメッセージ表示 (実行後にのみ出現)
-        if st.session_state.get('plan_b_active'):
-            st.info(f"⚡️ プラン {active_tier} の銘柄を選出しました。指値戦略タブを確認してください。")
-
         # 4. 実行ボタン
         if st.button(conf['label'], key="second_plan_exec_btn", use_container_width=True, type="primary"):
             with st.status(f"🔍 プラン {active_tier}で銘柄を選出中...", expanded=True) as status:
@@ -312,6 +308,10 @@ with tab_top:
                 else:
                     st.session_state['plan_b_active'] = False
                     st.error(f"現在、{active_tier}の基準に合致する銘柄は見つかりませんでした。")
+
+            # 3. 抽出成功後のメッセージ表示 (実行後にのみ出現)
+        if st.session_state.get('plan_b_active'):
+            st.success(f"⚡️ プラン {active_tier} の銘柄を選出しました。**[ 指値戦略 ]**タブを確認してください。")
                              
     else:
         # --- 4. 通常時のワンタッチ判定：全自動スキャン開始ボタン ---
