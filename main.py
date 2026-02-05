@@ -89,19 +89,18 @@ preset_options = [
     ("NORMAL","通常フィルター"), 
     ("DEFENSIVE","ディフェンシブ"), 
     ("RANGE","横ばい相場対応"),
-    ("PLAN_B", "プランＢ ▶︎ 発動")
+    ("SECOND_PLAN", "セカンドプラン") # 名称変更
 ]
 
 for p, l in preset_options:
     is_sel = (st.session_state['preset'] == p)
     if st.sidebar.button(l + (" [ 選択中 ]" if is_sel else ""), key=f"side_ps_btn_{p}", type="primary" if is_sel else "secondary"):
         st.session_state['preset'] = p
+        st.session_state['plan_active_tier'] = None # サブプラン(B/C/D)の選択をリセット
+        st.session_state['plan_b_active'] = False # メッセージ表示フラグをリセット
         
-        # 【追加】プリセットを切り替えたら、プランBの完了表示フラグを一旦オフにする
-        st.session_state['plan_b_active'] = False
-        
-        # ボタンを押した瞬間にスライダーの値を直接書き換える
-        if p == "PLAN_B":
+        # セカンドプラン選択時はスライダーを2.5%へ
+        if p == "SECOND_PLAN":
             st.session_state["g_max_slider"] = 2.5
         else:
             st.session_state["g_max_slider"] = 1.0
@@ -163,7 +162,7 @@ params = {
 }
 
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
-st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>All-in-one Day trade manager | ver 4.81</p></div>", unsafe_allow_html=True)
+st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>All-in-one Day trade manager | ver 4.82</p></div>", unsafe_allow_html=True)
 
 # 【修正ポイント】key="target_tickers" を削除し、value= を使用します
 ticker_input_val = st.text_input(
@@ -230,17 +229,68 @@ with tab_top:
         st.markdown(diag_html, unsafe_allow_html=True)
 
     # --- 4. ワンタッチ判定エリア (main.py：タブ1) ---
-    if st.session_state['preset'] == "PLAN_B":
-        # 【修正】最初は表示せず、抽出成功後のみ表示させる
-        if st.session_state.get('plan_b_active'):
-            st.markdown("### 🚧 プランＢを発動しました。")
-            st.caption("期待値が高く、エントリー可能な銘柄トップ５を選出しました。このまま指値戦略タブを確認してください。")
+    if st.session_state['preset'] == "SECOND_PLAN":
+        st.markdown("### 🛠️ セカンドプラン：出撃基準の選択")
+        st.caption("相場のボラティリティに合わせて、B（厳選）〜 D（緩和）を選択してください。")
 
-        # プランB専用：標準ボタン（オレンジ赤系）
-        if st.button("🚀 プランＢ 発動／TOP5を自動で選出", key="plan_b_exec_btn", use_container_width=True, type="primary"):
-            with st.status("エントリー可能な銘柄を選出中...", expanded=True) as status:
+        # --- 1. サブプラン選択用の横並びボタン ---
+        col_b, col_c, col_d = st.columns(3)
+        
+        # セッション状態で現在のティアを保持 (デフォルトは B)
+        if 'plan_active_tier' not in st.session_state:
+            st.session_state['plan_active_tier'] = 'B'
+        
+        active_tier = st.session_state['plan_active_tier']
+
+        with col_b:
+            if st.button("🚀 プランＢ", use_container_width=True, type="primary" if active_tier == 'B' else "secondary"):
+                st.session_state['plan_active_tier'] = 'B'
+                st.session_state['plan_b_active'] = False # モード切替時はメッセージを消す
+                st.rerun()
+        with col_c:
+            if st.button("✈️ プランＣ", use_container_width=True, type="primary" if active_tier == 'C' else "secondary"):
+                st.session_state['plan_active_tier'] = 'C'
+                st.session_state['plan_b_active'] = False
+                st.rerun()
+        with col_d:
+            if st.button("🚁 プランＤ", use_container_width=True, type="primary" if active_tier == 'D' else "secondary"):
+                st.session_state['plan_active_tier'] = 'D'
+                st.session_state['plan_b_active'] = False
+                st.rerun()
+
+        # --- 2. 選択されたティアに基づく設定の定義 ---
+        tier_configs = {
+            'B': {"win": 0.55, "rsi": -0.2, "label": "🚀 プランＢ 発動／TOP5を自動で選出"},
+            'C': {"win": 0.52, "rsi": -0.2, "label": "✈️ プランＣ 発動／TOP5を自動で選出"},
+            'D': {"win": 0.50, "rsi": -0.5, "label": "🚁 プランＤ 発動／TOP5を自動で選出"}
+        }
+        conf = tier_configs[active_tier]
+
+        st.divider()
+
+        # --- 3. 抽出成功後のメッセージ表示エリア ---
+        if st.session_state.get('plan_b_active'):
+            if active_tier == 'B':
+                st.markdown("### 🚧 プランＢを発動しました。")
+                st.caption("期待値が高く、エントリー可能な銘柄トップ５を選出しました。このまま指値戦略タブを確認してください。")
+            elif active_tier == 'C':
+                st.markdown("### 🚧 プランＣを発動しました。")
+                st.caption(f"勝率{conf['win']:.0%}以上で、エントリー可能な銘柄トップ５を選出しました。このまま指値戦略タブを確認してください。")
+            elif active_tier == 'D':
+                st.markdown("### 🚧 プランＤを発動しました。")
+                st.caption("エントリー基準を少し下げた銘柄トップ５を選出しました。このまま指値戦略タブを確認してください。")
+
+        # --- 4. 実行ボタン ---
+        if st.button(conf['label'], key="second_plan_exec_btn", use_container_width=True, type="primary"):
+            with st.status(f"{active_tier}基準で銘柄を選出中...", expanded=True) as status:
                 all_codes = list(TICKER_DETAILS.keys())
-                top_5_results = core.scan_plan_b_candidates(all_codes, params, TICKER_DETAILS)
+                
+                # logic_core.py に新しく作成する「ティア対応スキャン関数」を呼び出す
+                top_5_results = core.scan_candidates_with_tier(
+                    all_codes, params, TICKER_DETAILS, 
+                    min_win=conf['win'], 
+                    rsi_slope_min=conf['rsi']
+                )
                 
                 if top_5_results:
                     codes = [r['code'] for r in top_5_results]
@@ -251,7 +301,7 @@ with tab_top:
                         st.session_state[f"act_in_{r['code']}"] = r['open']
                     
                     # バックテストを一括実行
-                    status.update(label="📈 選抜銘柄のバックテストを開始...", state="running")
+                    status.update(label=f"📈 {active_tier}選抜銘柄のバックテストを開始...", state="running")
                     end_date = datetime.now()
                     start_date = end_date - timedelta(days=days_back)
                     all_trades = []; t_names = {}
@@ -268,15 +318,14 @@ with tab_top:
                     st.session_state['res_df'] = pd.DataFrame(all_trades)
                     st.session_state['t_names'] = t_names
                     
-                    # 【重要】抽出が完了したのでフラグをオンにする
+                    # 完了フラグをオンにする
                     st.session_state['plan_b_active'] = True
                     
-                    status.update(label="✅ 完了！戦略タブへ移動します", state="complete")
+                    status.update(label=f"✅ {active_tier}完了！戦略タブへ移動します", state="complete")
                     st.rerun() 
                 else:
-                    # 失敗時はフラグをオフのままにする
                     st.session_state['plan_b_active'] = False
-                    st.error("現在、条件（勝率55%＋勢い）に合致する銘柄が見つかりませんでした。")
+                    st.error(f"現在、{active_tier}の条件（勝率{conf['win']:.0%}+RSI{conf['rsi']}）に合致する銘柄は見つかりませんでした。")
                              
     else:
         # --- 4. 通常時のワンタッチ判定：全自動スキャン開始ボタン ---
