@@ -234,6 +234,44 @@ with tab_top:
     if st.session_state['preset'] == "SECOND_PLAN":
         st.markdown("### 🛠️ セカンドプラン：出撃基準の選択")
         st.caption("相場のボラティリティに合わせて、B（厳選）〜 D（緩和）を選択してください。")
+        
+        # --- スマホでも横並びにするためのカスタムUI ---
+        active_tier = st.session_state.get('plan_active_tier', 'B')
+        
+        # 3つのボタンをCSSで横並びにするためのコンテナ
+        # st.radio の横並び設定 (st.segmented_control が使えるStreamlitバージョンならそれが最適です)
+        # ここでは互換性を重視し、st.columns を使いつつ CSS で横並びを維持します
+        
+        st.markdown("""
+            <style>
+            /* st.columns をスマホでも強制的に横並びにする */
+            [data-testid="column"] {
+                width: 31% !important;
+                flex: 1 1 31% !important;
+                min-width: 31% !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+        
+        col_b, col_c, col_d = st.columns(3)
+        
+        with col_b:
+            if st.button("🚀 B", use_container_width=True, type="primary" if active_tier == 'B' else "secondary"):
+                st.session_state['plan_active_tier'] = 'B'
+                st.session_state['plan_b_active'] = False
+                st.rerun()
+        with col_c:
+            if st.button("✈️ C", use_container_width=True, type="primary" if active_tier == 'C' else "secondary"):
+                st.session_state['plan_active_tier'] = 'C'
+                st.session_state['plan_b_active'] = False
+                st.rerun()
+        with col_d:
+            if st.button("🚁 D", use_container_width=True, type="primary" if active_tier == 'D' else "secondary"):
+                st.session_state['plan_active_tier'] = 'D'
+                st.session_state['plan_b_active'] = False
+                st.rerun()
+
+        # (以下、これまでのスキャンロジックとメッセージ表示)
 
         # --- 1. サブプラン選択用の横並びボタン ---
         col_b, col_c, col_d = st.columns(3)
