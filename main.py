@@ -927,47 +927,58 @@ with tab_strategy:
             win_rate = len(tdf[tdf['PnL'] > 0]) / len(tdf) if len(tdf) > 0 else 0
             
             # --- 2. テクニカル勢いの事前チェック (プランB用) ---
-            # プランBの時は、勢いがない銘柄を最初から表示しない
             tech_ok = True
             if st.session_state.get('preset') == "PLAN_B":
-                # 勝率55%未満ならスキップ
                 if win_rate < 0.55: continue
-                
-                # リアルタイムの勢いを再確認
                 t_obj = yf.Ticker(t)
                 df_now = t_obj.history(interval="1m", period="1d")
                 if not df_now.empty:
-                    # RSIの傾き判定
                     rsi_s = core.calculate_rsi(df_now['Close'])
                     if len(rsi_s) >= 6:
                         slope = rsi_s.tail(3).mean() - rsi_s.iloc[-6:-3].mean()
-                        if slope < -0.2: tech_ok = False # RSI低下中は非表示
-                    
-                    # EMA5との位置関係
+                        if slope < -0.2: tech_ok = False
                     ema5_val = df_now['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
-                    if df_now['Close'].iloc[-1] <= ema5_val: tech_ok = False # EMA5以下の時は非表示
+                    if df_now['Close'].iloc[-1] <= ema5_val: tech_ok = False
 
-            # 【重要】プランBモードかつ、勢い判定に失敗した銘柄はスキップ
             if st.session_state.get('preset') == "PLAN_B" and not tech_ok:
                 continue
 
             # --- 3. 表示対象となった銘柄のみパネルを生成 ---
             t_name = ticker_names.get(t, t)
-            
             with st.expander(f"[{t}] {t_name}", expanded=True):
                 with st.spinner("データ同期中..."):
                     ticker_live = yf.Ticker(t)
-                    # 最新の終値とボラティリティ(ATR)の計算
-                    hist_live = ticker_live.history(period="30d")
                     
-                    # --- 【修正】空の今日を無視して、確実に「昨日」の終値を取得 ---
-                    valid_hist = hist_live['Close'].dropna()
-                    if not valid_hist.empty:
-                        last_c = valid_hist.iloc[-1]
-                    else:
-                        # 履歴が全滅の場合のセーフティ
-                        last_c = float(tdf['PrevClose'].iloc[-1]) if 'PrevClose' in tdf.columns else 0.0
+                    # --- 【新規】時間帯別基準値ロジック (昨日終値 vs 前場終値) ---
+                    jst = timezone(timedelta(hours=9))
+                    now_jst = datetime.now(jst)
+                    today_jst = now_jst.date()
+                    is_after_zenba = now_jst.time() >= time(11, 30)
+                    
+                    # 履歴取得 (30日分)
+                    hist_live = ticker_live.history(period="30d")
+                    # 【重要】今日(未確定)の行を除いた確定済み過去データのみを抽出
+                    past_hist = hist_live[hist_live.index.date < today_jst]
+                    prev_close_val = past_hist['Close'].iloc[-1] if not past_hist.empty else 0.0
 
+                    if not is_after_zenba:
+                        # 条件1：11:30まで → 前日終値を採用
+                        last_c = prev_close_val
+                        baseline_label = "前日終値"
+                    else:
+                        # 条件2：11:30以降 → 前場の終値(11:30)を狙い撃ち取得
+                        df_today_30m = ticker_live.history(period="1d", interval="30m")
+                        # 09:00〜11:40の間の最後の足（＝11:30の引け値）を取得
+                        zenba_df = df_today_30m.between_time('09:00', '11:40')
+                        if not zenba_df.empty:
+                            last_c = zenba_df['Close'].iloc[-1]
+                            baseline_label = "前場の終値"
+                        else:
+                            # 取得失敗時は安全のため昨日終値へフォールバック
+                            last_c = prev_close_val
+                            baseline_label = "前日終値"
+
+                    # ATRの計算 (last_c が安定したことで精度向上)
                     if len(hist_live) >= 15:
                         hl = hist_live['High'] - hist_live['Low']
                         hc = np.abs(hist_live['High'] - hist_live['Close'].shift())
@@ -991,8 +1002,7 @@ with tab_strategy:
                     st.markdown(f"""
                     <div class="mobile-flex-container">
                         <div class="flex-item strat-card-top">
-                            <div class="card-label">基準終値</div>
-                            <div class="strat-value">{last_c:,.0f}</div>
+                            <div class="card-label">{baseline_label}</div> <div class="strat-value">{last_c:,.0f}</div>
                             <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div>
                         </div>
                         <div class="flex-item strat-card-top">
@@ -1008,24 +1018,19 @@ with tab_strategy:
                     if input_key not in st.session_state:
                         st.session_state[input_key] = None
                     
-                    # 始値入力欄
                     actual_open_val = st.number_input(
                         f"始値を入力 ({t})", step=1, format="%d", key=input_key, 
                         label_visibility="collapsed", placeholder="始値を入力"
                     )
                     
-                    # 【変更】API取得を廃止し、手入力確定用のボタン（Enterキー代わり）として利用
-                    # ボタンを押すと st.rerun() が走り、上の actual_open_val の値で診断が即座に開始されます
                     if st.button(f"始値を更新する ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
                         st.rerun()
 
                 # --- 2. 始値確定後の詳細診断ロジック ---
                 if actual_open_val:
-                    # 【重要】最優先で gap を定義
                     today_gap = (actual_open_val - last_c) / last_c
                     
                     with st.spinner("リアルタイム診断中..."):
-                        # テクニカル指標の計算 (1分足)
                         df_m = ticker_live.history(interval="1m", period="1d")
                         rsi_slope = 0; ema_gap = 0; tech_warning = False
                         
@@ -1040,7 +1045,6 @@ with tab_strategy:
                             ema_gap = ((actual_open_val - ema5) / ema5) * 100
                             if rsi_slope < -0.2 or abs(ema_gap) > 1.5: tech_warning = True
 
-                        # 各種価格の計算
                         today_limit = actual_open_val * (1 + (avg_push / 100))
                         avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
                         target_price = today_limit * (1 + avg_profit)
