@@ -96,10 +96,12 @@ for p, l in preset_options:
     is_sel = (st.session_state['preset'] == p)
     if st.sidebar.button(l + (" [ 選択中 ]" if is_sel else ""), key=f"side_ps_btn_{p}", type="primary" if is_sel else "secondary"):
         st.session_state['preset'] = p
-        st.session_state['plan_active_tier'] = None # サブプラン(B/C/D)の選択をリセット
-        st.session_state['plan_b_active'] = False # メッセージ表示フラグをリセット
         
-        # セカンドプラン選択時はスライダーを2.5%へ
+        # 【修正】リセット先を None ではなく 'B' にする
+        st.session_state['plan_active_tier'] = 'B' 
+        st.session_state['plan_b_active'] = False
+        
+        # セカンドプラン選択時はスライダーを2.5%へ        
         if p == "SECOND_PLAN":
             st.session_state["g_max_slider"] = 2.5
         else:
@@ -236,8 +238,8 @@ with tab_top:
         # --- 1. サブプラン選択用の横並びボタン ---
         col_b, col_c, col_d = st.columns(3)
         
-        # セッション状態で現在のティアを保持 (デフォルトは B)
-        if 'plan_active_tier' not in st.session_state:
+        # 【安全策】セッション状態を確認し、未設定や None なら 'B' を初期値にする
+        if 'plan_active_tier' not in st.session_state or st.session_state['plan_active_tier'] is None:
             st.session_state['plan_active_tier'] = 'B'
         
         active_tier = st.session_state['plan_active_tier']
@@ -258,17 +260,17 @@ with tab_top:
                 st.session_state['plan_b_active'] = False
                 st.rerun()
 
-        # --- 2. 選択されたティアに基づく設定の定義 ---
+        # --- 2. 選択されたティアに基づく設定の定義 (ここでエラーが起きないよう確定させる) ---
         tier_configs = {
             'B': {"win": 0.55, "rsi": -0.2, "label": "🚀 プランＢ 発動／TOP5を自動で選出"},
             'C': {"win": 0.52, "rsi": -0.2, "label": "✈️ プランＣ 発動／TOP5を自動で選出"},
             'D': {"win": 0.50, "rsi": -0.5, "label": "🚁 プランＤ 発動／TOP5を自動で選出"}
         }
-        conf = tier_configs[active_tier]
+        conf = tier_configs.get(active_tier, tier_configs['B'])
 
         st.divider()
 
-        # --- 3. 抽出成功後のメッセージ表示エリア ---
+        # --- 3. 抽出成功後のメッセージ表示 (以前ご指定いただいたテキスト) ---
         if st.session_state.get('plan_b_active'):
             if active_tier == 'B':
                 st.markdown("### 🚧 プランＢを発動しました。")
@@ -280,12 +282,12 @@ with tab_top:
                 st.markdown("### 🚧 プランＤを発動しました。")
                 st.caption("エントリー基準を少し下げた銘柄トップ５を選出しました。このまま指値戦略タブを確認してください。")
 
-        # --- 4. 実行ボタン ---
+        # --- 4. 実行ボタン & スキャンロジック ---
         if st.button(conf['label'], key="second_plan_exec_btn", use_container_width=True, type="primary"):
-            with st.status(f"{active_tier}基準で銘柄を選出中...", expanded=True) as status:
+            with st.status(f"🔍 {active_tier}基準で銘柄を選出中...", expanded=True) as status:
                 all_codes = list(TICKER_DETAILS.keys())
                 
-                # logic_core.py に新しく作成する「ティア対応スキャン関数」を呼び出す
+                # logic_core.py の汎用スキャン関数を呼び出し
                 top_5_results = core.scan_candidates_with_tier(
                     all_codes, params, TICKER_DETAILS, 
                     min_win=conf['win'], 
@@ -296,7 +298,7 @@ with tab_top:
                     codes = [r['code'] for r in top_5_results]
                     st.session_state['target_tickers'] = ", ".join(codes)
                     
-                    # 始値を自動取得して保存
+                    # 始値をセッションに保存 (指値戦略タブでの自動入力用)
                     for r in top_5_results:
                         st.session_state[f"act_in_{r['code']}"] = r['open']
                     
@@ -318,7 +320,7 @@ with tab_top:
                     st.session_state['res_df'] = pd.DataFrame(all_trades)
                     st.session_state['t_names'] = t_names
                     
-                    # 完了フラグをオンにする
+                    # 完了フラグをオンにしてメッセージを表示させる
                     st.session_state['plan_b_active'] = True
                     
                     status.update(label=f"✅ {active_tier}完了！戦略タブへ移動します", state="complete")
