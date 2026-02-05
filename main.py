@@ -192,43 +192,45 @@ with tab_top:
     
     strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
     rec_strat = strat_names[diag["strategy"]]
-    
+
     # 3. 市場指標ウォッチの表示
-    with st.expander("🕒 指標ウォッチ（タップで開閉）", expanded=False):
-        # 【修正】指定形式の時刻入り更新ボタン
-        if st.button(f"🔄 更新 ▶︎ {now_jst}", use_container_width=True, key="refresh_top_btn"):
-            st.cache_data.clear()
-            st.rerun()
+    # セカンドプラン選択時のみ非表示にする
+    if st.session_state.get('preset') != "SECOND_PLAN":
+        with st.expander("🕒 指標ウォッチ（タップで開閉）", expanded=False):
+            # 【修正】指定形式の時刻入り更新ボタン
+            if st.button(f"🔄 更新 ▶︎ {now_jst}", use_container_width=True, key="refresh_top_btn"):
+                st.cache_data.clear()
+                st.rerun()
             
-        # A. 指標カードの表示
-        cards_html = '<div class="metric-grid">'
-        for n, t in MARKET_INDICES.items():
-            i = m_data.get(n, {})
-            if i.get("val") is not None:
-                v = f"{i['val']:,.1f}" if i['val'] > 200 else f"{i['val']:,.2f}"
-                cls = "plus" if i['pct'] >= 0 else "minus"
-                cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
-        st.markdown(cards_html + '</div>', unsafe_allow_html=True)
+            # A. 指標カードの表示
+            cards_html = '<div class="metric-grid">'
+            for n, t in MARKET_INDICES.items():
+                i = m_data.get(n, {})
+                if i.get("val") is not None:
+                    v = f"{i['val']:,.1f}" if i['val'] > 200 else f"{i['val']:,.2f}"
+                    cls = "plus" if i['pct'] >= 0 else "minus"
+                    cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
+            st.markdown(cards_html + '</div>', unsafe_allow_html=True)
         
-        # B. 今日のマーケットAI診断（最新ロジック反映版）
-        # main.py の診断表示部分
-        diag_html = f"""
-        <div class="ai-diagnosis-box">
-            <div class="ai-diag-header-container">
-                <div class="ai-diag-main-title">📀 今日のマーケットAI診断</div>
-                <div class="ai-diag-status-badge">{diag['alert_level']}</div>
+            # B. 今日のマーケットAI診断（最新ロジック反映版）
+            # main.py の診断表示部分
+            diag_html = f"""
+            <div class="ai-diagnosis-box">
+                <div class="ai-diag-header-container">
+                    <div class="ai-diag-main-title">📀 今日のマーケットAI診断</div>
+                    <div class="ai-diag-status-badge">{diag['alert_level']}</div>
+                </div>
+                <div class="ai-diag-row"><b>バランス：</b> {diag['balance']}</div>
+                <div class="ai-diag-row"><b>推奨戦略：</b> {rec_strat}</div>
+                <div class="ai-diag-row"><b>{diag.get('forecast_title', '寄付予測')}：</b> {diag['opening_forecast']}</div>
+                <div class="ai-diag-row"><b>相場展望：</b> {diag['phase_comment']}</div>
+                <div class="ai-diag-row-last"><b>米国株の影響：</b> {diag['us_impact']}</div>
+                <h4 class="ai-diag-main-title">👀 指標から推測できる注目セクター</h4>
+                <div class="ai-sector-tips">{diag.get('tips', '個別材料株（全業種対象）')}</div>
             </div>
-            <div class="ai-diag-row"><b>バランス：</b> {diag['balance']}</div>
-            <div class="ai-diag-row"><b>推奨戦略：</b> {rec_strat}</div>
-            <div class="ai-diag-row"><b>{diag.get('forecast_title', '寄付予測')}：</b> {diag['opening_forecast']}</div>
-            <div class="ai-diag-row"><b>相場展望：</b> {diag['phase_comment']}</div>
-            <div class="ai-diag-row-last"><b>米国株の影響：</b> {diag['us_impact']}</div>
-            <h4 class="ai-diag-main-title">👀 指標から推測できる注目セクター</h4>
-            <div class="ai-sector-tips">{diag.get('tips', '個別材料株（全業種対象）')}</div>
-        </div>
-        <div class="ai-diag-footer"></div>
-        """
-        st.markdown(diag_html, unsafe_allow_html=True)
+            <div class="ai-diag-footer"></div>
+            """
+            st.markdown(diag_html, unsafe_allow_html=True)
 
     # --- 4. ワンタッチ判定エリア (main.py：タブ1) ---
     if st.session_state['preset'] == "SECOND_PLAN":
