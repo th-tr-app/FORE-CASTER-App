@@ -237,8 +237,7 @@ with tab_top:
         st.markdown("### ⚡️ セカンドプラン／発動")
         st.caption("当初の戦略が崩れた時に発動します、B(厳選)・C(普通)・D(緩和)からプランを選択してください。")
                 
-        # 1. セグメントコントロール（選択UIの一本化）
-        # options と format_func の中身を一致させています
+        # 1. セグメントコントロール（UIの一本化）
         active_tier = st.segmented_control(
             "プランを選択", 
             options=["B", "C", "D"], 
@@ -248,13 +247,13 @@ with tab_top:
             label_visibility="collapsed"
         )
         
-        # 選択が変わったらリロードして設定を反映
+        # 選択が変わったら設定をリセット
         if active_tier != st.session_state.get('plan_active_tier'):
             st.session_state['plan_active_tier'] = active_tier
-            st.session_state['second_plan_active'] = False # 新しいプランを選んだら結果をリセット
+            st.session_state['second_plan_active'] = False # 結果フラグをリセット
             st.rerun()
 
-        # 2. 実行用パラメーターの定義（B/C/D に紐づく数値設定）
+        # 2. パラメーター定義
         tier_configs = {
             'B': {"win": 0.55, "rsi": -0.2, "label": "🚀 プランＢ 発動／TOP5を自動で選出"},
             'C': {"win": 0.52, "rsi": -0.2, "label": "✈️ プランＣ 発動／TOP5を自動で選出"},
@@ -264,7 +263,7 @@ with tab_top:
 
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # 4. 実行ボタン
+        # 3. 実行ボタン
         if st.button(conf['label'], key="second_plan_exec_btn", use_container_width=True, type="primary"):
             with st.status(f"🔍 プラン {active_tier}で銘柄を選出中...", expanded=True) as status:
                 all_codes = list(TICKER_DETAILS.keys())
@@ -311,10 +310,10 @@ with tab_top:
                     st.session_state['second_plan_active'] = False
                     st.error(f"プラン{active_tier}の基準に合致する銘柄は見つかりませんでした。")
 
-            # 3. 抽出成功後のメッセージ表示 (実行後にのみ出現)
+        # --- 4. 結果表示（ボタンのすぐ下・緑系・タブ案内を強調） ---
         if st.session_state.get('second_plan_active'):
             st.warning(f"⚡️ プラン {active_tier} の銘柄を選出しました。指値戦略タブを確認してください。")
-                             
+            
     else:
         # --- 4. 通常時のワンタッチ判定：全自動スキャン開始ボタン ---
         # ↓ここから下の行が else の下にインデントされている必要があります
