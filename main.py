@@ -232,15 +232,15 @@ with tab_top:
 
     # --- 4. ワンタッチ判定エリア (main.py：タブ1) ---
     if st.session_state['preset'] == "SECOND_PLAN":
-        st.markdown("### 🛠️ セカンドプラン：出撃基準")
-        st.caption("相場のボラティリティに合わせて、B（厳選）〜 D（緩和）を選択してください。")
+        st.markdown("### 🛠️ セカンドプラン発動")
+        st.caption("当初の戦略が崩れた時に発動します、B(厳選)・C(普通)・D(緩和)からプランを選択してください。")
                 
         # 1. セグメントコントロール（選択UIの一本化）
         # options と format_func の中身を一致させています
         active_tier = st.segmented_control(
             "プランを選択", 
             options=["B", "C", "D"], 
-            format_func=lambda x: f"🚀 プラン{x}" if x=="B" else f"✈️ プラン{x}" if x=="C" else f"🚁 プラン{x}",
+            format_func=lambda x: f"🚀 プラン-{x}" if x=="B" else f"✈️ プラン-{x}" if x=="C" else f"🚁 プラン-{x}",
             selection_mode="single",
             default=st.session_state.get('plan_active_tier', 'B'),
             label_visibility="collapsed"
