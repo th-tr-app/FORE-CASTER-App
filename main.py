@@ -232,7 +232,7 @@ with tab_top:
 
     # --- 4. ワンタッチ判定エリア (main.py：タブ1) ---
     if st.session_state['preset'] == "SECOND_PLAN":
-        st.markdown("### 🔮 セカンドプランを発動します。")
+        st.markdown("### 🔮 セカンドプラン【発動】")
         st.caption("当初の戦略が崩れた時に発動します、B(厳選)・C(普通)・D(緩和)からプランを選択してください。")
                 
         # 1. セグメントコントロール（選択UIの一本化）
@@ -264,11 +264,11 @@ with tab_top:
         
         # 3. 抽出成功後のメッセージ表示 (実行後にのみ出現)
         if st.session_state.get('plan_b_active'):
-            st.info(f"🚧 プラン {active_tier} を発動しました。指値戦略タブを確認してください。")
+            st.info(f"🚧 プラン {active_tier} の銘柄を選出しました。指値戦略タブを確認してください。")
 
         # 4. 実行ボタン
         if st.button(conf['label'], key="second_plan_exec_btn", use_container_width=True, type="primary"):
-            with st.status(f"🔍 {active_tier}基準で銘柄を選出中...", expanded=True) as status:
+            with st.status(f"🔍 プラン {active_tier}で銘柄を選出中...", expanded=True) as status:
                 all_codes = list(TICKER_DETAILS.keys())
                 
                 # logic_core.py の汎用スキャン関数を呼び出し
