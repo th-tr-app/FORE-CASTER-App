@@ -99,7 +99,7 @@ for p, l in preset_options:
         
         # 【修正】リセット先を None ではなく 'B' にする
         st.session_state['plan_active_tier'] = 'B' 
-        st.session_state['plan_b_active'] = False
+        st.session_state['second_plan_active'] = False
         
         # セカンドプラン選択時はスライダーを2.5%へ        
         if p == "SECOND_PLAN":
@@ -249,7 +249,7 @@ with tab_top:
         # 選択が変わったらリロードして設定を反映
         if active_tier != st.session_state.get('plan_active_tier'):
             st.session_state['plan_active_tier'] = active_tier
-            st.session_state['plan_b_active'] = False # 新しいプランを選んだら結果をリセット
+            st.session_state['second_plan_active'] = False # 新しいプランを選んだら結果をリセット
             st.rerun()
 
         # 2. 実行用パラメーターの定義（B/C/D に紐づく数値設定）
@@ -301,16 +301,16 @@ with tab_top:
                     st.session_state['t_names'] = t_names
                     
                     # 完了フラグをオンにする
-                    st.session_state['plan_b_active'] = True
+                    st.session_state['second_plan_active'] = True
                     
                     status.update(label=f"✅ {active_tier}完了！戦略タブへ移動します", state="complete")
                     st.rerun() 
                 else:
-                    st.session_state['plan_b_active'] = False
+                    st.session_state['second_plan_active'] = False
                     st.error(f"現在、{active_tier}の基準に合致する銘柄は見つかりませんでした。")
 
             # 3. 抽出成功後のメッセージ表示 (実行後にのみ出現)
-        if st.session_state.get('plan_b_active'):
+        if st.session_state.get('second_plan_active'):
             st.warning(f"⚡️ プラン {active_tier} の銘柄を選出しました。指値戦略タブを確認してください。")
                              
     else:
@@ -961,9 +961,9 @@ with tab_strategy:
             # --- 1. 勝率の計算 ---
             win_rate = len(tdf[tdf['PnL'] > 0]) / len(tdf) if len(tdf) > 0 else 0
             
-            # --- 2. テクニカル勢いの事前チェック (プランB用) ---
+            # --- 2. テクニカル勢いの事前チェック (セカンドプラン用) ---
             tech_ok = True
-            if st.session_state.get('preset') == "PLAN_B":
+            if st.session_state.get('preset') == "SECOND_PLAN": # PLAN_B から変更
                 if win_rate < 0.55: continue
                 t_obj = yf.Ticker(t)
                 df_now = t_obj.history(interval="1m", period="1d")
@@ -975,7 +975,7 @@ with tab_strategy:
                     ema5_val = df_now['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
                     if df_now['Close'].iloc[-1] <= ema5_val: tech_ok = False
 
-            if st.session_state.get('preset') == "PLAN_B" and not tech_ok:
+            if st.session_state.get('preset') == "SECOND_PLAN" and not tech_ok: # PLAN_B から変更
                 continue
 
             # --- 3. 表示対象となった銘柄のみパネルを生成 ---
