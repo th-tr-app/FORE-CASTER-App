@@ -240,7 +240,7 @@ with tab_top:
         active_tier = st.segmented_control(
             "プランを選択", 
             options=["B", "C", "D"], 
-            format_func=lambda x: f"🚀 選出プラン{x}" if x=="B" else f"✈️ 選出プラン{x}" if x=="C" else f"🚁 選出プラン{x}",
+            format_func=lambda x: f"🚀 選プラン{x}" if x=="B" else f"✈️ 選プラン{x}" if x=="C" else f"🚁 選プラン{x}",
             selection_mode="single",
             default=st.session_state.get('plan_active_tier', 'B'),
             label_visibility="collapsed"
