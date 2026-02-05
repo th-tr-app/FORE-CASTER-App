@@ -309,7 +309,7 @@ with tab_top:
                     st.rerun() 
                 else:
                     st.session_state['second_plan_active'] = False
-                    st.error(f"現在、{active_tier}の基準に合致する銘柄は見つかりませんでした。")
+                    st.error(f"プラン{active_tier}の基準に合致する銘柄は見つかりませんでした。")
 
             # 3. 抽出成功後のメッセージ表示 (実行後にのみ出現)
         if st.session_state.get('second_plan_active'):
