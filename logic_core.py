@@ -382,12 +382,16 @@ def get_realtime_opening_price(ticker_symbol):
         pass
     return None
 
-# --- 6. プランBのロジック ---
-def scan_plan_b_candidates(ticker_list, params, ticker_details_map):
-    """【プランB】全銘柄から期待値TOP5を選出する（リアルタイム勢いフィルター付）"""
+# --- 6. セカンドプラン（B/C/D）用スキャンロジック ---
+def scan_candidates_with_tier(ticker_list, params, ticker_details_map, min_win, rsi_slope_min):
+    """【セカンドプラン】指定されたティア基準で期待値TOP5を選出する"""
     results = []
     end_date = datetime.now()
     start_date = end_date - timedelta(days=params['days'])
+    
+    # タイムゾーン設定
+    jst = timezone(timedelta(hours=9))
+    today_jst = datetime.now(jst).date()
     
     for t in ticker_list:
         try:
@@ -399,36 +403,44 @@ def scan_plan_b_candidates(ticker_list, params, ticker_details_map):
             # 直近終値とEMA5の関係
             curr_p = df_m['Close'].iloc[-1]
             ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
-            if curr_p <= ema5: continue # EMA5より下なら除外
+            
+            # 【勢いガード】EMA5より下は、全プラン共通で一旦除外 (急落銘柄を避けるため)
+            if curr_p <= ema5: continue 
 
-            # RSIの方向性 (直近の傾き)
+            # RSIの方向性 (引数の rsi_slope_min を使用)
             rsi_series = calculate_rsi(df_m['Close'])
             if len(rsi_series) >= 6:
                 rsi_slope = rsi_series.tail(3).mean() - rsi_series.iloc[-6:-3].mean()
-                if rsi_slope < -0.2: continue # RSIが下向きなら除外
+                # 判定基準をティア(B/C/D)ごとに可変にする
+                if rsi_slope < rsi_slope_min: continue
 
-            # 2. ギャップ判定 (プランB：2.5%以内)
-            hist_d = t_obj.history(period="2d")
-            if len(hist_d) < 2: continue
-            last_close = hist_d['Close'].iloc[-2]
-            # 始値は get_realtime_opening_price を流用
+            # 2. ギャップ判定 (前日終値の固定)
+            hist_d = t_obj.history(period="5d") # 余裕を持って取得
+            # 【重要】今日(未確定)の行を除いた「確定済み前日終値」を特定
+            past_hist = hist_d[hist_d.index.date < today_jst]
+            if past_hist.empty: continue
+            last_close = past_hist['Close'].iloc[-1]
+
+            # 始値の取得
             opening_p = get_realtime_opening_price(t)
             if not opening_p: continue
             
             today_gap = (opening_p - last_close) / last_close
+            # サイドバーのスライダー設定 (-3.0% 〜 +2.5% 等) に収まっているか
             if not (params['g_min'] <= today_gap <= params['g_max']): continue
 
-            # 3. 過去統計の計算 (指値戦略での勝率)
+            # 3. 過去統計の計算 (バックテスト実行)
             df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
             if df_5m.empty: continue
-            if isinstance(df_5m.columns, pd.MultiIndex): df_5m.columns = df_5m.columns.get_level_values(0)
+            if isinstance(df_5m.columns, pd.MultiIndex): 
+                df_5m.columns = df_5m.columns.get_level_values(0)
             
             p_map, o_map, a_map = fetch_daily_stats_maps(t, start_date)
             trades = run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
             score = get_one_touch_score(trades)
             
-            # 【重要】勝率 55% 以上の精鋭のみを候補へ
-            if score and score['win_rate'] >= 0.55:
+            # 【重要】引数の win_rate 基準 (55%, 52%, 50%) を使用
+            if score and score['win_rate'] >= min_win:
                 results.append({
                     'code': t,
                     'score': score['score'],
@@ -437,7 +449,7 @@ def scan_plan_b_candidates(ticker_list, params, ticker_details_map):
         except:
             continue
             
-    # 期待値が高い順に上位5銘柄を返す
+    # 総合スコアが高い順に上位5銘柄を返す
     top_5 = sorted(results, key=lambda x: x['score'], reverse=True)[:5]
     return top_5
     
