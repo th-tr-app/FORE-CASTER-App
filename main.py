@@ -967,8 +967,13 @@ with tab_strategy:
             
             # --- 2. テクニカル勢いの事前チェック (セカンドプラン用) ---
             tech_ok = True
-            if st.session_state.get('preset') == "SECOND_PLAN": # PLAN_B から変更
-                if win_rate < 0.55: continue
+            if st.session_state.get('preset') == "SECOND_PLAN":
+                # プラン(B/C/D)に応じた動的な閾値判定
+                active_tier = st.session_state.get('plan_active_tier', 'B')
+                thresholds = {'B': 0.55, 'C': 0.52, 'D': 0.50}
+                current_min_win = thresholds.get(active_tier, 0.55)
+                
+                if win_rate < current_min_win: continue
                 t_obj = yf.Ticker(t)
                 df_now = t_obj.history(interval="1m", period="1d")
                 if not df_now.empty:
@@ -978,8 +983,8 @@ with tab_strategy:
                         if slope < -0.2: tech_ok = False
                     ema5_val = df_now['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
                     if df_now['Close'].iloc[-1] <= ema5_val: tech_ok = False
-
-            if st.session_state.get('preset') == "SECOND_PLAN" and not tech_ok: # PLAN_B から変更
+                
+            if st.session_state.get('preset') == "SECOND_PLAN" and not tech_ok:
                 continue
 
             # --- 3. 表示対象となった銘柄のみパネルを生成 ---
@@ -1064,8 +1069,14 @@ with tab_strategy:
 
                 with c_top_r:
                     input_key = f"act_in_{t}"
-                    if input_key not in st.session_state:
-                        st.session_state[input_key] = None
+                    actual_open_val = st.session_state.get(input_key)
+                    
+                    # 始値が未入力の場合、自動取得を試みる (0円問題対策)
+                    if not actual_open_val:
+                        auto_open = core.get_realtime_opening_price(t)
+                        if auto_open:
+                            actual_open_val = auto_open
+                            st.session_state[input_key] = auto_open
                     
                     actual_open_val = st.number_input(
                         f"始値を入力 ({t})", step=1, format="%d", key=input_key, 
@@ -1074,7 +1085,7 @@ with tab_strategy:
                     
                     if st.button(f"始値を更新する ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
                         st.rerun()
-
+    
                 # --- 2. 始値確定後の詳細診断ロジック ---
                 if actual_open_val:
                     today_gap = (actual_open_val - last_c) / last_c
@@ -1139,10 +1150,11 @@ with tab_strategy:
 
                         if is_dev_large:
                             st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り</b><br>予想乖離からのズレ: {dev_val:.2f}%<br>寄付き乖離が大きいため見送り推奨です。</div>""", unsafe_allow_html=True)
-                        elif m_curr_pct < -0.003 and sim_win_rate >= 0.55:
+                        elif m_curr_pct < -0.003 and sim_win_rate >= current_min_win:
                             st.markdown(f"""<div class="strat-msg-box msg-bg-warning">⚠️ <b>CAUTION</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>地合い軟調。慎重に判断してください。</div>""", unsafe_allow_html=True)
                         elif sim_win_rate >= 0.55:
                             msg = "統計は良いが勢いが弱まっています。" if tech_warning else "統計・勢い共に良好。"
+                       elif sim_win_rate >= current_min_win:     
                             st.markdown(f"""<div class="strat-msg-box msg-bg-success">🔥 <b>エントリー可能</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>{msg}</div>""", unsafe_allow_html=True)
                         else:
                             st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>エントリーなし</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>期待値が不十分です。</div>""", unsafe_allow_html=True)
