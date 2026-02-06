@@ -418,13 +418,15 @@ with tab_screen:
     st.markdown("<br>", unsafe_allow_html=True)
     
     # 1. Segmented Control に変更（タブの代わりにボタンで選択）
-    options = ["通常フィルタ", "ディフェンシブ", "横ばい相場"]
+    options = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
     sel_tab = st.segmented_control(
         "スクリーニングプラン選択",
         options=options,
         default=options[0],
         label_visibility="collapsed"
     )
+
+    st.markdown("<br>", unsafe_allow_html=True)
     
     # 2. 選択されたプランのインデックス (0, 1, 2) を取得
     i = options.index(sel_tab)
