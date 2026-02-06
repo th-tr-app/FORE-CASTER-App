@@ -578,6 +578,8 @@ with tab_screen:
                         
 # --- タブ3: バックテスト (Ver 4.6.0：始値自動取得統合版) ---
 with tab_bt:
+    st.markdown("### 📈 バックテスト検証")
+    st.caption("過去60日分の統計データから、勝率と期待値を可視化して、最も勝ちやすいパターンを分析します。")
     if st.button("バックテスト実行", type="primary", use_container_width=True, key="bt_run_main"):
         t_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
         if not t_list:
