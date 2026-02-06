@@ -184,7 +184,7 @@ tab_top, tab_screen, tab_bt, tab_strategy, tab_rank = st.tabs(["☝️ ワンタ
 with tab_top:
     if st.session_state.get('preset') != "SECOND_PLAN":
         st.markdown("### ☝️ ワンタッチで銘柄選出")
-        st.caption("サイドバーでエントリー条件を決めてワンタッチボタンを押すと、おすすめ銘柄トップ５を選出されます。")
+        st.caption("サイドバーで戦略プリセットを選んでワンタッチボタンを押すと、おすすめ銘柄トップ５が選出されます。")
             
     # 1. 日本時間の定義と取得 (指定フォーマット: YYYY/MM/DD/HH:MM)
     jst = timezone(timedelta(hours=9))
