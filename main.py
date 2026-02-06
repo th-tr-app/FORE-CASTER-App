@@ -965,9 +965,10 @@ with tab_strategy:
             # --- 1. 勝率の計算 ---
             win_rate = len(tdf[tdf['PnL'] > 0]) / len(tdf) if len(tdf) > 0 else 0
             
-            # 【重要修正】ここで初期値を定義（これでNameErrorを防ぎます）
+            # 【重要修正】ここで初期値を定義（これでNameErrorを防ぎ、全プランで動作します）
             current_min_win = 0.55 
             tech_ok = True
+            status_msg = "統計・勢い共に良好。" # デフォルトの判定メッセージ
             
             # --- 2. テクニカル勢いの事前チェック (セカンドプラン用) ---
             if st.session_state.get('preset') == "SECOND_PLAN":
@@ -1020,22 +1021,16 @@ with tab_strategy:
                             last_c = zenba_df['Close'].iloc[-1]
                             baseline_label = "前場の終値"
                         else:
-                            # 11:30直後でデータがまだ届いていない場合は、安全策として「前日終値」を表示
                             last_c = prev_close_val
                             baseline_label = "前日終値"
                     else:
-                        # 条件2：それ以外 (0:00〜11:30、または 15:30〜24:00) → 「前日終値」を表示
                         baseline_label = "前日終値"
-                        
                         if current_t >= time(15, 30) and not hist_live.empty:
-                            # 大引け(15:30)以降は、hist_liveの最新行（＝今日の大引け値）を取得
-                            # y-financeのラグで今日分が未着なら、自動的に昨日の値が維持されます
                             last_c = hist_live['Close'].iloc[-1]
                         else:
-                            # 朝方(〜11:30)は、純粋に昨日の終値を使用
                             last_c = prev_close_val
 
-                    # ATRの計算 (last_c が安定したことで精度向上)
+                    # ATRの計算
                     if len(hist_live) >= 15:
                         hl = hist_live['High'] - hist_live['Low']
                         hc = np.abs(hist_live['High'] - hist_live['Close'].shift())
@@ -1074,7 +1069,6 @@ with tab_strategy:
                     input_key = f"act_in_{t}"
                     actual_open_val = st.session_state.get(input_key)
                     
-                    # 始値が未入力の場合、自動取得を試みる (0円問題対策)
                     if not actual_open_val:
                         auto_open = core.get_realtime_opening_price(t)
                         if auto_open:
@@ -1155,19 +1149,19 @@ with tab_strategy:
                             st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り</b><br>予想乖離からのズレ: {dev_val:.2f}%<br>寄付き乖離が大きいため見送り推奨です。</div>""", unsafe_allow_html=True)
                         elif m_curr_pct < -0.003 and sim_win_rate >= current_min_win:
                             st.markdown(f"""<div class="strat-msg-box msg-bg-warning">⚠️ <b>CAUTION</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>地合い軟調。慎重に判断してください。</div>""", unsafe_allow_html=True)
-                        elif sim_win_rate >= 0.55:
-                            msg = "統計は良いが勢いが弱まっています。" if tech_warning else "統計・勢い共に良好。"
-                        elif sim_win_rate >= current_min_win:     
-                            st.markdown(f"""<div class="strat-msg-box msg-bg-success">🔥 <b>エントリー可能</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>{msg}</div>""", unsafe_allow_html=True)
+                        elif sim_win_rate >= current_min_win:
+                            # 判定メッセージを状況に応じて選択
+                            display_msg = "統計は良いが勢いが弱まっています。" if tech_warning else status_msg
+                            st.markdown(f"""<div class="strat-msg-box msg-bg-success">🔥 <b>エントリー可能</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>{display_msg}</div>""", unsafe_allow_html=True)
                         else:
                             st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>エントリーなし</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>期待値が不十分です。</div>""", unsafe_allow_html=True)
 
                         # --- 6. トレイリング停止案 ---
                         st.markdown(f"""<div class="strat-msg-box msg-bg-info">🚀 <b>トレイリング最適化</b><br>開始{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}</div>""", unsafe_allow_html=True)
-                        st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
-                else:
-                    st.info("始値を入力して更新ボタンを押すと、今日の戦略が表示されます。")
-            st.divider()
+                            st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
+                    else:
+                        st.info("始値を入力して更新ボタンを押すと、今日の戦略が表示されます。")
+                st.divider()
                     
 # --- タブ5: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
 with tab_rank:
