@@ -339,42 +339,42 @@ def check_opening_deviation(actual, expected, last_close):
     
     return is_large, dev_pct
 
-# --- 5. 始値の自動取得ロジック (Ver 4.6.8：高精度・後場安定版) ---
+# --- 5. 始値の自動取得ロジック　始値取得の高速化（Fast Mode) ---
 def get_realtime_opening_price(ticker_symbol):
+    """始値を最速で取得する (Fast Mode)"""
     try:
         jst = timezone(timedelta(hours=9))
         now_dt = datetime.now(jst)
         today = now_dt.date()
         
+        # 9:00前や15:30以降は判定不要
         if now_dt.time() < time(9, 0) or now_dt.time() > time(15, 30):
             return None
             
-        t = yf.Ticker(ticker_symbol)
         is_afternoon = now_dt.time() >= time(12, 30)
 
-        # 前場(9:00-12:29)は info から速報取得
-        if not is_afternoon:
-            todays_open = t.info.get('open')
-            if todays_open and todays_open > 0:
-                return int(todays_open)
-
-        # 後場、または info が空の場合：より確実に 2d 分の履歴を取りに行く
-        df = t.history(period="2d", interval="1m")
-        if df.empty: return None
+        # yfinanceのdownload(1m)が最も反映が早いため優先
+        df = yf.download(ticker_symbol, period="1d", interval="1m", progress=False, auto_adjust=False)
         
-        df.index = df.index.tz_convert('Asia/Tokyo')
-        # 厳密に「今日」のデータだけに絞る
-        df_today = df[df.index.date == today]
+        if df.empty:
+            # downloadが空ならTicker.info(Fast Info)をフォールバックとして使用
+            t_obj = yf.Ticker(ticker_symbol)
+            fast_open = t_obj.info.get('open')
+            if fast_open and fast_open > 0:
+                return int(fast_open)
+            return None
         
-        if df_today.empty: return None
+        if isinstance(df.columns, pd.MultiIndex): 
+            df.columns = df.columns.get_level_values(0)
 
+        # 12:30以降（後場モード）
         if is_afternoon:
-            # 12:30以降の最初の足を探す。もし12:30ちょうどがなければ、その直後の足を拾う
-            df_pm = df_today.between_time('12:30', '15:00')
+            df_pm = df.between_time('12:30', '15:00')
             if not df_pm.empty:
                 return int(df_pm['Open'].iloc[0])
+        # 9:00〜11:30（前場モード）
         else:
-            df_am = df_today.between_time('09:00', '11:30')
+            df_am = df.between_time('09:00', '11:30')
             if not df_am.empty:
                 return int(df_am['Open'].iloc[0])
                 
@@ -391,45 +391,43 @@ def scan_candidates_with_tier(ticker_list, params, ticker_details_map, min_win, 
     
     # タイムゾーン設定
     jst = timezone(timedelta(hours=9))
-    today_jst = datetime.now(jst).date()
+    now_jst = datetime.now(jst)
+    today_jst = now_jst.date()
+    
+    # 朝イチ判定 (9:15まではテクニカル判定を緩和する)
+    is_early_morning = now_jst.time() < time(9, 15)
     
     for t in ticker_list:
         try:
-            # 1. リアルタイム・テクニカル判定 (今の勢いをチェック)
-            t_obj = yf.Ticker(t)
-            df_m = t_obj.history(interval="1m", period="1d")
-            if df_m.empty: continue
-            
-            # 直近終値とEMA5の関係
-            curr_p = df_m['Close'].iloc[-1]
-            ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
-            
-            # 【勢いガード】EMA5より下は、全プラン共通で一旦除外 (急落銘柄を避けるため)
-            if curr_p <= ema5: continue 
-
-            # RSIの方向性 (引数の rsi_slope_min を使用)
-            rsi_series = calculate_rsi(df_m['Close'])
-            if len(rsi_series) >= 6:
-                rsi_slope = rsi_series.tail(3).mean() - rsi_series.iloc[-6:-3].mean()
-                # 判定基準をティア(B/C/D)ごとに可変にする
-                if rsi_slope < rsi_slope_min: continue
-
-            # 2. ギャップ判定 (前日終値の固定)
-            hist_d = t_obj.history(period="5d") # 余裕を持って取得
-            # 【重要】今日(未確定)の行を除いた「確定済み前日終値」を特定
-            past_hist = hist_d[hist_d.index.date < today_jst]
-            if past_hist.empty: continue
-            last_close = past_hist['Close'].iloc[-1]
-
-            # 始値の取得
+            # 1. 始値の取得 (Fast Mode)
             opening_p = get_realtime_opening_price(t)
             if not opening_p: continue
             
+            # 2. 勢いチェック (9:15以降のみ厳格に判定)
+            if not is_early_morning:
+                t_obj = yf.Ticker(t)
+                df_m = t_obj.history(interval="1m", period="1d")
+                if not df_m.empty:
+                    curr_p = df_m['Close'].iloc[-1]
+                    ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
+                    if curr_p <= ema5: continue 
+
+                    rsi_series = calculate_rsi(df_m['Close'])
+                    if len(rsi_series) >= 6:
+                        rsi_slope = rsi_series.tail(3).mean() - rsi_series.iloc[-6:-3].mean()
+                        if rsi_slope < rsi_slope_min: continue
+
+            # 3. ギャップ判定
+            t_obj = yf.Ticker(t)
+            hist_d = t_obj.history(period="5d")
+            past_hist = hist_d[hist_d.index.date < today_jst]
+            if past_hist.empty: continue
+            last_close = past_hist['Close'].iloc[-1]
+            
             today_gap = (opening_p - last_close) / last_close
-            # サイドバーのスライダー設定 (-3.0% 〜 +2.5% 等) に収まっているか
             if not (params['g_min'] <= today_gap <= params['g_max']): continue
 
-            # 3. 過去統計の計算 (バックテスト実行)
+            # 4. 過去統計の計算
             df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
             if df_5m.empty: continue
             if isinstance(df_5m.columns, pd.MultiIndex): 
@@ -439,17 +437,17 @@ def scan_candidates_with_tier(ticker_list, params, ticker_details_map, min_win, 
             trades = run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
             score = get_one_touch_score(trades)
             
-            # 【重要】引数の win_rate 基準 (55%, 52%, 50%) を使用
+            # 【重要】閾値(min_win)を厳格に守る
             if score and score['win_rate'] >= min_win:
                 results.append({
                     'code': t,
                     'score': score['score'],
-                    'open': opening_p
+                    'open': opening_p,
+                    'win_rate': score['win_rate']
                 })
         except:
             continue
             
-    # 総合スコアが高い順に上位5銘柄を返す
-    top_5 = sorted(results, key=lambda x: x['score'], reverse=True)[:5]
-    return top_5
+    # スコア上位5銘柄
+    return sorted(results, key=lambda x: x['score'], reverse=True)[:5]
     
