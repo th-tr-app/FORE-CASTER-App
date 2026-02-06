@@ -416,27 +416,39 @@ with tab_top:
 # --- タブ2: スクリーニングの実装 (12パラメーター対応版) ---
 with tab_screen:
     st.markdown("<br>", unsafe_allow_html=True)
-    s_tabs = st.tabs(["🔍 通常フィルタ", "🔍 ディフェンシブ", "🔍 横ばい相場"])
     
-    for i, s_tab in enumerate(s_tabs):
-        with s_tab:
-            p = st.session_state['sc_params'][i]
-            exp_t = f"🔍 スクリーニング設定 ({['通常フィルタ', 'ディフェンシブ', '横ばい相場'][i]})"
-            
-            # --- 1. パラメーター設定エリア ---
-            with st.expander(exp_t, expanded=False):
-                # --- A. 業種選択 ---
-                p['sector'] = st.pills(
-                    "**対象業種 (タップで複数選択)**",
-                    options=list(SECTOR_MAP.keys()),
-                    format_func=lambda x: f"{SECTOR_MAP[x]}",
-                    selection_mode="multi",
-                    default=p['sector'],
-                    key=f"v_sector_pill_{i}"
-                )
-                st.divider()
- 
-                c1, c2, c3 = st.columns(3)
+    # 1. Segmented Control に変更（タブの代わりにボタンで選択）
+    options = ["🔍 通常フィルタ", "🔍 ディフェンシブ", "🔍 横ばい相場"]
+    sel_tab = st.segmented_control(
+        "スクリーニングプラン選択",
+        options=options,
+        default=options[0],
+        label_visibility="collapsed"
+    )
+    
+    # 2. 選択されたプランのインデックス (0, 1, 2) を取得
+    i = options.index(sel_tab)
+    
+    # 3. 選択されたインデックス i を使用して設定を表示
+    p = st.session_state['sc_params'][i]
+    exp_t = f"🔍 スクリーニング設定 ({['通常フィルタ', 'ディフェンシブ', '横ばい相場'][i]})"
+    
+    # --- 1. パラメーター設定エリア ---
+    with st.expander(exp_t, expanded=False):
+        # --- A. 業種選択 ---
+        p['sector'] = st.pills(
+            "**対象業種 (タップで複数選択)**",
+            options=list(SECTOR_MAP.keys()),
+            format_func=lambda x: f"{SECTOR_MAP[x]}",
+            selection_mode="multi",
+            default=p['sector'],
+            key=f"v_sector_pill_{i}"
+        )
+        st.divider()
+
+        c1, c2, c3 = st.columns(3)
+        # (以下、既存のパラメーター設定コードを継続)
+
                 with c1:
                     p['c_p'] = st.checkbox("**株価の範囲**", p['c_p'], key=f"c_p_{i}")
                     # メモリを 100〜10000 に統一、ステップを 100円刻みに設定
