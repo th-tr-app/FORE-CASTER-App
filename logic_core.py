@@ -341,40 +341,35 @@ def check_opening_deviation(actual, expected, last_close):
 
 # --- 5. 始値の自動取得ロジック　始値取得の高速化（Fast Mode) ---
 def get_realtime_opening_price(ticker_symbol):
-    """始値を最速で取得する (Fast Mode)"""
     try:
         jst = timezone(timedelta(hours=9))
         now_dt = datetime.now(jst)
         today = now_dt.date()
         
-        # 9:00前や15:30以降は判定不要
         if now_dt.time() < time(9, 0) or now_dt.time() > time(15, 30):
             return None
             
         is_afternoon = now_dt.time() >= time(12, 30)
 
-        # yfinanceのdownload(1m)が最も反映が早いため優先
-        df = yf.download(ticker_symbol, period="1d", interval="1m", progress=False, auto_adjust=False)
+        # 期間を 2d にして「今日の足」が確実に含まれるようにする
+        df = yf.download(ticker_symbol, period="2d", interval="1m", progress=False, auto_adjust=False)
         
-        if df.empty:
-            # downloadが空ならTicker.info(Fast Info)をフォールバックとして使用
-            t_obj = yf.Ticker(ticker_symbol)
-            fast_open = t_obj.info.get('open')
-            if fast_open and fast_open > 0:
-                return int(fast_open)
-            return None
-        
+        if df.empty: return None
         if isinstance(df.columns, pd.MultiIndex): 
             df.columns = df.columns.get_level_values(0)
 
-        # 12:30以降（後場モード）
+        # タイムゾーンをJSTに強制変換（これがズレると取得できません）
+        df.index = df.index.tz_convert('Asia/Tokyo')
+        df_today = df[df.index.date == today]
+
         if is_afternoon:
-            df_pm = df.between_time('12:30', '15:00')
+            # 12:30〜12:35の間で最初に見つかった足を「後場の始値」とする（歯抜け対策）
+            df_pm = df_today.between_time('12:30', '12:35')
             if not df_pm.empty:
                 return int(df_pm['Open'].iloc[0])
-        # 9:00〜11:30（前場モード）
         else:
-            df_am = df.between_time('09:00', '11:30')
+            # 09:00〜09:05の間で最初に見つかった足を「前場の始値」とする
+            df_am = df_today.between_time('09:00', '09:05')
             if not df_am.empty:
                 return int(df_am['Open'].iloc[0])
                 
