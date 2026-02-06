@@ -971,13 +971,13 @@ with tab_strategy:
             status_msg = "統計・勢い共に良好。" # デフォルトの判定メッセージ
             
             # --- 2. テクニカル勢いの事前チェック (セカンドプラン用) ---
+            # 修正：銘柄を非表示にするのではなく、判定フラグとして扱う
             if st.session_state.get('preset') == "SECOND_PLAN":
-                # セカンドプラン時はプランに応じたしきい値に上書き
                 active_tier = st.session_state.get('plan_active_tier', 'B')
                 thresholds = {'B': 0.55, 'C': 0.52, 'D': 0.50}
                 current_min_win = thresholds.get(active_tier, 0.55)
                 
-                if win_rate < current_min_win: continue
+                # 勝率チェック (計算はするが、ここでは continue しない)
                 t_obj = yf.Ticker(t)
                 df_now = t_obj.history(interval="1m", period="1d")
                 if not df_now.empty:
@@ -987,10 +987,8 @@ with tab_strategy:
                         if slope < -0.2: tech_ok = False
                     ema5_val = df_now['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
                     if df_now['Close'].iloc[-1] <= ema5_val: tech_ok = False
-                
-            if st.session_state.get('preset') == "SECOND_PLAN" and not tech_ok:
-                continue
-
+                # 【修正点】ここで銘柄をスキップする if 文（continue）を完全に削除しました
+            
             # --- 3. 表示対象となった銘柄のみパネルを生成 ---
             t_name = ticker_names.get(t, t)
             with st.expander(f"[{t}] {t_name}", expanded=True):
