@@ -394,17 +394,18 @@ def scan_candidates_with_tier(ticker_list, params, ticker_details_map, min_win, 
     now_jst = datetime.now(jst)
     today_jst = now_jst.date()
     
-    # 朝イチ判定 (9:15まではテクニカル判定を緩和する)
-    is_early_morning = now_jst.time() < time(9, 15)
-    
+    # 朝イチ判定 ＆ 後場寄り判定 (判定を緩和する時間帯を定義)
+    current_time = now_jst.time()
+    is_early_session = (current_time < time(9, 15)) or (time(12, 30) <= current_time < time(12, 45))
+
     for t in ticker_list:
         try:
             # 1. 始値の取得 (Fast Mode)
             opening_p = get_realtime_opening_price(t)
             if not opening_p: continue
-            
+                
             # 2. 勢いチェック (9:15以降のみ厳格に判定)
-            if not is_early_morning:
+            if not is_early_session: # is_early_morning から変更
                 t_obj = yf.Ticker(t)
                 df_m = t_obj.history(interval="1m", period="1d")
                 if not df_m.empty:
