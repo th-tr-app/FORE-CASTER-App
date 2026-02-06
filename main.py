@@ -178,13 +178,13 @@ if ticker_input_val != st.session_state['target_tickers']:
     st.rerun()
 
 # --- 5. メインタブ構成 ---
-tab_top, tab_screen, tab_bt, tab_strategy, tab_rank = st.tabs(["🏠 ワンタッチ", "🔍 スキャン", "📈 バックテスト", "✨ 指値戦略", "🏆 ランキング"])
+tab_top, tab_screen, tab_bt, tab_strategy, tab_rank = st.tabs(["☝️ ワンタッチ", "🔍 スキャン", "📈 バックテスト", "✨ 指値戦略", "🏆 ランキング"])
 
 # --- タブ1: ワンタッチ (FC 3.3：統合修正版) ---
 with tab_top:
     if st.session_state.get('preset') != "SECOND_PLAN":
-        st.markdown("### 🏠 ワンタッチで銘柄選出")
-        st.caption("サイドバーでエントリー条件を決めて、ワンタッチボタンを押してください。おすすめ銘柄トップ５を選出します。")
+        st.markdown("### ☝️ ワンタッチで銘柄選出")
+        st.caption("サイドバーでエントリー条件を決めてワンタッチボタンを押すと、おすすめ銘柄トップ５を選出されます。")
             
     # 1. 日本時間の定義と取得 (指定フォーマット: YYYY/MM/DD/HH:MM)
     jst = timezone(timedelta(hours=9))
