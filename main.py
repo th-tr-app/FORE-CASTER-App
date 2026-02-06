@@ -965,10 +965,13 @@ with tab_strategy:
             # --- 1. 勝率の計算 ---
             win_rate = len(tdf[tdf['PnL'] > 0]) / len(tdf) if len(tdf) > 0 else 0
             
-            # --- 2. テクニカル勢いの事前チェック (セカンドプラン用) ---
+            # 【重要修正】ここで初期値を定義（これでNameErrorを防ぎます）
+            current_min_win = 0.55 
             tech_ok = True
+            
+            # --- 2. テクニカル勢いの事前チェック (セカンドプラン用) ---
             if st.session_state.get('preset') == "SECOND_PLAN":
-                # プラン(B/C/D)に応じた動的な閾値判定
+                # セカンドプラン時はプランに応じたしきい値に上書き
                 active_tier = st.session_state.get('plan_active_tier', 'B')
                 thresholds = {'B': 0.55, 'C': 0.52, 'D': 0.50}
                 current_min_win = thresholds.get(active_tier, 0.55)
