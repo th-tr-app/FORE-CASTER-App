@@ -415,7 +415,8 @@ with tab_top:
             
 # --- タブ2: スクリーニングの実装 (12パラメーター対応版) ---
 with tab_screen:
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("### 🔍 スクリーニング条件の設定")
+    st.caption("各プリセットの抽出基準を調整できます。")
     
     # 1. Segmented Control に変更（タブの代わりにボタンで選択）
     options = ["通常フィルタ ", "ディフェンシブ", "横ばい相場 "]
