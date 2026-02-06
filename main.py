@@ -178,7 +178,7 @@ if ticker_input_val != st.session_state['target_tickers']:
     st.rerun()
 
 # --- 5. メインタブ構成 ---
-tab_top, tab_screen, tab_bt, tab_strategy, tab_rank = st.tabs(["☝️ ワンタッチ", "🔍 スキャン", "📈 バックテスト", "✨ 指値戦略", "🏆 ランキング"])
+tab_top, tab_screen, tab_bt, tab_strategy, tab_rank = st.tabs(["☝️ ワンタッチ", "🔍 スキャン", "📈 バックテスト", "🔮 指値戦略", "🏆 ランキング"])
 
 # --- タブ1: ワンタッチ (FC 3.3：統合修正版) ---
 with tab_top:
@@ -950,7 +950,7 @@ with tab_bt:
 
 # --- タブ4: 指値戦略 (Ver 4.7.0：計算順序最適化 & 構造クリーンアップ) ---
 with tab_strategy:
-    st.markdown("### ✨ 指値戦略プランナー")
+    st.markdown("### 🔮 指値戦略プランナー")
     st.caption("統計的勝率・地合い・リアルタイムの勢いを統合した最終判断用パネルです。始値確定後の利用を推奨します。")
     
     res_df = st.session_state.get('res_df', pd.DataFrame())
