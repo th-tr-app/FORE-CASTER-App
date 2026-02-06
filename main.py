@@ -1158,10 +1158,10 @@ with tab_strategy:
 
                         # --- 6. トレイリング停止案 ---
                         st.markdown(f"""<div class="strat-msg-box msg-bg-info">🚀 <b>トレイリング最適化</b><br>開始{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}</div>""", unsafe_allow_html=True)
-                            st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
-                    else:
-                        st.info("始値を入力して更新ボタンを押すと、今日の戦略が表示されます。")
-                st.divider()
+                        st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
+                else:
+                    st.info("始値を入力して更新ボタンを押すと、今日の戦略が表示されます。")
+            st.divider()
                     
 # --- タブ5: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
 with tab_rank:
