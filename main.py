@@ -416,7 +416,6 @@ with tab_top:
 # --- タブ2: スクリーニングの実装 (12パラメーター対応版) ---
 with tab_screen:
     st.markdown("### 🔍 スクリーニング条件の設定")
-    st.caption("戦略プリセットの抽出基準を調整できます。その日の地合いに合わせて適切な条件を設定してください。")
     
     # 1. Segmented Control に変更（タブの代わりにボタンで選択）
     options = ["通常フィルタ ", "ディフェンシブ", "横ばい相場 "]
@@ -426,6 +425,8 @@ with tab_screen:
         default=options[0],
         label_visibility="collapsed"
     )
+
+    st.markdown("<br>", unsafe_allow_html=True)
     
     # 2. 選択されたプランのインデックス (0, 1, 2) を取得
     i = options.index(sel_tab)
