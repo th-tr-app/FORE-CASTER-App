@@ -1154,7 +1154,7 @@ with tab_strategy:
                             st.markdown(f"""<div class="strat-msg-box msg-bg-warning">⚠️ <b>CAUTION</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>地合い軟調。慎重に判断してください。</div>""", unsafe_allow_html=True)
                         elif sim_win_rate >= 0.55:
                             msg = "統計は良いが勢いが弱まっています。" if tech_warning else "統計・勢い共に良好。"
-                       elif sim_win_rate >= current_min_win:     
+                        elif sim_win_rate >= current_min_win:     
                             st.markdown(f"""<div class="strat-msg-box msg-bg-success">🔥 <b>エントリー可能</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>{msg}</div>""", unsafe_allow_html=True)
                         else:
                             st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>エントリーなし</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>期待値が不十分です。</div>""", unsafe_allow_html=True)
