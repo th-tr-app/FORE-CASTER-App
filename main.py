@@ -624,37 +624,46 @@ with tab_bt:
     ticker_names = st.session_state['t_names']
     
     if not res_df.empty:
+        # --- 【重要】表示用フィルタリング ---
+        # 統計やグラフの表示には、サイドバーのスライダー設定を適用した display_df を使います
+        display_df = res_df[
+            (res_df['Gap(%)'] >= params['g_min'] * 100) & 
+            (res_df['Gap(%)'] <= params['g_max'] * 100)
+        ].copy()
+        
+        # 以降、バックテストの各サブタブ内では display_df を使用します
         bt_tabs = st.tabs(["📊 サマリー", "🏅 勝ちパターン", "📉 ギャップ分析", "🧐 VWAP分析", "🕒 時間分析", "📝 詳細ログ"])
         
-        with bt_tabs[0]: # 📊 サマリー (6.3 完全移植 + 3.0 整合版)
-            # --- 1. 計測期間の取得 (フォールバック付) ---
+        with bt_tabs[0]: # 📊 サマリー
+            # --- 1. 計測期間の取得 ---
             display_period = st.session_state.get('bt_period')
             if not display_period or display_period == "不明":
                 display_period = f"{(datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')} - {datetime.now().strftime('%Y-%m-%d')}"
             
-            # --- 2. 全体集計 ---
-            count_all = len(res_df)
-            wins_all = res_df[res_df['PnL'] > 0]
-            losses_all = res_df[res_df['PnL'] <= 0]
+            # --- 2. 全体集計 (res_df から display_df に変更) ---
+            count_all = len(display_df)
+            wins_all = display_df[display_df['PnL'] > 0]
+            losses_all = display_df[display_df['PnL'] <= 0]
             win_rate_all = len(wins_all) / count_all if count_all > 0 else 0
             pf_all = wins_all['PnL'].sum() / abs(losses_all['PnL'].sum()) if not losses_all.empty else 0
-            expectancy_all = res_df['PnL'].mean()
+            expectancy_all = display_df['PnL'].mean()
 
-            # --- 3. メトリクス表示 (3.0のデザインを継承) ---
+            # --- 3. メトリクス表示 ---
             st.markdown(f"""
                 <div class='metric-grid'>
                     <div class='summary-box'><div class='card-label'>総トレード数</div><div class='card-value'>{count_all}</div></div>
                     <div class='summary-box'><div class='card-label'>勝率</div><div class='card-value'>{win_rate_all:.1%}</div></div>
-                    <div class='summary-box'><div class='card-label'>PF（利益÷損失）</div><div class='card-value'>{pf_all:.2f}</div></div>
+                    <div class='summary-box'><div class='card-label'>PF</div><div class='card-value'>{pf_all:.2f}</div></div>
                     <div class='summary-box'><div class='card-label'>期待値</div><div class='card-value'>{expectancy_all:.2%}</div></div>
                 </div>""", unsafe_allow_html=True)
             st.divider()
         
-            # --- 4. テキストレポート生成 (6.3の詳細度を復元) ---
+            # --- 4. テキストレポート生成 (display_df を参照するように変更) ---
             report = ["=================\n BACKTEST REPORT \n=================", f"Period: {display_period}\n"]
             
-            for t in res_df['Ticker'].unique():
-                tdf = res_df[res_df['Ticker'] == t]
+            # 全体ではなく、表示対象(display_df)に存在する銘柄のみでループ
+            for t in display_df['Ticker'].unique():
+                tdf = display_df[display_df['Ticker'] == t]
                 if tdf.empty: continue
                 
                 t_wins = tdf[tdf['PnL'] > 0]
