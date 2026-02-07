@@ -1157,23 +1157,36 @@ with tab_strategy:
                         </div>
                         """, unsafe_allow_html=True)
 
-                        # --- 5. 最終統計判定 ---
-                        similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
+                        # --- 5. 最終統計判定 (修正：単位不整合とn=0対策) ---
+                        # tdf['Gap(%)'] が小数(0.015)か整数(1.5)かを自動判定してスケールを合わせる
+                        sample_gap = tdf['Gap(%)'].iloc[0] if not tdf.empty else 0
+                        is_decimal = abs(sample_gap) < 0.5 # 0.5%未満を小数と判定
+                        
+                        target_gap = today_gap * 100 if not is_decimal else today_gap
+                        gap_margin = 0.5 if not is_decimal else 0.005
+                        
+                        similar_trades = tdf[
+                            (tdf['Gap(%)'] >= (target_gap - gap_margin)) & 
+                            (tdf['Gap(%)'] <= (target_gap + gap_margin))
+                        ]
+                        
                         n_count = len(similar_trades)
                         sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
                         is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c)
 
                         if is_dev_large:
                             st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り</b><br>予想乖離からのズレ: {dev_val:.2f}%<br>寄付き乖離が大きいため見送り推奨です。</div>""", unsafe_allow_html=True)
+                        elif n_count == 0:
+                            # 【重要】データがない場合の親切なメッセージ
+                            st.markdown(f"""<div class="strat-msg-box msg-bg-warning">❄️ <b>データ不足</b> (該当 {n_count}回)<br>シミュレーションした乖離率({today_gap:+.2%})がバックテストの範囲外です。<br>サイドバーの「前日比」範囲を広げて再実行してください。</div>""", unsafe_allow_html=True)
                         elif m_curr_pct < -0.003 and sim_win_rate >= current_min_win:
                             st.markdown(f"""<div class="strat-msg-box msg-bg-warning">⚠️ <b>CAUTION</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>地合い軟調。慎重に判断してください。</div>""", unsafe_allow_html=True)
                         elif sim_win_rate >= current_min_win:
-                            # 判定メッセージを状況に応じて選択
                             display_msg = "統計は良いが勢いが弱まっています。" if tech_warning else status_msg
                             st.markdown(f"""<div class="strat-msg-box msg-bg-success">🔥 <b>エントリー可能</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>{display_msg}</div>""", unsafe_allow_html=True)
                         else:
                             st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>エントリーなし</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>期待値が不十分です。</div>""", unsafe_allow_html=True)
-
+                            
                         # --- 6. トレイリング停止案 ---
                         st.markdown(f"""<div class="strat-msg-box msg-bg-info">🚀 <b>トレイリング最適化</b><br>開始{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}</div>""", unsafe_allow_html=True)
                         st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
