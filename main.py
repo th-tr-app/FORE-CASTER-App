@@ -970,9 +970,14 @@ with tab_strategy:
         diag = core.analyze_market_environment()
         
         # 指標ウォッチの数値（例: -0.88）を取得し、表示形式（:.2%）に合わせて小数に変換
+        # 指標ウォッチの数値を取得
         m_curr_pct = m_info.get("日経平均", {}).get("pct", 0.0) / 100
+        
+        # 土日・夜間対応：現物が止まっている場合は、先物の動きを地合い乖離(m_gap)に採用する
         m_gap = diag.get('gap_pct', 0.0)
-
+        if abs(m_gap) < 0.0001: # ほぼ0(休日)の場合
+             # 先物などの情報を代用するロジックを検討（現在は暫定的に0.00を維持）
+             pass
         m_cls = "rakuten-plus" if m_curr_pct >= 0 else "rakuten-minus"
         st.markdown(f"<div class='strat-market-header'><b>日経平均／前日比:</b> <span class='{m_cls}' style='font-size:1.2em; font-weight:bold;'>{m_curr_pct:+.2%}</span></div>", unsafe_allow_html=True)
         st.divider()
