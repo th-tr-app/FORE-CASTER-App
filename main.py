@@ -597,21 +597,19 @@ with tab_bt:
             for i, t in enumerate(t_list):
                 st_text.text(f"分析中 {t}..."); pb.progress((i+1)/len(t_list))
                                 
-                # データのダウンロードとMultiIndex対策
                 df = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
                 if df.empty: continue
                 if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
                 
-                # --- 【ここから修正・差し替え】 ---
-                # バックテスト実行時のみ、サイドバーの「寄付」制限を無視してデータを全取得する
+                # --- 【修正箇所：バックテスト時は制限を全開放する】 ---
                 bt_params = params.copy()
-                bt_params['g_min'] = -0.10  # -10.0% まで全開放
-                bt_params['g_max'] = 0.10   # +10.0% まで全開放
+                bt_params['g_min'] = -0.10  # -10%まで取得
+                bt_params['g_max'] = 0.10   # +10%まで取得
                 
-                # シミュレーション実行 (params ではなく bt_params を渡すのがポイントです)
                 p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
+                # params ではなく bt_params を渡す
                 trades = core.run_ticker_simulation(t, df, p_map, o_map, a_map, bt_params)
-                # --- 【ここまで修正・差し替え】 ---
+                # --------------------------------------------------
                 
                 all_trades.extend(trades)
                 t_names[t] = TICKER_DETAILS.get(t, [t])[0]
@@ -1170,10 +1168,11 @@ with tab_strategy:
                         </div>
                         """, unsafe_allow_html=True)
 
-                        # --- 5. 最終統計判定 (修正：単位不整合とn=0対策) ---
-                        # tdf['Gap(%)'] が小数(0.015)か整数(1.5)かを自動判定してスケールを合わせる
-                        sample_gap = tdf['Gap(%)'].iloc[0] if not tdf.empty else 0
-                        is_decimal = abs(sample_gap) < 0.5 # 0.5%未満を小数と判定
+                        # --- 5. 最終統計判定 (修正版：判定基準を緩和) ---
+                        # データが1.5(%)形式か0.015(小数)形式かをより正確に判定
+                        sample_gap = abs(tdf['Gap(%)'].iloc[0]) if not tdf.empty else 0
+                        # 0.05%未満という極端な数値でない限り、通常は整数(%)として扱う
+                        is_decimal = (0 < sample_gap < 0.05) 
                         
                         target_gap = today_gap * 100 if not is_decimal else today_gap
                         gap_margin = 0.5 if not is_decimal else 0.005
