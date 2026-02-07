@@ -593,7 +593,7 @@ with tab_bt:
             start_date = end_date - timedelta(days=days_back)
             all_trades = []; t_names = {}
             pb = st.progress(0); st_text = st.empty()
-            
+
             for i, t in enumerate(t_list):
                 st_text.text(f"分析中 {t}..."); pb.progress((i+1)/len(t_list))
                                 
@@ -602,9 +602,17 @@ with tab_bt:
                 if df.empty: continue
                 if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
                 
-                # シミュレーション実行
+                # --- 【ここから修正・差し替え】 ---
+                # バックテスト実行時のみ、サイドバーの「寄付」制限を無視してデータを全取得する
+                bt_params = params.copy()
+                bt_params['g_min'] = -0.10  # -10.0% まで全開放
+                bt_params['g_max'] = 0.10   # +10.0% まで全開放
+                
+                # シミュレーション実行 (params ではなく bt_params を渡すのがポイントです)
                 p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
-                trades = core.run_ticker_simulation(t, df, p_map, o_map, a_map, params)
+                trades = core.run_ticker_simulation(t, df, p_map, o_map, a_map, bt_params)
+                # --- 【ここまで修正・差し替え】 ---
+                
                 all_trades.extend(trades)
                 t_names[t] = TICKER_DETAILS.get(t, [t])[0]
                 
