@@ -1241,7 +1241,7 @@ with tab_strategy:
                             st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り</b><br>予想乖離からのズレ: {dev_val:.2f}%<br>寄付き乖離が大きいため見送り推奨です。</div>""", unsafe_allow_html=True)
                         elif n_count == 0:
                             # 【重要】データがない場合の親切なメッセージ
-                            st.markdown(f"""<div class="strat-msg-box msg-bg-warning">❄️ <b>データ不足</b> (該当 {n_count}回)<br>シミュレーションした乖離率({today_gap:+.2%})がバックテストの範囲外です。<br>サイドバーの「前日比」範囲を広げて再実行してください。</div>""", unsafe_allow_html=True)
+                            st.markdown(f"""<div class="strat-msg-box msg-bg-warning">❄️ <b>データ不足</b> (該当 {n_count}回)<br>シミュレーションした乖離率({today_gap:+.2%})がバックテストの範囲外です。<br>寄付アップ上限の範囲を広げて再実行してください。</div>""", unsafe_allow_html=True)
                         elif m_curr_pct < -0.003 and sim_win_rate >= current_min_win:
                             st.markdown(f"""<div class="strat-msg-box msg-bg-warning">⚠️ <b>CAUTION</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>地合い軟調。慎重に判断してください。</div>""", unsafe_allow_html=True)
                         elif sim_win_rate >= current_min_win:
