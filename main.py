@@ -208,18 +208,22 @@ with tab_top:
             if cme_pct >= 1.5:
                 diag['alert_level'] = "🚀 強気（買い優勢）"
                 diag['opening_forecast'] = "特大ギャップアップ"
+                diag['strategy'] = 0  # 👈 これを追加 (通常フィルター)
                 diag['phase_comment'] = "先物が暴騰中。次回の市場開始時は強力な買い先行が予想されます。"
             elif cme_pct >= 0.5:
                 diag['alert_level'] = "📈 堅調（押し目買い）"
                 diag['opening_forecast'] = "ギャップアップ寄り付き"
+                diag['strategy'] = 0  # 👈 これを追加 (通常フィルター)
                 diag['phase_comment'] = "底堅い展開。プラス圏での推移が期待されます。"
             elif cme_pct <= -1.5:
                 diag['alert_level'] = "⚠️ 警戒（売り優勢）"
                 diag['opening_forecast'] = "特大ギャップダウン"
+                diag['strategy'] = 1  # 👈 これを追加 (ディフェンシブ)
                 diag['phase_comment'] = "先物が急落。地合いの悪化に備える必要があります。"
             elif cme_pct <= -0.5:
                 diag['alert_level'] = "📉 軟調（戻り売り）"
                 diag['opening_forecast'] = "ギャップダウン寄り付き"
+                diag['strategy'] = 2  # 👈 これを追加 (横ばい相場)
                 diag['phase_comment'] = "上値が重い展開。慎重なエントリーが求められます。"
 
             diag['balance'] = f"先物主導の展開 / CME乖離 {cme_pct:+.2f}%"
