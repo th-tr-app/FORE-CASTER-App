@@ -130,18 +130,18 @@ curr_p = st.session_state.get('preset', 'NORMAL')
 if curr_p == "SECOND_PLAN":
     st.sidebar.warning("⚡️セカンドプラン : 寄付アップ上限2.5%に拡張中")
 
-# --- スライダー設定 (エラー回避版) ---
+# --- スライダー設定 (修正版：0〜10%対応) ---
 # アプリ起動時のみ初期値をセット
 if "g_max_slider" not in st.session_state:
     st.session_state["g_max_slider"] = 1.0
 
 g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, -3.0, 0.05, key="g_min_slider") / 100
 
-# 【修正】value引数(d_g_max)を消して、keyだけにすることで警告を消します
+# 【修正】範囲を 0.0 〜 10.0 に拡張しました
 g_max = st.sidebar.slider(
     "寄付アップ上限 (%)", 
-    min_value=-5.0, 
-    max_value=5.0, 
+    min_value=0.0, 
+    max_value=10.0, 
     step=0.05, 
     key="g_max_slider"
 ) / 100
