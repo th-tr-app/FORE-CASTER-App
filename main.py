@@ -855,25 +855,67 @@ with tab_strategy:
         st.markdown(f"<div class='strat-market-header'><b>日経平均／前日比:</b> <span class='{m_cls}' style='font-size:1.2em; font-weight:bold;'>{m_curr_pct:+.2%}</span></div>", unsafe_allow_html=True)
         st.divider()
 
+       # --- ループ内のフィルタリング強化 ---
         for t in t_list:
             tdf = res_df[res_df['Ticker'] == t].copy()
             if tdf.empty: continue
-            t_name = ticker_names.get(t, t)
             
+            # --- 1. 勝率の計算 ---
+            win_rate = len(tdf[tdf['PnL'] > 0]) / len(tdf) if len(tdf) > 0 else 0
+            
+            # --- 2. テクニカル勢いの事前チェック (プランB用) ---
+            tech_ok = True
+            if st.session_state.get('preset') == "PLAN_B":
+                if win_rate < 0.55: continue
+                t_obj = yf.Ticker(t)
+                df_now = t_obj.history(interval="1m", period="1d")
+                if not df_now.empty:
+                    rsi_s = core.calculate_rsi(df_now['Close'])
+                    if len(rsi_s) >= 6:
+                        slope = rsi_s.tail(3).mean() - rsi_s.iloc[-6:-3].mean()
+                        if slope < -0.2: tech_ok = False
+                    ema5_val = df_now['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
+                    if df_now['Close'].iloc[-1] <= ema5_val: tech_ok = False
+
+            if st.session_state.get('preset') == "PLAN_B" and not tech_ok:
+                continue
+
+            # --- 3. 表示対象となった銘柄のみパネルを生成 ---
+            t_name = ticker_names.get(t, t)
             with st.expander(f"[{t}] {t_name}", expanded=True):
                 with st.spinner("データ同期中..."):
                     ticker_live = yf.Ticker(t)
-                    # 最新の終値とボラティリティ(ATR)の計算
-                    hist_live = ticker_live.history(period="30d")
                     
-                    # --- 【修正】空の今日を無視して、確実に「昨日」の終値を取得 ---
-                    valid_hist = hist_live['Close'].dropna()
-                    if not valid_hist.empty:
-                        last_c = valid_hist.iloc[-1]
-                    else:
-                        # 履歴が全滅の場合のセーフティ
-                        last_c = float(tdf['PrevClose'].iloc[-1]) if 'PrevClose' in tdf.columns else 0.0
+                    # --- 【新規】時間帯別基準値ロジック (昨日終値 vs 前場終値) ---
+                    jst = timezone(timedelta(hours=9))
+                    now_jst = datetime.now(jst)
+                    today_jst = now_jst.date()
+                    is_after_zenba = now_jst.time() >= time(11, 30)
+                    
+                    # 履歴取得 (30日分)
+                    hist_live = ticker_live.history(period="30d")
+                    # 【重要】今日(未確定)の行を除いた確定済み過去データのみを抽出
+                    past_hist = hist_live[hist_live.index.date < today_jst]
+                    prev_close_val = past_hist['Close'].iloc[-1] if not past_hist.empty else 0.0
 
+                    if not is_after_zenba:
+                        # 条件1：11:30まで → 前日終値を採用
+                        last_c = prev_close_val
+                        baseline_label = "前日終値"
+                    else:
+                        # 条件2：11:30以降 → 前場の終値(11:30)を狙い撃ち取得
+                        df_today_30m = ticker_live.history(period="1d", interval="30m")
+                        # 09:00〜11:40の間の最後の足（＝11:30の引け値）を取得
+                        zenba_df = df_today_30m.between_time('09:00', '11:40')
+                        if not zenba_df.empty:
+                            last_c = zenba_df['Close'].iloc[-1]
+                            baseline_label = "前場の終値"
+                        else:
+                            # 取得失敗時は安全のため昨日終値へフォールバック
+                            last_c = prev_close_val
+                            baseline_label = "前日終値"
+
+                    # ATRの計算 (last_c が安定したことで精度向上)
                     if len(hist_live) >= 15:
                         hl = hist_live['High'] - hist_live['Low']
                         hc = np.abs(hist_live['High'] - hist_live['Close'].shift())
