@@ -356,18 +356,18 @@ with tab_screen:
     p = st.session_state['sc_params'][i]
     exp_t = f"🔍 スクリーニング設定 ({['通常フィルタ', 'ディフェンシブ', '横ばい相場'][i]})"
             
-        # --- 1. パラメーター設定エリア ---
-        with st.expander(exp_t, expanded=False):
-            # --- A. 業種選択 ---
-            p['sector'] = st.pills(
-                "**対象業種 (タップで複数選択)**",
-                options=list(SECTOR_MAP.keys()),
-                format_func=lambda x: f"{SECTOR_MAP[x]}",
-                selection_mode="multi",
-                default=p['sector'],
-                key=f"v_sector_pill_{i}"
-            )
-            st.divider()
+    # --- 1. パラメーター設定エリア ---
+    with st.expander(exp_t, expanded=False):
+        # --- A. 業種選択 ---
+        p['sector'] = st.pills(
+            "**対象業種 (タップで複数選択)**",
+            options=list(SECTOR_MAP.keys()),
+            format_func=lambda x: f"{SECTOR_MAP[x]}",
+            selection_mode="multi",
+            default=p['sector'],
+            key=f"v_sector_pill_{i}"
+        )
+        st.divider()
  
             c1, c2, c3 = st.columns(3)
             with c1:
