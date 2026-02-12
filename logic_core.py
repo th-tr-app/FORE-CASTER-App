@@ -101,8 +101,9 @@ def analyze_market_environment():
 
     # 変数の初期化 (UnboundLocalError 回避用)
     forecast_title = "寄付予測"; forecast_txt = "分析中..."; phase_txt = "分析中..."
-    strategy_idx = 2; base_forecast = "フラット"
+    strategy_idx = 2; base_forecast = "上昇" if gap_pct > 0 else "下落"
 
+    if abs(gap_pct) < 0.0015: base_forecast = "フラット"
     if gap_pct <= -0.0015:
         strategy_idx = 1; base_forecast = "ギャップダウン" if gap_pct <= -0.01 else "下落"
     elif gap_pct >= 0.0015:
@@ -110,14 +111,16 @@ def analyze_market_environment():
 
     vix_val = 15; sox_pct = 0; fx_pct = 0
     if "VIX" in data_map: vix_val = float(data_map["VIX"]['Close'].values.ravel()[-1])
-    if "SOX" in data_map: sox_pct = (data_map["SOX"]['Close'].values.ravel()[-1] / data_map["SOX"]['Close'].values.ravel()[-2]) - 1
-    if "USDJPY" in data_map: fx_pct = (data_map["USDJPY"]['Close'].values.ravel()[-1] / data_map["USDJPY"]['Close'].values.ravel()[-2]) - 1
-    bias_list = []
+    if "SOX" in data_map: 
+        s_df = data_map["SOX"]
+        if len(s_df) >= 2: sox_pct = (s_df['Close'].iloc[-1] / s_df['Close'].iloc[-2]) - 1
+    if "USDJPY" in data_map:
+        f_df = data_map["USDJPY"]
+        if len(f_df) >= 2: fx_pct = (f_df['Close'].iloc[-1] / f_df['Close'].iloc[-2]) - 1
 
-    # --- 19:00〜翌9:00を「明日の展望」として扱うために else ブロックを調整 ---
     now = now_dt.time()
-    l_s, l_e = time(11, 30), time(12, 30)
-    a_s, a_e = time(15, 0), time(19, 0)
+    l_s, l_e = time(11, 30), time(12, 30); a_s, a_e = time(15, 0), time(19, 0)
+    bias_list = []
 
     # --- 時間帯別の展望生成 ---
     if l_s <= now <= l_e:
@@ -126,18 +129,16 @@ def analyze_market_environment():
         phase_txt = "前場が終了しました。後場の寄り付きまで待機、または前場の振り返りを行いましょう。"
         
     elif a_s <= now <= a_e:
-        # 15:00 〜 19:00 はこのコメントを最優先
         forecast_title = "今日の結果"
         actual_result = "上昇" if market_pct > 0 else "下落" if market_pct < 0 else "変わらず"
         forecast_txt = f"本日は {actual_result} で終了。大引け時点の乖離率は {dev_25:.1f}% です。"
         phase_txt = "お疲れ様でした。明日に向け期待値の高い銘柄をランキングで精査しましょう。"
-   else:
-        # 朝(9:00前) または 夜(19:00以降)
-        forecast_title = "明日の展望" if now >= time(19, 0) else "寄付予測"
+    else:
+        # 朝・夜・市場稼働中
         if fx_pct <= -0.003: bias_list.append("円高バイアス")
         elif fx_pct >= 0.003: bias_list.append("円安バイアス")
-
         forecast_txt = f"{base_forecast} ({' / '.join(bias_list)})" if bias_list else f"{base_forecast}"
+
         if "高値警戒" in alert_lvl:
             phase_txt = "加熱圏のギャップアップ。利確をこなしつつ、ボリンジャー+2σ付近の攻防に警戒。" if "上昇" in base_forecast else "高値警戒感から上値が重い展開。"
         elif "底打ち待ち" in alert_lvl:
@@ -145,12 +146,14 @@ def analyze_market_environment():
         else:
             phase_txt = "堅調なスタート。VWAPを支持線にできるか注視。" if "上昇" in base_forecast else "売り先行。主要な節目での下げ止まりを確認。"
 
+    # --- 米国株・チップス等の処理 ---
     us_impact = "米国株の変動は限定的。"
     if vix_val >= 20 or sox_pct <= -0.015: us_impact = "半導体安。指数主導の下落に警戒。"
     elif sox_pct >= 0.005: us_impact = "ハイテク株への買い波及を期待。"
 
     tips = []
-    if "WTI" in data_map and (data_map["WTI"]['Close'].iloc[-1] / data_map["WTI"]['Close'].iloc[-2]) - 1 >= 0.005: tips.append("1:鉱業 / 10:石油・石炭")
+    if "WTI" in data_map and len(data_map["WTI"]) >= 2:
+        if (data_map["WTI"]['Close'].iloc[-1] / data_map["WTI"]['Close'].iloc[-2]) - 1 >= 0.005: tips.append("1:鉱業 / 10:石油・石炭")
     if sox_pct >= 0.005: tips.append("17:電気機器 / 16:機械")
     
     return {
