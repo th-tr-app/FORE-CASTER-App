@@ -161,7 +161,6 @@ with tab_top:
     is_market_open = (now_weekday < 5) and (time(9, 0) <= now_time <= time(15, 30))
         
     if not is_market_open:
-    if not is_market_open:
         # 1. まず変数を初期化してエラーを防止
         cme_pct = 0.0
         sox_pct = 0.0
