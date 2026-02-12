@@ -113,9 +113,10 @@ def analyze_market_environment():
     if "SOX" in data_map: sox_pct = (data_map["SOX"]['Close'].values.ravel()[-1] / data_map["SOX"]['Close'].values.ravel()[-2]) - 1
     if "USDJPY" in data_map: fx_pct = (data_map["USDJPY"]['Close'].values.ravel()[-1] / data_map["USDJPY"]['Close'].values.ravel()[-2]) - 1
 
+    # --- 19:00〜翌9:00を「明日の展望」として扱うために else ブロックを調整 ---
     now = now_dt.time()
-    l_s, l_e = time(11, 30), time(12, 30); a_s, a_e = time(15, 0), time(19, 0)
-    bias_list = []
+    l_s, l_e = time(11, 30), time(12, 30)
+    a_s, a_e = time(15, 0), time(19, 0)
 
     # --- 時間帯別の展望生成 ---
     if l_s <= now <= l_e:
@@ -124,13 +125,17 @@ def analyze_market_environment():
         phase_txt = "前場が終了しました。後場の寄り付きまで待機、または前場の振り返りを行いましょう。"
         
     elif a_s <= now <= a_e:
+        # 15:00 〜 19:00 はこのコメントを最優先
         forecast_title = "今日の結果"
         actual_result = "上昇" if market_pct > 0 else "下落" if market_pct < 0 else "変わらず"
         forecast_txt = f"本日は {actual_result} で終了。大引け時点の乖離率は {dev_25:.1f}% です。"
         phase_txt = "お疲れ様でした。明日に向け期待値の高い銘柄をランキングで精査しましょう。"
-    else:
+   else:
+        # 朝(9:00前) または 夜(19:00以降)
+        forecast_title = "明日の展望" if now >= time(19, 0) else "寄付予測"
         if fx_pct <= -0.003: bias_list.append("円高バイアス")
         elif fx_pct >= 0.003: bias_list.append("円安バイアス")
+
         forecast_txt = f"{base_forecast} ({' / '.join(bias_list)})" if bias_list else f"{base_forecast}"
 
         if "高値警戒" in alert_lvl:
