@@ -161,39 +161,42 @@ with tab_top:
     is_market_open = (now_weekday < 5) and (time(9, 0) <= now_time <= time(15, 30))
         
     if not is_market_open:
-        # 【修正】「今日の結果（引け後）」が表示されるべき時間帯（19時まで）は上書きしない
-        # もしくは、診断タイトルが「今日の結果」の場合はスキップする
+    if not is_market_open:
+        # 1. まず変数を初期化してエラーを防止
+        cme_pct = 0.0
+        sox_pct = 0.0
+
+        # 2. 「今日の結果」が表示されていない時だけ、CMEなどの予測ロジックを実行
         if diag.get('forecast_title') != "今日の結果":
-            # 市場が閉まっている、かつ「引け後総括」期間外の時は先物(CME)の数値をチェック
             cme_pct = m_data.get("日経先物(CME)", {}).get("pct", 0.0)
             sox_pct = m_data.get("SOX指数", {}).get("pct", 0.0)
-        
-        if abs(cme_pct) >= 0.5:
-            if cme_pct >= 1.5:
-                diag['alert_level'] = "🚀 強気（買い優勢）"
-                diag['opening_forecast'] = "特大ギャップアップ"
-                diag['strategy'] = 0  # 👈 これを追加 (通常フィルター)
-                diag['phase_comment'] = "先物が暴騰中。次回の市場開始時は強力な買い先行が予想されます。"
-            elif cme_pct >= 0.5:
-                diag['alert_level'] = "📈 堅調（押し目買い）"
-                diag['opening_forecast'] = "ギャップアップ寄り付き"
-                diag['strategy'] = 0  # 👈 これを追加 (通常フィルター)
-                diag['phase_comment'] = "底堅い展開。プラス圏での推移が期待されます。"
-            elif cme_pct <= -1.5:
-                diag['alert_level'] = "⚠️ 警戒（売り優勢）"
-                diag['opening_forecast'] = "特大ギャップダウン"
-                diag['strategy'] = 1  # 👈 これを追加 (ディフェンシブ)
-                diag['phase_comment'] = "先物が急落。地合いの悪化に備える必要があります。"
-            elif cme_pct <= -0.5:
-                diag['alert_level'] = "📉 軟調（戻り売り）"
-                diag['opening_forecast'] = "ギャップダウン寄り付き"
-                diag['strategy'] = 2  # 👈 これを追加 (横ばい相場)
-                diag['phase_comment'] = "上値が重い展開。慎重なエントリーが求められます。"
-
-            diag['balance'] = f"先物主導の展開 / CME乖離 {cme_pct:+.2f}%"
             
-            if abs(sox_pct) >= 2.0:
-                diag['us_impact'] = f"SOX指数が {sox_pct:+.2f}% と大きく変動。ハイテク株の動きに注目。"
+            if abs(cme_pct) >= 0.5:
+                if cme_pct >= 1.5:
+                    diag['alert_level'] = "🚀 強気（買い優勢）"
+                    diag['opening_forecast'] = "特大ギャップアップ"
+                    diag['strategy'] = 0
+                    diag['phase_comment'] = "先物が暴騰中。次回の市場開始時は強力な買い先行が予想されます。"
+                elif cme_pct >= 0.5:
+                    diag['alert_level'] = "📈 堅調（押し目買い）"
+                    diag['opening_forecast'] = "ギャップアップ寄り付き"
+                    diag['strategy'] = 0
+                    diag['phase_comment'] = "底堅い展開。プラス圏での推移が期待されます。"
+                elif cme_pct <= -1.5:
+                    diag['alert_level'] = "⚠️ 警戒（売り優勢）"
+                    diag['opening_forecast'] = "特大ギャップダウン"
+                    diag['strategy'] = 1
+                    diag['phase_comment'] = "先物が急落。地合いの悪化に備える必要があります。"
+                elif cme_pct <= -0.5:
+                    diag['alert_level'] = "📉 軟調（戻り売り）"
+                    diag['opening_forecast'] = "ギャップダウン寄り付き"
+                    diag['strategy'] = 2
+                    diag['phase_comment'] = "上値が重い展開。慎重なエントリーが求められます。"
+
+                diag['balance'] = f"先物主導の展開 / CME乖離 {cme_pct:+.2f}%"
+                
+                if abs(sox_pct) >= 2.0:
+                    diag['us_impact'] = f"SOX指数が {sox_pct:+.2f}% と大きく変動。ハイテク株の動きに注目。"
     
     strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
     rec_strat = strat_names[diag["strategy"]]
