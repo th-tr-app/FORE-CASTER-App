@@ -939,7 +939,7 @@ with tab_strategy:
                     st.markdown(f"""
                     <div class="mobile-flex-container">
                         <div class="flex-item strat-card-top">
-                            <div class="card-label">基準終値</div>
+                            <div class="card-label">{baseline_label}</div> 
                             <div class="strat-value">{last_c:,.0f}</div>
                             <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div>
                         </div>
