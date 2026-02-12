@@ -67,39 +67,15 @@ def analyze_market_environment():
             data_map[k] = df.dropna(subset=['Close'])
         except: continue
 
-    # --- 1. 基礎データの抽出 (時間帯別基準値制御) ---
+    # --- 1. 基礎データの抽出 (0円回避ガード) ---
     n225_close = 0; n225_prev_close = 0; n225_ma25 = 0; cme_val = 0
-    
-    # 現在が前場引け(11:30)以降かどうかを判定
-    jst = timezone(timedelta(hours=9))
-    now_jst = datetime.now(jst)
-    is_after_zenba = now_jst.time() >= time(11, 30)
-
     if "N225" in data_map:
         df_n = data_map["N225"]
-        today_date = now_jst.date()
-        
-        # 確実に「昨日以前」のデータのみを抽出（ザラ場中の未確定行を排除）
-        past_df = df_n[df_n.index.date < today_date].dropna(subset=['Close'])
-        
-        if not past_df.empty:
-            n225_prev_close = float(past_df['Close'].iloc[-1]) # 前日終値
-            n225_ma25 = float(past_df['Close'].rolling(25).mean().iloc[-1])
-
-        # 条件に合わせた基準終値の決定
-        if not is_after_zenba:
-            # 【条件1】11:30まで：前日終値を使用
-            n225_close = n225_prev_close
-        else:
-            # 【条件2】11:30以降：前場の終値(11:30)を自動取得
-            # yfinanceで今日の前場データを取得
-            t_n225 = yf.Ticker("^N225")
-            df_today = t_n225.history(period="1d", interval="30m")
-            zenba_df = df_today.between_time('09:00', '11:40') # 11:30の足を狙う
-            if not zenba_df.empty:
-                n225_close = float(zenba_df['Close'].iloc[-1])
-            else:
-                n225_close = n225_prev_close # 取得失敗時は前日終値
+        valid_df = df_n.dropna(subset=['Close'])
+        if len(valid_df) >= 2:
+            n225_close = float(valid_df['Close'].iloc[-1])
+            n225_prev_close = float(valid_df['Close'].iloc[-2])
+            n225_ma25 = float(valid_df['Close'].rolling(25).mean().iloc[-1])
     
     # 日経平均が0なら昨日の値を代入してエラーを防ぐ
     if n225_close == 0: n225_close = n225_prev_close if n225_prev_close > 0 else 39000
@@ -339,7 +315,7 @@ def check_opening_deviation(actual, expected, last_close):
     
     return is_large, dev_pct
 
-# --- 5. 始値の自動取得ロジック　始値取得の高速化（Fast Mode) ---
+# --- 5. 始値の自動取得ロジック (Ver 4.6.8：高精度・後場安定版) ---
 def get_realtime_opening_price(ticker_symbol):
     try:
         jst = timezone(timedelta(hours=9))
@@ -349,101 +325,35 @@ def get_realtime_opening_price(ticker_symbol):
         if now_dt.time() < time(9, 0) or now_dt.time() > time(15, 30):
             return None
             
+        t = yf.Ticker(ticker_symbol)
         is_afternoon = now_dt.time() >= time(12, 30)
 
-        # 期間を 2d にして「今日の足」が確実に含まれるようにする
-        df = yf.download(ticker_symbol, period="2d", interval="1m", progress=False, auto_adjust=False)
-        
-        if df.empty: return None
-        if isinstance(df.columns, pd.MultiIndex): 
-            df.columns = df.columns.get_level_values(0)
+        # 前場(9:00-12:29)は info から速報取得
+        if not is_afternoon:
+            todays_open = t.info.get('open')
+            if todays_open and todays_open > 0:
+                return int(todays_open)
 
-        # タイムゾーンをJSTに強制変換（これがズレると取得できません）
+        # 後場、または info が空の場合：より確実に 2d 分の履歴を取りに行く
+        df = t.history(period="2d", interval="1m")
+        if df.empty: return None
+        
         df.index = df.index.tz_convert('Asia/Tokyo')
+        # 厳密に「今日」のデータだけに絞る
         df_today = df[df.index.date == today]
+        
+        if df_today.empty: return None
 
         if is_afternoon:
-            # 12:30〜12:35の間で最初に見つかった足を「後場の始値」とする（歯抜け対策）
-            df_pm = df_today.between_time('12:30', '12:35')
+            # 12:30以降の最初の足を探す。もし12:30ちょうどがなければ、その直後の足を拾う
+            df_pm = df_today.between_time('12:30', '15:00')
             if not df_pm.empty:
                 return int(df_pm['Open'].iloc[0])
         else:
-            # 09:00〜09:05の間で最初に見つかった足を「前場の始値」とする
-            df_am = df_today.between_time('09:00', '09:05')
+            df_am = df_today.between_time('09:00', '11:30')
             if not df_am.empty:
                 return int(df_am['Open'].iloc[0])
                 
     except Exception:
         pass
     return None
-
-# --- 6. セカンドプラン（B/C/D）用スキャンロジック ---
-def scan_candidates_with_tier(ticker_list, params, ticker_details_map, min_win, rsi_slope_min):
-    """【セカンドプラン】指定されたティア基準で期待値TOP5を選出する"""
-    results = []
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=params['days'])
-    
-    # タイムゾーン設定
-    jst = timezone(timedelta(hours=9))
-    now_jst = datetime.now(jst)
-    today_jst = now_jst.date()
-    
-    # 朝イチ判定 ＆ 後場寄り判定 (判定を緩和する時間帯を定義)
-    current_time = now_jst.time()
-    is_early_session = (current_time < time(9, 15)) or (time(12, 30) <= current_time < time(12, 45))
-
-    for t in ticker_list:
-        try:
-            # 1. 始値の取得 (Fast Mode)
-            opening_p = get_realtime_opening_price(t)
-            if not opening_p: continue
-                
-            # 2. 勢いチェック (9:15以降のみ厳格に判定)
-            if not is_early_session: # is_early_morning から変更
-                t_obj = yf.Ticker(t)
-                df_m = t_obj.history(interval="1m", period="1d")
-                if not df_m.empty:
-                    curr_p = df_m['Close'].iloc[-1]
-                    ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
-                    if curr_p <= ema5: continue 
-
-                    rsi_series = calculate_rsi(df_m['Close'])
-                    if len(rsi_series) >= 6:
-                        rsi_slope = rsi_series.tail(3).mean() - rsi_series.iloc[-6:-3].mean()
-                        if rsi_slope < rsi_slope_min: continue
-
-            # 3. ギャップ判定
-            t_obj = yf.Ticker(t)
-            hist_d = t_obj.history(period="5d")
-            past_hist = hist_d[hist_d.index.date < today_jst]
-            if past_hist.empty: continue
-            last_close = past_hist['Close'].iloc[-1]
-            
-            today_gap = (opening_p - last_close) / last_close
-            if not (params['g_min'] <= today_gap <= params['g_max']): continue
-
-            # 4. 過去統計の計算
-            df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
-            if df_5m.empty: continue
-            if isinstance(df_5m.columns, pd.MultiIndex): 
-                df_5m.columns = df_5m.columns.get_level_values(0)
-            
-            p_map, o_map, a_map = fetch_daily_stats_maps(t, start_date)
-            trades = run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
-            score = get_one_touch_score(trades)
-            
-            # 【重要】閾値(min_win)を厳格に守る
-            if score and score['win_rate'] >= min_win:
-                results.append({
-                    'code': t,
-                    'score': score['score'],
-                    'open': opening_p,
-                    'win_rate': score['win_rate']
-                })
-        except:
-            continue
-            
-    # スコア上位5銘柄
-    return sorted(results, key=lambda x: x['score'], reverse=True)[:5]
-    
