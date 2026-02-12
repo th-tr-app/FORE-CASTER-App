@@ -159,11 +159,14 @@ with tab_top:
     now_time = datetime.now(jst).time()
     now_weekday = datetime.now(jst).weekday()
     is_market_open = (now_weekday < 5) and (time(9, 0) <= now_time <= time(15, 30))
-
+        
     if not is_market_open:
-        # 市場が閉まっている時は先物(CME)の数値をチェック
-        cme_pct = m_data.get("日経先物(CME)", {}).get("pct", 0.0)
-        sox_pct = m_data.get("SOX指数", {}).get("pct", 0.0)
+        # 【修正】「今日の結果（引け後）」が表示されるべき時間帯（19時まで）は上書きしない
+        # もしくは、診断タイトルが「今日の結果」の場合はスキップする
+        if diag.get('forecast_title') != "今日の結果":
+            # 市場が閉まっている、かつ「引け後総括」期間外の時は先物(CME)の数値をチェック
+            cme_pct = m_data.get("日経先物(CME)", {}).get("pct", 0.0)
+            sox_pct = m_data.get("SOX指数", {}).get("pct", 0.0)
         
         if abs(cme_pct) >= 0.5:
             if cme_pct >= 1.5:
