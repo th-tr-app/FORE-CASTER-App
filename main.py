@@ -412,87 +412,87 @@ with tab_screen:
             p['bb_rng'] = st.slider("σ範囲", -3.0, 3.0, p['bb_rng'], step=1.0, key=f"v_bb_{i}")
             st.divider()
 
-            # --- 2. スクリーニング実行 (計算のみ) ---
-            if st.button(f"{['通常フィルタ', 'ディフェンシブ', '横ばい相場'][i]} スキャン開始", key=f"btn_sc_exec_{i}", type="primary", use_container_width=True):
-                # (スキャン実行ロジックは変更なし)
-                selected_sids = p['sector']
-                if 0 in selected_sids or not selected_sids:
-                    target_tickers = list(TICKER_DETAILS.keys())
-                    scan_label = "全業種"
-                else:
-                    target_tickers = [t for t, d in TICKER_DETAILS.items() if d[1] in selected_sids]
-                    scan_label = ", ".join([SECTOR_MAP[sid] for sid in selected_sids])
+    # --- 2. スクリーニング実行 (計算のみ) ---
+    if st.button(f"{['通常フィルタ', 'ディフェンシブ', '横ばい相場'][i]} スキャン開始", key=f"btn_sc_exec_{i}", type="primary", use_container_width=True):
+        # (スキャン実行ロジックは変更なし)
+        selected_sids = p['sector']
+        if 0 in selected_sids or not selected_sids:
+            target_tickers = list(TICKER_DETAILS.keys())
+            scan_label = "全業種"
+        else:
+            target_tickers = [t for t, d in TICKER_DETAILS.items() if d[1] in selected_sids]
+            scan_label = ", ".join([SECTOR_MAP[sid] for sid in selected_sids])
                 
-                s_logic_params = {
-                    'c_gain': p['c_gain'], 'gain_range': p['gain_rng'],
-                    'c_p': p['c_p'], 'p_range': p['p_rng'], 'c_v': p['c_v'], 'v_min': p['v_min'], 
-                    'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'],
-                    'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'], 'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 
-                    'c_rci': p['c_rci'], 'rci_range': p['rci_rng'], 'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
-                    'c_vup': p['c_vup'], 'vup_min': p['vup_min'],
-                    'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'], 'c_bb': p['c_bb'], 'bb_range': p['bb_rng']
-                }
+        s_logic_params = {
+            'c_gain': p['c_gain'], 'gain_range': p['gain_rng'],
+            'c_p': p['c_p'], 'p_range': p['p_rng'], 'c_v': p['c_v'], 'v_min': p['v_min'], 
+            'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'],
+            'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'], 'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 
+            'c_rci': p['c_rci'], 'rci_range': p['rci_rng'], 'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
+            'c_vup': p['c_vup'], 'vup_min': p['vup_min'],
+            'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'], 'c_bb': p['c_bb'], 'bb_range': p['bb_rng']
+        }
 
-                results = []
-                with st.status(f"🔍 {scan_label} をスキャン中...", expanded=True) as status:
-                    pb = st.progress(0)
-                    for idx, t in enumerate(target_tickers):
-                        pb.progress((idx+1)/len(target_tickers))
-                        df_d = yf.download(t, period="3mo", interval="1d", progress=False)
-                        if not df_d.empty:
-                            if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
-                            res = core.evaluate_screening_conditions(df_d, s_logic_params)
-                            if res:
-                                res['コード'] = t
-                                res['銘柄名'] = TICKER_DETAILS[t][0]
-                                results.append(res)
-                    status.update(label=f"✅ {len(results)} 銘柄発見", state="complete")
+        results = []
+        with st.status(f"🔍 {scan_label} をスキャン中...", expanded=True) as status:
+            pb = st.progress(0)
+            for idx, t in enumerate(target_tickers):
+                pb.progress((idx+1)/len(target_tickers))
+                df_d = yf.download(t, period="3mo", interval="1d", progress=False)
+                if not df_d.empty:
+                    if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
+                    res = core.evaluate_screening_conditions(df_d, s_logic_params)
+                    if res:
+                        res['コード'] = t
+                        res['銘柄名'] = TICKER_DETAILS[t][0]
+                        results.append(res)
+            status.update(label=f"✅ {len(results)} 銘柄発見", state="complete")
                 
-                # 【修正】結果の保存と同時に0件フラグを制御
-                st.session_state[f"sc_res_df_{i}"] = pd.DataFrame(results) if results else None
-                # スキャン実行後の0件判定フラグを設定
-                st.session_state[f"sc_no_results_{i}"] = True if not results else False
+        # 【修正】結果の保存と同時に0件フラグを制御
+        st.session_state[f"sc_res_df_{i}"] = pd.DataFrame(results) if results else None
+        # スキャン実行後の0件判定フラグを設定
+        st.session_state[f"sc_no_results_{i}"] = True if not results else False
+        st.rerun()
+
+    # --- 【修正】スキャン実行後に結果が0件だった時の通知 ---
+    if st.session_state.get(f"sc_no_results_{i}"):
+        st.warning("⚠️ 条件に合致する銘柄が見つかりませんでした。")
+
+    # --- 結果表示 (並び替え・全件表示・書式設定済み) ---
+    current_res = st.session_state.get(f"sc_res_df_{i}")
+    if current_res is not None and not current_res.empty:
+        # (以降、st.info や st.dataframe 表示ロジックは維持)
+        st.caption("👇 チェックを入れると銘柄リストに追加できます。")
+        st.markdown("<br>", unsafe_allow_html=True)
+        current_res = current_res.sort_values("売買代金", ascending=False)
+        df_height = (len(current_res) + 1) * 35 + 5 # 縦スクロール防止
+                
+        sel_event = st.dataframe(
+            current_res[['コード', '銘柄名', '株価', '前日比', 'RSI', '25MA乖離', 'ATR%', '売買代金']],
+            use_container_width=True, hide_index=True, 
+            on_select="rerun", selection_mode="multi-row", 
+            key=f"df_sc_view_final_{i}",
+            height=df_height,
+            column_config={
+                "前日比": st.column_config.NumberColumn("前日比", format="%+.2f%%"),
+                "25MA乖離": st.column_config.NumberColumn("25MA乖離", format="%+.2f%%"),
+                "ATR%": st.column_config.NumberColumn("ATR%", format="%.2f%%"),
+                "売買代金": st.column_config.NumberColumn("売買代金(億)", format="%.1f")
+            }
+        )
+                
+        # 自動入力ロジック
+        if sel_event.selection.rows:
+            selected_codes = current_res.iloc[sel_event.selection.rows]['コード'].tolist()
+            current_str = st.session_state.get('target_tickers', "")
+            current_list = [t.strip() for t in current_str.split(",") if t.strip()]
+            new_only = [c for c in selected_codes if c not in current_list]
+            if new_only:
+                new_combined = sorted(list(set(current_list + new_only)))
+                st.session_state['target_tickers'] = ", ".join(new_combined)
+                st.session_state[f"sc_no_results_{i}"] = False # 監視リスト追加時は警告を消す
+                st.toast(f"監視リストに {len(new_only)} 銘柄を反映しました")
                 st.rerun()
-
-            # --- 【修正】スキャン実行後に結果が0件だった時の通知 ---
-            if st.session_state.get(f"sc_no_results_{i}"):
-                st.warning("⚠️ 条件に合致する銘柄が見つかりませんでした。")
-
-            # --- 結果表示 (並び替え・全件表示・書式設定済み) ---
-            current_res = st.session_state.get(f"sc_res_df_{i}")
-            if current_res is not None and not current_res.empty:
-                # (以降、st.info や st.dataframe 表示ロジックは維持)
-                st.caption("👇 チェックを入れると銘柄リストに追加できます。")
-                st.markdown("<br>", unsafe_allow_html=True)
-                current_res = current_res.sort_values("売買代金", ascending=False)
-                df_height = (len(current_res) + 1) * 35 + 5 # 縦スクロール防止
-                
-                sel_event = st.dataframe(
-                    current_res[['コード', '銘柄名', '株価', '前日比', 'RSI', '25MA乖離', 'ATR%', '売買代金']],
-                    use_container_width=True, hide_index=True, 
-                    on_select="rerun", selection_mode="multi-row", 
-                    key=f"df_sc_view_final_{i}",
-                    height=df_height,
-                    column_config={
-                        "前日比": st.column_config.NumberColumn("前日比", format="%+.2f%%"),
-                        "25MA乖離": st.column_config.NumberColumn("25MA乖離", format="%+.2f%%"),
-                        "ATR%": st.column_config.NumberColumn("ATR%", format="%.2f%%"),
-                        "売買代金": st.column_config.NumberColumn("売買代金(億)", format="%.1f")
-                    }
-                )
-                
-                # 自動入力ロジック
-                if sel_event.selection.rows:
-                    selected_codes = current_res.iloc[sel_event.selection.rows]['コード'].tolist()
-                    current_str = st.session_state.get('target_tickers', "")
-                    current_list = [t.strip() for t in current_str.split(",") if t.strip()]
-                    new_only = [c for c in selected_codes if c not in current_list]
-                    if new_only:
-                        new_combined = sorted(list(set(current_list + new_only)))
-                        st.session_state['target_tickers'] = ", ".join(new_combined)
-                        st.session_state[f"sc_no_results_{i}"] = False # 監視リスト追加時は警告を消す
-                        st.toast(f"監視リストに {len(new_only)} 銘柄を反映しました")
-                        st.rerun()
                         
 # --- タブ3: バックテスト (Ver 4.6.0：始値自動取得統合版) ---
 with tab_bt:
