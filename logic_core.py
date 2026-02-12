@@ -117,6 +117,7 @@ def analyze_market_environment():
     now = now_dt.time()
     l_s, l_e = time(11, 30), time(12, 30)
     a_s, a_e = time(15, 0), time(19, 0)
+    bias_list = []
 
     # --- 時間帯別の展望生成 ---
     if l_s <= now <= l_e:
@@ -137,7 +138,6 @@ def analyze_market_environment():
         elif fx_pct >= 0.003: bias_list.append("円安バイアス")
 
         forecast_txt = f"{base_forecast} ({' / '.join(bias_list)})" if bias_list else f"{base_forecast}"
-
         if "高値警戒" in alert_lvl:
             phase_txt = "加熱圏のギャップアップ。利確をこなしつつ、ボリンジャー+2σ付近の攻防に警戒。" if "上昇" in base_forecast else "高値警戒感から上値が重い展開。"
         elif "底打ち待ち" in alert_lvl:
