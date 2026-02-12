@@ -923,24 +923,23 @@ with tab_strategy:
                 with st.spinner("データ同期中..."):
                     ticker_live = yf.Ticker(t)
                     
-                    # --- 【新規】時間帯別基準値ロジック (昨日終値 vs 前場終値) ---
+                    # --- 【修正】時間帯別基準値ロジック (前日終値 vs 前場の終値) ---
                     jst = timezone(timedelta(hours=9))
                     now_jst = datetime.now(jst)
                     today_jst = now_jst.date()
-                    is_after_zenba = now_jst.time() >= time(11, 30)
+                    current_t = now_jst.time()
                     
                     # 履歴取得 (30日分)
                     hist_live = ticker_live.history(period="30d")
-                    # 【重要】今日(未確定)の行を除いた確定済み過去データのみを抽出
+                    # 今日(未確定)の行を除いた「昨日まで」の過去データ
                     past_hist = hist_live[hist_live.index.date < today_jst]
                     prev_close_val = past_hist['Close'].iloc[-1] if not past_hist.empty else 0.0
 
-                    if not is_after_zenba:
-                        # 条件1：11:30まで → 前日終値を採用
-                        last_c = prev_close_val
-                        baseline_label = "前日終値"
-                    else:
-                        # 条件2：11:30以降 → 前場の終値(11:30)を狙い撃ち取得
+                    # モード判定 (11:30〜15:30のみ「前場モード」、それ以外は「前日終値モード」)
+                    is_zenba_mode = (time(11, 30) <= current_t < time(15, 30))
+
+                    if is_zenba_mode:
+                        # 条件1：11:30〜15:30 → 「前場の終値」を表示
                         df_today_30m = ticker_live.history(period="1d", interval="30m")
                         # 09:00〜11:40の間の最後の足（＝11:30の引け値）を取得
                         zenba_df = df_today_30m.between_time('09:00', '11:40')
@@ -948,10 +947,15 @@ with tab_strategy:
                             last_c = zenba_df['Close'].iloc[-1]
                             baseline_label = "前場の終値"
                         else:
-                            # 取得失敗時は安全のため昨日終値へフォールバック
                             last_c = prev_close_val
                             baseline_label = "前日終値"
-
+                    else:
+                        baseline_label = "前日終値"
+                        if current_t >= time(15, 30) and not hist_live.empty:
+                            last_c = hist_live['Close'].iloc[-1]
+                        else:
+                            last_c = prev_close_val
+                            
                     # ATRの計算 (last_c が安定したことで精度向上)
                     if len(hist_live) >= 15:
                         hl = hist_live['High'] - hist_live['Low']
