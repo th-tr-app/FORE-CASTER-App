@@ -112,12 +112,12 @@ def analyze_market_environment():
     if "VIX" in data_map: vix_val = float(data_map["VIX"]['Close'].values.ravel()[-1])
     if "SOX" in data_map: sox_pct = (data_map["SOX"]['Close'].values.ravel()[-1] / data_map["SOX"]['Close'].values.ravel()[-2]) - 1
     if "USDJPY" in data_map: fx_pct = (data_map["USDJPY"]['Close'].values.ravel()[-1] / data_map["USDJPY"]['Close'].values.ravel()[-2]) - 1
+    bias_list = []
 
     # --- 19:00〜翌9:00を「明日の展望」として扱うために else ブロックを調整 ---
     now = now_dt.time()
     l_s, l_e = time(11, 30), time(12, 30)
     a_s, a_e = time(15, 0), time(19, 0)
-    bias_list = []
 
     # --- 時間帯別の展望生成 ---
     if l_s <= now <= l_e:
