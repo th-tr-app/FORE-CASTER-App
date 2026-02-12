@@ -101,23 +101,33 @@ def analyze_market_environment():
 
     # 変数の初期化 (UnboundLocalError 回避用)
     forecast_title = "寄付予測"; forecast_txt = "分析中..."; phase_txt = "分析中..."
-    strategy_idx = 2; base_forecast = "上昇" if gap_pct > 0 else "下落"
-
-    if abs(gap_pct) < 0.0015: base_forecast = "フラット"
+    strategy_idx = 2
+    
+    # 1. ギャップに応じた基本方向の決定（判定を簡潔に統合）
     if gap_pct <= -0.0015:
-        strategy_idx = 1; base_forecast = "ギャップダウン" if gap_pct <= -0.01 else "下落"
+        strategy_idx = 1
+        base_forecast = "ギャップダウン" if gap_pct <= -0.01 else "下落"
     elif gap_pct >= 0.0015:
-        strategy_idx = 0; base_forecast = "ギャップアップ" if gap_pct >= 0.01 else "上昇"
+        strategy_idx = 0
+        base_forecast = "ギャップアップ" if gap_pct >= 0.01 else "上昇"
+    else:
+        base_forecast = "フラット"
 
+    # 2. 指標データの取得（.emptyチェックと .iloc による安全なアクセス）
     vix_val = 15; sox_pct = 0; fx_pct = 0
-    if "VIX" in data_map: vix_val = float(data_map["VIX"]['Close'].values.ravel()[-1])
-    if "SOX" in data_map: 
+    
+    if "VIX" in data_map and not data_map["VIX"].empty:
+        vix_val = float(data_map["VIX"]['Close'].iloc[-1])
+        
+    if "SOX" in data_map and len(data_map["SOX"]) >= 2: 
         s_df = data_map["SOX"]
-        if len(s_df) >= 2: sox_pct = (s_df['Close'].iloc[-1] / s_df['Close'].iloc[-2]) - 1
-    if "USDJPY" in data_map:
+        sox_pct = (s_df['Close'].iloc[-1] / s_df['Close'].iloc[-2]) - 1
+        
+    if "USDJPY" in data_map and len(data_map["USDJPY"]) >= 2:
         f_df = data_map["USDJPY"]
-        if len(f_df) >= 2: fx_pct = (f_df['Close'].iloc[-1] / f_df['Close'].iloc[-2]) - 1
+        fx_pct = (f_df['Close'].iloc[-1] / f_df['Close'].iloc[-2]) - 1
 
+    # 3. 時間帯の定義とリスト初期化
     now = now_dt.time()
     l_s, l_e = time(11, 30), time(12, 30); a_s, a_e = time(15, 0), time(19, 0)
     bias_list = []
