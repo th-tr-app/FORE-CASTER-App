@@ -913,7 +913,7 @@ with tab_strategy:
             # モードに応じて銘柄名の表記（色）を変える
             header_label = f"[{t}] {t_name}"
             if mode == "リアルタイム戦略":
-                header_label = f":yellow[[{t}] {t_name} (リアルタイム監視)]"
+                header_label = f":orange[[{t}] {t_name} (リアルタイム監視)]"
 
             with st.expander(header_label, expanded=True):
                 with st.spinner("計算中..."):
