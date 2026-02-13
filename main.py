@@ -917,9 +917,6 @@ with tab_strategy:
             
             with st.expander(header_label, expanded=True):
                 # 1. 永続キーとウィジェット用キーの定義
-
-            with st.expander(header_label, expanded=True):
-                # 1. 永続キーとウィジェット用キーの定義
                 perm_key = f"perm_open_{t}"
                 now_p_key = f"now_p_{t}"
                 widget_o_key = f"input_o_{t}" # 始値入力用
