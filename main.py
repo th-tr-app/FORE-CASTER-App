@@ -991,7 +991,8 @@ with tab_strategy:
                             st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">始値 (引用)</div><div class="strat-value">{st.session_state[perm_key]:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">現在の乖離</div><div class="strat-value">{m_curr_pct:+.2f}%</div><div class="strat-guide">市場全体の地合い</div></div></div>""", unsafe_allow_html=True)
 
                         # 1. ウィジェット用キーの定義
-                            # --- Ver 4.97 で追加された「市場価格との同期」ロジック ---
+                        # --- Ver 4.97 で追加された「市場価格との同期」ロジック ---
+                        with c_top_r:
                         with c_top_r:
                             now_p_key = f"now_p_{t}"
     
@@ -1007,7 +1008,7 @@ with tab_strategy:
                                     st.rerun()
 
                             # 2. 上記ボタンで書き換えられた値が、この入力欄に自動で表示される
-                            current_p = st.number_input(f"現在値", step=1, format="%d", key=now_p_key, ...)
+                            current_p = st.number_input(f"現在値", step=1, format="%d", key=now_p_key, ...)    
                                                 
                     # -----------------------------------------------------
                     # 2. 状態に応じた案内メッセージ (情報の入り口を1つに統合)
