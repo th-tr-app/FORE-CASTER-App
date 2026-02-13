@@ -1122,7 +1122,7 @@ with tab_strategy:
                             status_label = "エントリー可能" if m_curr_pct > -0.003 else "CAUTION (地合い注意)"
                             
                             # リアルタイムかつ到達済みなら文言を強化
-                            main_msg = f"✅ <b>今、執行チャンス！</b>" if (mode == "リアルタイム／指値戦略" and locals().get('current_p') and diff <= 0) else f"✅ <b>{status_label}</b>"
+                            main_msg = f"✅ <b>今、執行チャンス！</b>" if (mode == "リアルタイム戦略" and locals().get('current_p') and diff <= 0) else f"✅ <b>{status_label}</b>"
                             
                             st.markdown(f"""<div class="strat-msg-box {bg_cls}">{main_msg}{dist_msg}<br>統計勝率 {sim_win_rate:.1%} / {n_count}回。{ '勢い低下に注意' if tech_warning else '勢いも良好' }</div>""", unsafe_allow_html=True)
 
