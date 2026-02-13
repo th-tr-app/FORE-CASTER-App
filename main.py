@@ -876,7 +876,7 @@ with tab_strategy:
     st.markdown("### 🔮 指値戦略プランナー")
     st.caption("統計的勝率・地合い・リアルタイムの勢いを統合した最終判断用パネルです。始値確定後の利用を推奨します。")
 
-    # 1. 検証モード選択 (st.segmented_control)
+    # 1. 検証モード選択
     mode = st.segmented_control(
         "検証モードを選択",
         options=["寄付き／始値戦略", "リアルタイム戦略"],
@@ -887,7 +887,6 @@ with tab_strategy:
     res_df = st.session_state.get('res_df', pd.DataFrame())
     ticker_names = st.session_state.get('t_names', {})
     
-    # セッション状態のキーはエラー回避のため monitoring_tickers を参照
     target_key = 'monitoring_tickers' if 'monitoring_tickers' in st.session_state else 'target_tickers'
     raw_tickers = [t.strip() for t in st.session_state.get(target_key, "").split(",") if t.strip()]
     t_list = list(dict.fromkeys(raw_tickers)) 
@@ -897,49 +896,35 @@ with tab_strategy:
     elif res_df.empty:
         st.info("💡 まずは「バックテスト」を実行してください。過去の統計データが必要です。")
     else:
-        # --- 地合いデータの同期取得 (指標ウォッチ引用) ---
+        # 地合いデータ同期 (指標ウォッチ引用)
         m_data = core.fetch_market_info(MARKET_INDICES)
         n225_val = m_data.get("日経平均", {}).get("val")
         cme_val = m_data.get("日経先物(CME)", {}).get("val")
         m_curr_pct = m_data.get("日経平均", {}).get("pct", 0.0)
-
-        # 寄り付き乖離率(m_gap)を再計算
         m_gap = (cme_val - n225_val) / n225_val if n225_val and cme_val and n225_val != 0 else 0.0
 
         st.divider()
 
-        # --- 銘柄ループ ---
         for t in t_list:
             tdf = res_df[res_df['Ticker'] == t].copy()
             if tdf.empty: continue
-            
             t_name = ticker_names.get(t, t)
             
-            # --- モードに応じて銘柄名の表記（色）を変える ---
+            # モードに応じて銘柄名の表記（色）を変える
             header_label = f"[{t}] {t_name}"
             if mode == "リアルタイム戦略":
                 header_label = f":yellow[[{t}] {t_name} (リアルタイム監視)]"
 
             with st.expander(header_label, expanded=True):
-                # --- 【エラー解消の要】変数の初期化をここで行う ---
-                actual_open_val = 0.0
-                is_dev_large = False  # これで Line 1094 のエラーを防ぎます
-                dev_v = 0.0
-                tech_warning = False
-
-                with st.spinner("同期中..."):
+                with st.spinner("計算中..."):
                     ticker_live = yf.Ticker(t)
-                    
-                    # --- 基準価格(last_c)の算出ロジック ---
+                    # --- 基準価格(last_c)算出 (既存ロジック) ---
                     jst = timezone(timedelta(hours=9)); now_jst = datetime.now(jst)
                     today_jst = now_jst.date(); current_t = now_jst.time()
                     hist_live = ticker_live.history(period="30d")
                     past_hist = hist_live[hist_live.index.date < today_jst]
                     prev_close_val = past_hist['Close'].iloc[-1] if not past_hist.empty else 0.0
-                    
-                    # 11:30〜15:30のみ「前場モード」、それ以外は「前日終値モード」
                     is_zenba_mode = (time(11, 30) <= current_t < time(15, 30))
-
                     if is_zenba_mode:
                         df_today_30m = ticker_live.history(period="1d", interval="30m")
                         zenba_df = df_today_30m.between_time('09:00', '11:40')
@@ -947,71 +932,44 @@ with tab_strategy:
                         baseline_label = "前場の終値"
                     else:
                         baseline_label = "前日終値"
-                        if current_t >= time(15, 30) and not hist_live.empty:
-                            last_c = hist_live['Close'].iloc[-1]
-                        else:
-                            last_c = prev_close_val
+                        last_c = hist_live['Close'].iloc[-1] if current_t >= time(15, 30) and not hist_live.empty else prev_close_val
 
-                    # --- 統計・ボラティリティの算出 ---
+                    # 統計算出
                     if len(hist_live) >= 15:
-                        hl = hist_live['High'] - hist_live['Low']
-                        hc = np.abs(hist_live['High'] - hist_live['Close'].shift())
-                        lc = np.abs(hist_live['Low'] - hist_live['Close'].shift())
+                        hl = hist_live['High'] - hist_live['Low']; hc = np.abs(hist_live['High'] - hist_live['Close'].shift()); lc = np.abs(hist_live['Low'] - hist_live['Close'].shift())
                         tr = pd.concat([hl, hc, lc], axis=1).max(axis=1)
                         atr_p = (tr.rolling(14).mean().iloc[-1] / last_c) * 100 if last_c > 0 else 1.5
-                    else:
-                        atr_p = 1.5
-
-                    v_factor = max(0.6, min(2.5, atr_p / 1.5))
-                    tdf['Entry_Push'] = ((tdf['In'] - tdf['DayOpen']) / tdf['DayOpen']) * 100
-                    win_tdf = tdf[tdf['PnL'] > 0]
-                    avg_push = win_tdf['Entry_Push'].mean() if not win_tdf.empty else 0
+                    else: atr_p = 1.5
+                    v_factor = max(0.6, min(2.5, atr_p / 1.5)); tdf['Entry_Push'] = ((tdf['In'] - tdf['DayOpen']) / tdf['DayOpen']) * 100
+                    win_tdf = tdf[tdf['PnL'] > 0]; avg_push = win_tdf['Entry_Push'].mean() if not win_tdf.empty else 0
                     pred_o = last_c * (1 + m_gap)
 
-                    # セッションキー (始値を共有)
-                    input_key = f"act_in_{t}"
-                    if input_key not in st.session_state:
-                        st.session_state[input_key] = 0.0
+                    # 永続化変数の取得
+                    perm_key = f"perm_open_{t}"
+                    if perm_key not in st.session_state: st.session_state[perm_key] = 0.0
+                    actual_open_val = st.session_state[perm_key]
 
                     # -----------------------------------------------------
-                    # 上段レイアウト：入力・カードセクション (Ver 4.94 最終安定版)
-                    # -----------------------------------------------------                   
+                    # 1. 上段レイアウト：入力・カード
+                    # -----------------------------------------------------
                     c_top_l, c_top_r = st.columns([2, 1])
-
                     if mode == "寄付き／始値戦略":
                         with c_top_l:
                             g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
                             st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top"><div class="card-label">{baseline_label}</div><div class="strat-value">{last_c:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top"><div class="card-label">寄り付き予想</div><div class="strat-value">{pred_o:,.0f}</div><div class="strat-delta {g_cls}">{m_gap:+.2%}</div></div></div>""", unsafe_allow_html=True)
-                        
                         with c_top_r:
-                            # 1. 更新ボタン：直接セッションステートを書き換えてリロード
                             if st.button(f"始値を更新 ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
                                 new_val = core.get_realtime_opening_price(t)
-                                if new_val:
-                                    st.session_state[perm_key] = float(new_val)
-                                    st.rerun()
-                            
-                            # 2. 始値入力：valueを指定せず、keyだけに任せるのがStreamlitの正解
-                            st.number_input(
-                                "始値", min_value=0.0, step=1.0, format="%f", 
-                                key=perm_key, # これだけで入力値が st.session_state[perm_key] に自動保存される
-                                label_visibility="collapsed"
-                            )
+                                if new_val: st.session_state[perm_key] = float(new_val); st.rerun()
+                            temp_o = st.number_input(f"始値", min_value=0.0, step=1.0, format="%f", value=float(st.session_state[perm_key]), key=f"input_o_{t}", label_visibility="collapsed")
+                            if temp_o != st.session_state[perm_key]: st.session_state[perm_key] = temp_o; st.rerun()
                     else:
-                        # リアルタイム戦略モード
                         with c_top_l:
-                            # 保存されている値を読み出すだけ
-                            actual_open_val = st.session_state.get(perm_key, 0.0)
                             st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top" style="border-left: 5px solid #fffd00;"><div class="card-label">確定始値 (引用中)</div><div class="strat-value">{actual_open_val:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">現在の乖離</div><div class="strat-value">{m_curr_pct:+.2f}%</div><div class="strat-guide">市場全体の地合い</div></div></div>""", unsafe_allow_html=True)
-                        
                         with c_top_r:
                             st.write("")
                             current_p = st.number_input(f"現在値", step=1, format="%d", key=f"now_p_{t}", placeholder="現在値", label_visibility="collapsed")
-                            if st.button("更新", key=f"btn_now_{t}", use_container_width=True):
-                                st.rerun()
-
-                    # 診断用変数の確定
-                    actual_open_val = st.session_state.get(perm_key, 0.0)
+                            if st.button("更新", key=f"btn_now_{t}", use_container_width=True): st.rerun()
 
                     # -----------------------------------------------------
                     # 2. メッセージの出し分け場所（情報の入り口）
