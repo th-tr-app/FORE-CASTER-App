@@ -879,7 +879,7 @@ with tab_strategy:
 # 1. 検証モード選択 (ラベル非表示 & 名称変更)
     mode = st.segmented_control(
         "strategy_mode_selector_label", # ラベルは内部管理用
-        options=["寄付き限定／指値戦略", "リアルタイム指値戦略"],
+        options=["寄付き限定／指値戦略", "リアルタイム／指値戦略"],
         default="寄付き限定／指値戦略",
         key="strategy_mode_selector",
         label_visibility="collapsed" # テキスト「検証モードを選択」を削除
@@ -911,14 +911,28 @@ with tab_strategy:
             if tdf.empty: continue
             t_name = ticker_names.get(t, t)
             
+            
             # モードに応じて銘柄名の表記（色）を変える
             header_label = f"[{t}] {t_name}"
-            if mode == "リアルタイム指値戦略":
+            if mode == "リアルタイム／指値戦略":
                 header_label = f":orange[[{t}] {t_name} (リアルタイム監視)]"
-
+            
             with st.expander(header_label, expanded=True):
-                with st.spinner("計算中..."):
+                # --- 【重要：Ver 4.98 永続化と同期の強化】 ---
+                perm_key = f"perm_open_{t}"   # 始値の永続キー
+                now_p_key = f"now_p_{t}"     # 現在値の永続キー
+                
+                # セッション状態の初期化
+                if perm_key not in st.session_state: st.session_state[perm_key] = 0.0
+                if now_p_key not in st.session_state: st.session_state[now_p_key] = 0
+                
+                # 診断ロジックに渡す変数をここで確定させる
+                actual_open_val = float(st.session_state[perm_key])
+                current_p = int(st.session_state[now_p_key])
+                
+                with st.spinner("同期中..."):
                     ticker_live = yf.Ticker(t)
+                
                     # --- 基準価格(last_c)算出 (既存ロジック) ---
                     jst = timezone(timedelta(hours=9)); now_jst = datetime.now(jst)
                     today_jst = now_jst.date(); current_t = now_jst.time()
@@ -951,80 +965,91 @@ with tab_strategy:
                     actual_open_val = st.session_state[perm_key]
 
                     # -----------------------------------------------------
-                    # 1. 上段レイアウト：入力・カード
+                    # 1. 上段レイアウト：入力・カード (Ver 4.98)
                     # -----------------------------------------------------
                     c_top_l, c_top_r = st.columns([2, 1])
+                    
                     if mode == "寄付き限定／指値戦略":
                         with c_top_l:
                             g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
-                            st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top">
-                            <div class="card-label">{baseline_label}</div>
-                            <div class="strat-value">{last_c:,.0f}</div>
-                            <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div>
-                            <div class="flex-item strat-card-top"><div class="card-label">寄り付き予想</div>
-                            <div class="strat-value">{pred_o:,.0f}</div><div class="strat-delta {g_cls}">{m_gap:+.2%}</div></div></div>""", unsafe_allow_html=True)
+                            st.markdown(f"""
+                            <div class="mobile-flex-container">
+                                <div class="flex-item strat-card-top">
+                                    <div class="card-label">{baseline_label}</div>
+                                    <div class="strat-value">{last_c:,.0f}</div>
+                                    <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div>
+                                </div>
+                                <div class="flex-item strat-card-top">
+                                    <div class="card-label">寄り付き予想</div>
+                                    <div class="strat-value">{pred_o:,.0f}</div>
+                                    <div class="strat-delta {g_cls}">{m_gap:+.2%}</div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        
                         with c_top_r:
-                            # 1. 永続キーとウィジェット用キーの定義
-                            widget_key = f"input_o_{t}"
-                            
-                            # 2. 更新ボタン：永続変数とウィジェット状態の両方を強制上書き
+                            widget_o_key = f"input_o_{t}"
+                            # 1. 更新ボタン：永続キーとウィジェットキーの両方を書き換える
                             if st.button(f"始値を更新 ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
                                 new_val = core.get_realtime_opening_price(t)
                                 if new_val:
-                                    # 永続変数を更新
                                     st.session_state[perm_key] = float(new_val)
-                                    # ウィジェットの内部状態も直接書き換えて同期を強制する
-                                    st.session_state[widget_key] = float(new_val)
+                                    st.session_state[widget_o_key] = float(new_val)
                                     st.rerun()
                             
-                            # 3. 始値入力欄
-                            # valueだけでなく、直接キーを指定して同期を安定させます
+                            # 2. 始値入力欄：セッションに値があればそれを初期値にする
                             temp_o = st.number_input(
-                                f"始値", 
-                                min_value=0.0, 
-                                step=1.0, 
-                                format="%f", 
-                                key=widget_key, # キーを固定
+                                f"始値", min_value=0.0, step=1.0, format="%f", 
+                                key=widget_o_key, 
                                 label_visibility="collapsed"
                             )
-                            
                             # 手入力があった場合、永続変数に同期させる
                             if temp_o != st.session_state[perm_key]:
                                 st.session_state[perm_key] = temp_o
-                    else:
-                        with c_top_l:
-                            st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top" style="background-color: #1e2630;">
-                            <div class="card-label">始値 (引用)</div>
-                            <div class="strat-value">{st.session_state[perm_key]:,.0f}</div>
-                            <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div>
-                            <div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">現在の乖離</div>
-                            <div class="strat-value">{m_curr_pct:+.2f}%</div><div class="strat-guide">市場全体の地合い</div></div></div>""", unsafe_allow_html=True)
+                            
+                            # 診断ロジック用の変数を確定
+                            actual_open_val = st.session_state[perm_key]
 
-                        # 1. ウィジェット用キーの定義
-                        # --- Ver 4.97 で追加された「市場価格との同期」ロジック ---
+                    else:
+                        # リアルタイム指値戦略
+                        with c_top_l:
+                            # 背景色を統一し、枠線を削除したデザイン
+                            st.markdown(f"""
+                            <div class="mobile-flex-container">
+                                <div class="flex-item strat-card-top" style="background-color: #1e2630;">
+                                    <div class="card-label">始値 (引用)</div>
+                                    <div class="strat-value">{st.session_state[perm_key]:,.0f}</div>
+                                    <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div>
+                                </div>
+                                <div class="flex-item strat-card-top" style="background-color: #1e2630;">
+                                    <div class="card-label">現在の乖離</div>
+                                    <div class="strat-value">{m_curr_pct:+.2f}%</div>
+                                    <div class="strat-guide">市場全体の地合い</div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        
                         with c_top_r:
                             now_p_key = f"now_p_{t}"
-    
-                            # 1. 「現在値を同期」ボタンが押された時の処理
+                            # 1. 現在値を同期ボタン：APIから最新価格を取得して反映
                             if st.button("現在値を同期", key=f"btn_now_{t}", use_container_width=True, type="secondary"):
-                                # 市場から今日の「1分足」の最新データを取得
                                 df_now = ticker_live.history(period="1d", interval="1m")
-        
                                 if not df_now.empty:
-                                    # 最新の終値を整数にして、入力欄の「キー」に直接書き込む
-                                    st.session_state[now_p_key] = int(df_now['Close'].iloc[-1])
-                                    # 画面を再描画して、入力欄に値を反映させる
+                                    val = int(df_now['Close'].iloc[-1])
+                                    st.session_state[now_p_key] = val
                                     st.rerun()
 
-                            # 2. 上記ボタンで書き換えられた値が、この入力欄に自動で表示される
-                            current_p = st.number_input(
-                            f"現在値", 
-                            step=1, 
-                            format="%d", 
-                            key=now_p_key, 
-                            placeholder="現在値", 
-                            label_visibility="collapsed"
-                        )
+                            # 2. 現在値入力欄：ボタンや+/-での変更を即座に受け付ける
+                            current_p_input = st.number_input(
+                                f"現在値", step=1, format="%d", 
+                                key=now_p_key, 
+                                placeholder="現在値", 
+                                label_visibility="collapsed"
+                            )
+                            # 手入力（+/-）の結果を診断ロジックに反映
+                            current_p = current_p_input
+                            # 始値も永続変数から引き継ぐ
+                            actual_open_val = st.session_state[perm_key]
                                                 
                     # -----------------------------------------------------
                     # 2. 状態に応じた案内メッセージ (情報の入り口を1つに統合)
@@ -1034,7 +1059,7 @@ with tab_strategy:
                     
                     if not actual_open_val or actual_open_val <= 0:
                         st.info("始値を入力、または「更新ボタン」を押して診断を開始してください。")
-                    elif mode == "リアルタイム指値戦略" and (not locals().get('current_p') or current_p <= 0):
+                    elif mode == "リアルタイム／指値戦略" and (not locals().get('current_p') or current_p <= 0):
                         st.warning("「現在値」を入力または同期して診断を開始してください。")
                     else:
                         show_diagnosis = True
@@ -1097,7 +1122,7 @@ with tab_strategy:
                             status_label = "エントリー可能" if m_curr_pct > -0.003 else "CAUTION (地合い注意)"
                             
                             # リアルタイムかつ到達済みなら文言を強化
-                            main_msg = f"✅ <b>今、執行チャンス！</b>" if (mode == "リアルタイム戦略" and locals().get('current_p') and diff <= 0) else f"✅ <b>{status_label}</b>"
+                            main_msg = f"✅ <b>今、執行チャンス！</b>" if (mode == "リアルタイム／指値戦略" and locals().get('current_p') and diff <= 0) else f"✅ <b>{status_label}</b>"
                             
                             st.markdown(f"""<div class="strat-msg-box {bg_cls}">{main_msg}{dist_msg}<br>統計勝率 {sim_win_rate:.1%} / {n_count}回。{ '勢い低下に注意' if tech_warning else '勢いも良好' }</div>""", unsafe_allow_html=True)
 
