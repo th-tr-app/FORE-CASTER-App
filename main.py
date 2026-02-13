@@ -988,14 +988,34 @@ with tab_strategy:
                         <div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">現在の乖離</div>
                         <div class="strat-value">{m_curr_pct:+.2f}%</div>
                         <div class="strat-guide">市場全体の地合い</div></div></div>""", unsafe_allow_html=True)
+                   
                     with c_top_r:
-                        if st.button(f"現在値を同期({t})", key=f"btn_now_{t}", use_container_width=True, type="secondary"):
-                            df_now = ticker_live.history(period="1d", interval="1m")
-                            if not df_now.empty:
-                                st.session_state[now_p_key] = int(df_now['Close'].iloc[-1])
+                            now_p_key = f"now_p_{t}"
+                            
+                            # 1. 現在値を同期ボタン
+                            if st.button(f"現在値を同期 ({t})", key=f"btn_now_sync_{t}", use_container_width=True, type="secondary"):
+                                df_now = ticker_live.history(period="1d", interval="1m")
+                                if not df_now.empty:
+                                    val = int(df_now['Close'].iloc[-1])
+                                    st.session_state[now_p_key] = val
+                                    st.rerun()
+
+                            # 2. 現在値入力欄：ここで「変化の検知」と「再描画」を入れます
+                            current_p_val = st.number_input(
+                                f"現在値", step=1, format="%d", 
+                                value=int(st.session_state[now_p_key]), 
+                                key=now_p_key, 
+                                label_visibility="collapsed"
+                            )
+                            
+                            # 【解決策：ここを追加】
+                            # +/- ボタンや手入力で値が変わった瞬間、永続キーを更新して st.rerun() をかける
+                            if current_p_val != st.session_state[now_p_key]:
+                                st.session_state[now_p_key] = current_p_val
                                 st.rerun()
-                        # ウィジェットを表示 (key=now_p_keyにより自動同期)
-                        current_p_input = st.number_input(f"現在値", step=1, format="%d", value=int(st.session_state[now_p_key]), key=now_p_key, label_visibility="collapsed")
+                            
+                            # 診断ロジックに渡す変数を確定
+                            current_p = current_p_val
                 
                 # -----------------------------------------------------
                 # 3. 変数の確定 (診断セクションの直前で最新の値を取る)
