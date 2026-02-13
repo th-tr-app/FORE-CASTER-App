@@ -987,7 +987,7 @@ with tab_strategy:
                                 st.session_state[perm_key] = temp_o
                     else:
                         with c_top_l:
-                            st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top" style="border-left: 5px solid #fffd00;"><div class="card-label">確定始値 (引用中)</div><div class="strat-value">{actual_open_val:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">現在の乖離</div><div class="strat-value">{m_curr_pct:+.2f}%</div><div class="strat-guide">市場全体の地合い</div></div></div>""", unsafe_allow_html=True)
+                            st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top" style="border-left: 5px solid #fffd00;"><div class="card-label">始値 (引用)</div><div class="strat-value">{actual_open_val:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">現在の乖離</div><div class="strat-value">{m_curr_pct:+.2f}%</div><div class="strat-guide">市場全体の地合い</div></div></div>""", unsafe_allow_html=True)
                         with c_top_r:
                             # 1. ウィジェット用キーの定義
                             now_p_key = f"now_p_{t}"
