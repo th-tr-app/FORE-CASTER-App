@@ -1,1210 +1,377 @@
-import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta, timezone, time
+import streamlit as st
+from ta.trend import EMAIndicator, MACD, ADXIndicator
+from ta.momentum import RSIIndicator
+from ta.volatility import AverageTrueRange, BollingerBands
+from datetime import datetime, timedelta, time, timezone
 
-# 外部モジュールのインポート
-from const import SECTOR_MAP, TICKER_DETAILS, MARKET_INDICES
-import logic_core as core
+# --- 1. テクニカル指標・ユーティリティ ---
 
-# --- 1. ページ設定 & セッション管理 (永続化の定義) ---
-st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
-st.logo("image_13.png", icon_image="image_12.png")
+def calculate_rci(series, period=9):
+    def get_rci(sub):
+        n = len(sub)
+        d = ((np.arange(n) + 1) - sub.rank(ascending=False)).pow(2).sum()
+        return (1 - (6 * d) / (n * (n**2 - 1))) * 100
+    return series.rolling(window=period).apply(get_rci)
 
-# 基本情報の初期化
-if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = ""
-if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
-if 'res_df' not in st.session_state: st.session_state['res_df'] = pd.DataFrame()
-if 't_names' not in st.session_state: st.session_state['t_names'] = {}
+def get_trade_pattern(row, gap_pct):
+    check_vwap = row['VWAP'] if pd.notna(row['VWAP']) else row['Close']
+    if (gap_pct <= -0.004) and (row['Close'] > check_vwap): return "A：反転狙い"
+    elif (-0.003 <= gap_pct < 0.003) and (row['Close'] > row['EMA5']): return "D：上昇継続"
+    elif (gap_pct >= 0.005) and (row.get('RSI14', 50) >= 65): return "C：ブレイク"
+    elif (gap_pct >= 0.003) and (row['Close'] > row['EMA5']): return "B：押目上昇"
+    return "E：他タイプ"
 
-# --- 戦略別パラメーターの最適化（実戦テスト反映版） ---
-if 'sc_params' not in st.session_state:
-    st.session_state['sc_params'] = [
-        # 🔍 通常フィルター：全業種を対象にトレンドを追う
-        {
-            'sector': [0], # 全業種
-            'c_gain': True, 'gain_rng': (0.5, 5.0), 
-            'c_p': True, 'p_rng': (300, 6000),          # 通常：300〜6000
-            'c_v': True, 'v_min': 30.0, 
-            'c_atrp': False, 'atrp_rng': (1.5, 5.0), 
-            'c_ma': True, 'ma_opt': "最強：上昇トレンド", 
-            'c_ema': True, 'ema_opt': "強気：EMAの上で価格維持", 
-            'c_adx': False, 'adx_rng': (20, 100), 
-            'c_rci': False, 'rci_rng': (0, 100), 
-            'c_rsi': True, 'rsi_rng': (50, 80), 
-            'c_vup': False, 'vup_min': 1.2, 
-            'c_ma25': True, 'ma25_rng': (0.0, 10.0), 
-            'c_bb': True, 'bb_rng': (0.5, 2.5)
-        },
-        # 🛡️ ディフェンシブ：【守り】ボラティリティを徹底的に抑える
-        {
-            'sector': [2, 5, 13, 14, 16], 
-            'c_gain': False, 'gain_rng': (-2.0, 1.0), 
-            'c_p': True, 'p_rng': (500, 6000), 
-            'c_v': True, 'v_min': 50.0,      # 高い流動性を維持
-            'c_atrp': True, 'atrp_rng': (0.5, 2.0), # 低ボラに絞る (2.5→2.0)
-            'c_ma': False, 'ma_opt': "収束：嵐の前の静けさ", 
-            'c_ema': False, 'ema_opt': "安定：EMA付近での推移", 
-            'c_adx': False, 'adx_rng': (0, 30), 
-            'c_rci': False, 'rci_rng': (-80, 20), 
-            'c_rsi': True, 'rsi_rng': (40, 65),     # 上限を下げて過熱感を排除
-            'c_vup': False, 'vup_min': 1.0, 
-            'c_ma25': True, 'ma25_rng': (-2.0, 5.0), # 25日線付近の安定株に限定
-            'c_bb': False, 'bb_rng': (-2.0, 0.5)
-        },
-        # ↔️ 横ばい相場：【攻め】売られすぎからの「リバウンド」に特化。若干順張り寄り。
-        {
-            'sector': [2, 3, 4, 8, 9], 
-            'c_gain': True, 'gain_rng': (-1.0, 3.0), # 上限を少し広げる
-            'c_p': True, 'p_rng': (200, 6000), 
-            'c_v': True, 'v_min': 20.0, 
-            'c_atrp': True, 'atrp_rng': (1.5, 4.0), # ある程度の値幅が必要 (1.0→1.5)
-            'c_ma': True, 'ma_opt': "リバウンド：短期MA上抜け", 
-            'c_ema': False, 'ema_opt': "レンジ：EMAを上下にまたぐ", 
-            'c_adx': False, 'adx_rng': (10, 30), 
-            'c_rci': True, 'rci_rng': (-70, 0),     # 逆張りのためにマイナス圏を指定。-90～-30 から、少し上の -70～0 へ
-            'c_rsi': True, 'rsi_rng': (35, 55),     # 売られすぎ圏からの脱出を狙う。30～50 から、少し上の 35～55 へ
-            'c_vup': True, 'vup_min': 1.2,          # 資金流入の兆しを重視 (1.1→1.2)
-            'c_ma25': True, 'ma25_rng': (-5.0, 2.0), # 大幅乖離からの戻りを狙う。マイナス圏限定から、25日線付近まで許可
-            'c_bb': False, 'bb_rng': (-1.0, 1.0)
-        }
-    ]
+# --- 2. 市場分析・指標取得 ---
 
-# 各タブのスキャン結果保持用
-for i in range(3):
-    if f"sc_res_df_{i}" not in st.session_state: st.session_state[f"sc_res_df_{i}"] = None
-
-# --- 2. デザインCSSの読み込み (style.css) ---
-def local_css(file_name):
-    with open(file_name) as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-
-# style.css を読み込む
-local_css("style.css")
-
-# --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
-st.sidebar.header("🎲 戦略実行プリセット")
-for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェンシブ"), ("RANGE","横ばい相場対応")]:
-    is_sel = (st.session_state['preset'] == p)
-    # 重複エラーを防ぐためキーを一意にする
-    if st.sidebar.button(l + (" [ 選択中 ]" if is_sel else ""), key=f"side_ps_btn_{p}", type="primary" if is_sel else "secondary"):
-        st.session_state['preset'] = p
-        st.rerun()
-
-st.sidebar.divider()
-st.sidebar.header("⚙️ バックテスト設定")
-days_back = st.sidebar.slider("過去何日分を取得", 10, 59, 59)
-s_t = st.sidebar.time_input("開始時間", time(9, 0), step=300); e_t = st.sidebar.time_input("終了時間", time(9, 15), step=300)
-
-st.sidebar.divider()
-
-st.sidebar.header("📈 エントリー条件")
-u_vwap = st.sidebar.checkbox("VWAPより上でエントリー", value=True)
-u_ema = st.sidebar.checkbox("EMA5より上でエントリー", value=True)
-u_rsi = st.sidebar.checkbox("RSIが45以上or上向き", value=True)
-u_macd = st.sidebar.checkbox("MACDが上向き", value=True)
-st.sidebar.write("")
-st.sidebar.write("")
-g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, -3.0, 0.05) / 100
-g_max = st.sidebar.slider("寄付アップ上限 (%)", 0.0, 10.0, 1.0, 0.05) / 100
-st.sidebar.divider()
-st.sidebar.header("💰 決済ルール")
-ts_s = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5, 0.05) / 100
-ts_w = st.sidebar.number_input("トレイリング幅 (%)", 0.1, 5.0, 0.2, 0.05) / 100
-sl_f = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.5, 0.05) / 100
-st.sidebar.divider()
-st.sidebar.header("📉 動的損切り設定")
-u_atr = st.sidebar.checkbox("ATR損切りを使用", value=True)
-a_mul = st.sidebar.number_input("ATR倍率", 0.5, 5.0, 1.5, 0.1)
-a_min = st.sidebar.number_input("最低損切り (%)", 0.1, 5.0, 0.5, 0.1) / 100
-
-params = {
-    'days': days_back, 'start_t': s_t, 'end_t': e_t, 'u_vwap': u_vwap, 'u_ema': u_ema, 'u_rsi': u_rsi, 'u_macd': u_macd,
-    'g_min': g_min, 'g_max': g_max, 'ts_start': ts_s, 'ts_width': ts_w, 'sl_fix': sl_f, 'u_atr': u_atr, 'atr_mul': a_mul, 'atr_min': a_min
-}
-
-# --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
-st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>All-in-one Day trade manager | ver 4.86</p></div>", unsafe_allow_html=True)
-
-# 【修正ポイント】key="target_tickers" を削除し、value= を使用します
-ticker_input_val = st.text_input(
-    "銘柄コード (カンマ区切り)", 
-    value=st.session_state['target_tickers']
-)
-
-# ユーザーが直接手入力した場合、セッション状態を更新してリラン
-if ticker_input_val != st.session_state['target_tickers']:
-    st.session_state['target_tickers'] = ticker_input_val
-    st.rerun()
-
-# --- 5. メインタブ構成 ---
-tab_top, tab_screen, tab_bt, tab_strategy, tab_rank = st.tabs(["☝️ ワンタッチ", "🔍 スキャン", "📈 バックテスト", "🔮 指値戦略", "🏆 ランキング"])
-
-# --- タブ1: ワンタッチ (FC 3.3：統合修正版) ---
-with tab_top:
-    if st.session_state.get('preset') != "SECOND_PLAN":
-        st.markdown("### ☝️ ワンタッチで銘柄選出")
-        st.caption("サイドバーで戦略プリセットを選んでワンタッチボタンを押すと、おすすめ銘柄トップ５が選出されます。")
-
-    # 1. 日本時間の定義と取得 (指定フォーマット: YYYY/MM/DD/HH:MM)
-    jst = timezone(timedelta(hours=9))
-    now_jst = datetime.now(jst).strftime('%Y/%m/%d/%H:%M')
-    
-    # 2. データの取得 (logic_core の関数を呼び出し)
-    m_data = core.fetch_market_info(MARKET_INDICES)
-    diag = core.analyze_market_environment()
-
-    # --- 【ここに動的切り替えロジックを挿入】 ---
-    now_time = datetime.now(jst).time()
-    now_weekday = datetime.now(jst).weekday()
-    is_market_open = (now_weekday < 5) and (time(9, 0) <= now_time <= time(15, 30))
-        
-    if not is_market_open:
-        # 1. まず変数を初期化してエラーを防止
-        cme_pct = 0.0
-        sox_pct = 0.0
-
-        # 2. 「今日の結果」が表示されていない時だけ、CMEなどの予測ロジックを実行
-        if diag.get('forecast_title') != "今日の結果":
-            cme_pct = m_data.get("日経先物(CME)", {}).get("pct", 0.0)
-            sox_pct = m_data.get("SOX指数", {}).get("pct", 0.0)
-            
-            if abs(cme_pct) >= 0.5:
-                if cme_pct >= 1.5:
-                    diag['alert_level'] = "🚀 強気（買い優勢）"
-                    diag['opening_forecast'] = "特大ギャップアップ"
-                    diag['strategy'] = 0
-                    diag['phase_comment'] = "先物が暴騰中。次回の市場開始時は強力な買い先行が予想されます。"
-                elif cme_pct >= 0.5:
-                    diag['alert_level'] = "📈 堅調（押し目買い）"
-                    diag['opening_forecast'] = "ギャップアップ寄り付き"
-                    diag['strategy'] = 0
-                    diag['phase_comment'] = "底堅い展開。プラス圏での推移が期待されます。"
-                elif cme_pct <= -1.5:
-                    diag['alert_level'] = "⚠️ 警戒（売り優勢）"
-                    diag['opening_forecast'] = "特大ギャップダウン"
-                    diag['strategy'] = 1
-                    diag['phase_comment'] = "先物が急落。地合いの悪化に備える必要があります。"
-                elif cme_pct <= -0.5:
-                    diag['alert_level'] = "📉 軟調（戻り売り）"
-                    diag['opening_forecast'] = "ギャップダウン寄り付き"
-                    diag['strategy'] = 2
-                    diag['phase_comment'] = "上値が重い展開。慎重なエントリーが求められます。"
-
-                diag['balance'] = f"先物主導の展開 / CME乖離 {cme_pct:+.2f}%"
-                
-                if abs(sox_pct) >= 2.0:
-                    diag['us_impact'] = f"SOX指数が {sox_pct:+.2f}% と大きく変動。ハイテク株の動きに注目。"
-    
-    strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
-    rec_strat = strat_names[diag["strategy"]]
-    
-    # 3. 市場指標ウォッチの表示
-    with st.expander("🕒 指標ウォッチ（タップで開閉）", expanded=False):
-        # 【修正】指定形式の時刻入り更新ボタン
-        if st.button(f"🔄 更新 ▶︎ {now_jst}", use_container_width=True, key="refresh_top_btn"):
-            st.cache_data.clear()
-            st.rerun()
-            
-        # A. 指標カードの表示
-        cards_html = '<div class="metric-grid">'
-        for n, t in MARKET_INDICES.items():
-            i = m_data.get(n, {})
-            if i.get("val") is not None:
-                v = f"{i['val']:,.1f}" if i['val'] > 200 else f"{i['val']:,.2f}"
-                cls = "plus" if i['pct'] >= 0 else "minus"
-                cards_html += f'<div class="metric-card"><div class="card-label">{n}</div><div class="card-value">{v}</div><div class="delta-badge {cls}">{"＋" if i["pct"]>=0 else ""}{i["pct"]:.2f}%</div></div>'
-        st.markdown(cards_html + '</div>', unsafe_allow_html=True)
-        
-        # B. 今日のマーケットAI診断（最新ロジック反映版）
-        # main.py の診断表示部分
-        diag_html = f"""
-        <div class="ai-diagnosis-box">
-            <div class="ai-diag-header-container">
-                <div class="ai-diag-main-title">📀 今日のマーケットAI診断</div>
-                <div class="ai-diag-status-badge">{diag['alert_level']}</div>
-            </div>
-            <div class="ai-diag-row"><b>バランス：</b> {diag['balance']}</div>
-            <div class="ai-diag-row"><b>推奨戦略：</b> {rec_strat}</div>
-            <div class="ai-diag-row"><b>{diag.get('forecast_title', '寄付予測')}：</b> {diag['opening_forecast']}</div>
-            <div class="ai-diag-row"><b>相場展望：</b> {diag['phase_comment']}</div>
-            <div class="ai-diag-row-last"><b>米国株の影響：</b> {diag['us_impact']}</div>
-            <h4 class="ai-diag-main-title">👀 指標から推測できる注目セクター</h4>
-            <div class="ai-sector-tips">{diag.get('tips', '個別材料株（全業種対象）')}</div>
-        </div>
-        <div class="ai-diag-footer"></div>
-        """
-        st.markdown(diag_html, unsafe_allow_html=True)
-
-    # 4. ワンタッチ判定：全自動スキャン開始ボタン
-    if st.button("👉 ワンタッチ／銘柄候補を自動で選出", type="primary", use_container_width=True, key="ot_full_scan_btn"):
-        current_preset = st.session_state['preset'] 
-        p_idx = 0 if current_preset == "NORMAL" else 1 if current_preset == "DEFENSIVE" else 2
-        p = st.session_state['sc_params'][p_idx]
-        
-        s_logic_params = {
-            'c_gain': p.get('c_gain'), 'gain_range': p.get('gain_rng'),
-            'c_p': p.get('c_p'), 'p_range': p.get('p_rng'), 'c_v': p.get('c_v'), 'v_min': p.get('v_min'), 
-            'c_atrp': p.get('c_atrp'), 'atrp_range': p.get('atrp_rng'), 'c_ma': p.get('c_ma'), 'ma_opt': p.get('ma_opt'), 
-            'c_ema': p.get('c_ema'), 'ema_opt': p.get('ema_opt'), 'c_adx': p.get('c_adx'), 'adx_range': p.get('adx_rng'), 
-            'c_rci': p.get('c_rci'), 'rci_range': p.get('rci_rng'), 'c_rsi': p.get('c_rsi'), 'rsi_range': p.get('rsi_rng'),
-            'c_vup': p.get('c_vup'), 'vup_min': p.get('vup_min'), 'c_ma25': p.get('c_ma25'), 'ma25_range': p.get('ma25_rng'),
-            'c_bb': p.get('c_bb'), 'bb_range': p.get('bb_rng')
-        }
-        
-        # 【修正】業種フィルターの適用
-        selected_sids = p.get('sector', [0])
-        if 0 in selected_sids or not selected_sids:
-            all_tickers = list(TICKER_DETAILS.keys())
-        else:
-            all_tickers = [t for t, d in TICKER_DETAILS.items() if d[1] in selected_sids]
-            
-        ot_results = []
-        
-        with st.status(f"🔍 {current_preset} 戦略で全銘柄をフル分析中...", expanded=True) as status:
-            pb_ot = st.progress(0)
-            for idx, t in enumerate(all_tickers):
-                pb_ot.progress((idx+1)/len(all_tickers))
-                status.update(label=f"分析中 ({idx+1}/{len(all_tickers)}): {t}")
-                
-                df_d = yf.download(t, period="3mo", interval="1d", progress=False)
-                if not df_d.empty:
-                    if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
-                    scr_res = core.evaluate_screening_conditions(df_d, s_logic_params)
-                    if scr_res:
-                        end_date = datetime.now(); start_date = end_date - timedelta(days=days_back)
-                        df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
-                        
-                        if not df_5m.empty:
-                            if isinstance(df_5m.columns, pd.MultiIndex): df_5m.columns = df_5m.columns.get_level_values(0)
-                            p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
-                            trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
-                            score_data = core.get_one_touch_score(trades)
-                            if score_data:
-                                # 【修正】項目の追加
-                                ot_results.append({
-                                    'コード': t, '銘柄名': TICKER_DETAILS.get(t, [t])[0],
-                                    '前日比': scr_res.get('前日比', 0), '回数': score_data['count'],
-                                    '勝率': score_data['win_rate'], '利益平均': score_data['avg_win'],
-                                    '損失平均': score_data['avg_loss'], 'PF': score_data['pf'],
-                                    '期待値': score_data['ev'], '総合スコア': score_data['score']
-                                })
-                                
-            status.update(label="✅ 分析完了！", state="complete")
-
-        # 結果の保存と0件フラグ制御
-        if ot_results:
-            top_5_df = pd.DataFrame(ot_results).sort_values('総合スコア', ascending=False).head(5)
-            st.session_state['ot_last_top5'] = top_5_df
-            st.session_state['ot_no_results'] = False
-            
-            # 監視リスト反映
-            current_str = st.session_state.get('target_tickers', "")
-            current_list = [t.strip() for t in current_str.split(",") if t.strip()]
-            combined_list = sorted(list(set(current_list + top_5_df['コード'].tolist())))
-            st.session_state['target_tickers'] = ", ".join(combined_list)
-            st.rerun()
-        else:
-            st.session_state['ot_no_results'] = True
-            st.session_state.pop('ot_last_top5', None)
-            st.rerun()
-
-    # --- 【修正】スキャン実行後に結果が0件だった時の通知 ---
-    if st.session_state.get('ot_no_results'):
-        st.warning("⚠️ 条件に合致する銘柄が見つかりませんでした。")
-
-    # --- 厳選トップ5のリスト表示（10項目 ＆ ％表記版） ---
-    if 'ot_last_top5' in st.session_state:
-        st.markdown("### 🏆本日の厳選銘柄トップ５")
-        rdf_ot = st.session_state['ot_last_top5']
-        
-        # 表示する列の順番を指定し、％表記を適用
-        st.dataframe(
-            rdf_ot[['コード', '銘柄名', '前日比', '回数', '勝率', '利益平均', '損失平均', 'PF', '期待値', '総合スコア']].style.format({
-                '前日比': '{:+.2f}%', 
-                '勝率': '{:.1%}', 
-                '利益平均': '{:+.2%}', 
-                '損失平均': '{:+.2%}', 
-                '期待値': '{:+.2%}', 
-                'PF': '{:.2f}', 
-                '総合スコア': '{:.2%}' # 0.0190 → 1.90% に変換
-            }),
-            use_container_width=True, hide_index=True, selection_mode=None
-        )
-        
-        if st.button("♻️ ワンタッチ結果をクリア", key="ot_clear_res_btn"):
-            del st.session_state['ot_last_top5']
-            st.session_state['ot_no_results'] = False
-            st.rerun()
-            
-# --- タブ2: スクリーニングの実装 (12パラメーター対応版) ---
-with tab_screen:
-    st.markdown("### 🔍 スクリーニング条件の設定")
-    
-    # 1. Segmented Control に変更（タブの代わりにボタンで選択）
-    options = ["通常フィルタ ", "ディフェンシブ", "横ばい相場 "]
-    sel_tab = st.segmented_control(
-        "スクリーニングプラン選択",
-        options=options,
-        default=options[0],
-        label_visibility="collapsed"
-    )
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # 2. 選択されたプランのインデックス (0, 1, 2) を取得
-    i = options.index(sel_tab)
-    
-    # 3. 選択されたインデックス i を使用して設定を表示
-    p = st.session_state['sc_params'][i]
-    exp_t = f"🔍 スクリーニング設定 ({['通常フィルタ', 'ディフェンシブ', '横ばい相場'][i]})"
-            
-    # --- 1. パラメーター設定エリア ---
-    with st.expander(exp_t, expanded=False):
-        # --- A. 業種選択 ---
-        p['sector'] = st.pills(
-            "**対象業種 (タップで複数選択)**",
-            options=list(SECTOR_MAP.keys()),
-            format_func=lambda x: f"{SECTOR_MAP[x]}",
-            selection_mode="multi",
-            default=p['sector'],
-            key=f"v_sector_pill_{i}"
-        )
-        st.divider()
- 
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            p['c_p'] = st.checkbox("**株価の範囲**", p['c_p'], key=f"c_p_{i}")
-            # メモリを 100〜10000 に統一、ステップを 100円刻みに設定
-            p['p_rng'] = st.slider("価格(円)", 100, 10000, p['p_rng'], step=100, key=f"v_p_{i}")
-            st.divider()
-            p['c_v'] = st.checkbox("**売買代金**", p['c_v'], key=f"c_v_{i}")
-            p['v_min'] = st.number_input("億円以上", value=p['v_min'], step=10.0, key=f"v_v_{i}")
-            st.divider()
-            p['c_atrp'] = st.checkbox("**平均値幅 (ATR%)**", p['c_atrp'], key=f"c_atrp_{i}")
-            p['atrp_rng'] = st.slider("期待範囲%", 0.5, 5.0, p['atrp_rng'], step=0.1, key=f"v_atrp_{i}")
-            st.divider()
-            p['c_ma'] = st.checkbox("**移動平均上抜け/並び**", p['c_ma'], key=f"c_ma_{i}")
-            p['ma_opt'] = st.selectbox("条件選択", ["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"], index=["最強：上昇トレンド", "転換：GC直後", "収束：嵐の前の静けさ", "リバウンド：短期MA上抜け"].index(p['ma_opt']), key=f"v_ma_{i}")
-            st.divider()
-
-        with c2:
-            p['c_gain'] = st.checkbox("**前日値上がり率 (%)**", p['c_gain'], key=f"c_gain_{i}")
-            p['gain_rng'] = st.slider("変動幅%", -10.0, 10.0, p['gain_rng'], step=0.5, key=f"v_gain_{i}")
-            st.divider()
-            p['c_ema'] = st.checkbox("**EMA (9日・21日)**", p['c_ema'], key=f"c_ema_{i}")
-            p['ema_opt'] = st.selectbox("EMA基準", ["強気：EMAの上で価格維持", "安定：EMA付近での推移", "レンジ：EMAを上下にまたぐ"], index=["強気：EMAの上で価格維持", "安定：EMA付近での推移", "レンジ：EMAを上下にまたぐ"].index(p['ema_opt']), key=f"v_ema_{i}")
-            st.divider()
-            p['c_adx'] = st.checkbox("**ADX (強度)**", p['c_adx'], key=f"c_adx_{i}")
-            p['adx_rng'] = st.slider("強度スコア", 0, 100, p['adx_rng'], step=5, key=f"v_adx_{i}")
-            st.divider()
-            p['c_rci'] = st.checkbox("**RCI (過熱感)**", p['c_rci'], key=f"c_rci_{i}")
-            p['rci_rng'] = st.slider("RCI範囲", -100, 100, p['rci_rng'], step=5, key=f"v_rci_{i}")
-            st.divider()
-
-        with c3:
-            p['c_rsi'] = st.checkbox("**RSI (レンジ)**", p['c_rsi'], key=f"c_rsi_{i}")
-            p['rsi_rng'] = st.slider("RSIレンジ", 0, 100, p['rsi_rng'], step=5, key=f"v_rsi_{i}")
-            st.divider()
-            p['c_vup'] = st.checkbox("**出来高増加率**", p['c_vup'], key=f"c_vup_{i}")
-            p['vup_min'] = st.slider("増加倍率", 1.0, 5.0, p['vup_min'], step=0.1, key=f"v_vup_{i}")
-            st.divider()
-            p['c_ma25'] = st.checkbox("**25MA乖離率**", p['c_ma25'], key=f"c_ma25_{i}")
-            p['ma25_rng'] = st.slider("偏差%", -20.0, 20.0, p['ma25_rng'], step=1.0, key=f"v_ma25_{i}")
-            st.divider()
-            p['c_bb'] = st.checkbox("**ボリンジャーバンド**", p['c_bb'], key=f"c_bb_{i}")
-            p['bb_rng'] = st.slider("σ範囲", -3.0, 3.0, p['bb_rng'], step=1.0, key=f"v_bb_{i}")
-            st.divider()
-
-    # --- 2. スクリーニング実行 (計算のみ) ---
-    if st.button(f"{['通常フィルタ', 'ディフェンシブ', '横ばい相場'][i]} スキャン開始", key=f"btn_sc_exec_{i}", type="primary", use_container_width=True):
-        # (スキャン実行ロジックは変更なし)
-        selected_sids = p['sector']
-        if 0 in selected_sids or not selected_sids:
-            target_tickers = list(TICKER_DETAILS.keys())
-            scan_label = "全業種"
-        else:
-            target_tickers = [t for t, d in TICKER_DETAILS.items() if d[1] in selected_sids]
-            scan_label = ", ".join([SECTOR_MAP[sid] for sid in selected_sids])
-                
-        s_logic_params = {
-            'c_gain': p['c_gain'], 'gain_range': p['gain_rng'],
-            'c_p': p['c_p'], 'p_range': p['p_rng'], 'c_v': p['c_v'], 'v_min': p['v_min'], 
-            'c_atrp': p['c_atrp'], 'atrp_range': p['atrp_rng'], 'c_ma': p['c_ma'], 'ma_opt': p['ma_opt'],
-            'c_ema': p['c_ema'], 'ema_opt': p['ema_opt'], 'c_adx': p['c_adx'], 'adx_range': p['adx_rng'], 
-            'c_rci': p['c_rci'], 'rci_range': p['rci_rng'], 'c_rsi': p['c_rsi'], 'rsi_range': p['rsi_rng'],
-            'c_vup': p['c_vup'], 'vup_min': p['vup_min'],
-            'c_ma25': p['c_ma25'], 'ma25_range': p['ma25_rng'], 'c_bb': p['c_bb'], 'bb_range': p['bb_rng']
-        }
-
-        results = []
-        with st.status(f"🔍 {scan_label} をスキャン中...", expanded=True) as status:
-            pb = st.progress(0)
-            for idx, t in enumerate(target_tickers):
-                pb.progress((idx+1)/len(target_tickers))
-                df_d = yf.download(t, period="3mo", interval="1d", progress=False)
-                if not df_d.empty:
-                    if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
-                    res = core.evaluate_screening_conditions(df_d, s_logic_params)
-                    if res:
-                        res['コード'] = t
-                        res['銘柄名'] = TICKER_DETAILS[t][0]
-                        results.append(res)
-            status.update(label=f"✅ {len(results)} 銘柄発見", state="complete")
-                
-        # 【修正】結果の保存と同時に0件フラグを制御
-        st.session_state[f"sc_res_df_{i}"] = pd.DataFrame(results) if results else None
-        # スキャン実行後の0件判定フラグを設定
-        st.session_state[f"sc_no_results_{i}"] = True if not results else False
-        st.rerun()
-
-    # --- 【修正】スキャン実行後に結果が0件だった時の通知 ---
-    if st.session_state.get(f"sc_no_results_{i}"):
-        st.warning("⚠️ 条件に合致する銘柄が見つかりませんでした。")
-
-    # --- 結果表示 (並び替え・全件表示・書式設定済み) ---
-    current_res = st.session_state.get(f"sc_res_df_{i}")
-    if current_res is not None and not current_res.empty:
-        # (以降、st.info や st.dataframe 表示ロジックは維持)
-        st.caption("👇 チェックを入れると銘柄リストに追加できます。")
-        st.markdown("<br>", unsafe_allow_html=True)
-        current_res = current_res.sort_values("売買代金", ascending=False)
-        df_height = (len(current_res) + 1) * 35 + 5 # 縦スクロール防止
-                
-        sel_event = st.dataframe(
-            current_res[['コード', '銘柄名', '株価', '前日比', 'RSI', '25MA乖離', 'ATR%', '売買代金']],
-            use_container_width=True, hide_index=True, 
-            on_select="rerun", selection_mode="multi-row", 
-            key=f"df_sc_view_final_{i}",
-            height=df_height,
-            column_config={
-                "前日比": st.column_config.NumberColumn("前日比", format="%+.2f%%"),
-                "25MA乖離": st.column_config.NumberColumn("25MA乖離", format="%+.2f%%"),
-                "ATR%": st.column_config.NumberColumn("ATR%", format="%.2f%%"),
-                "売買代金": st.column_config.NumberColumn("売買代金(億)", format="%.1f")
-            }
-        )
-                
-        # 自動入力ロジック
-        if sel_event.selection.rows:
-            selected_codes = current_res.iloc[sel_event.selection.rows]['コード'].tolist()
-            current_str = st.session_state.get('target_tickers', "")
-            current_list = [t.strip() for t in current_str.split(",") if t.strip()]
-            new_only = [c for c in selected_codes if c not in current_list]
-            if new_only:
-                new_combined = sorted(list(set(current_list + new_only)))
-                st.session_state['target_tickers'] = ", ".join(new_combined)
-                st.session_state[f"sc_no_results_{i}"] = False # 監視リスト追加時は警告を消す
-                st.toast(f"監視リストに {len(new_only)} 銘柄を反映しました")
-                st.rerun()
-                        
-# --- タブ3: バックテスト (Ver 4.6.0：始値自動取得統合版) ---
-with tab_bt:
-    st.markdown("### 📈 バックテスト検証")
-    st.caption("過去60日分の統計データから、勝率と期待値を可視化して、最も勝ちやすいパターンを分析します。")
-    if st.button("バックテスト実行", type="primary", use_container_width=True, key="bt_run_main"):
-        t_list = [t.strip() for t in st.session_state['target_tickers'].split(",") if t.strip()]
-        if not t_list:
-            st.error("⚠️ 銘柄コードを入力してください。")
-        else:
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=days_back)
-            all_trades = []; t_names = {}
-            pb = st.progress(0); st_text = st.empty()
-            
-            for i, t in enumerate(t_list):
-                st_text.text(f"分析中 {t}..."); pb.progress((i+1)/len(t_list))
-                
-                # --- ⚡️ 重要：本日の始値を自動取得してセッションに保存 ---
-                # 指値戦略タブの入力欄（act_in_銘柄コード）とキーを同期させます
-                st.session_state[f"act_in_{t}"] = core.get_realtime_opening_price(t)
-                
-                # データのダウンロードとMultiIndex対策
-                df = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
-                if df.empty: continue
+@st.cache_data(ttl=300)
+def fetch_market_info(indices_dict):
+    data = {}
+    for name, ticker in indices_dict.items():
+        try:
+            df = yf.download(ticker, period="5d", progress=False)
+            if not df.empty:
                 if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-                
-                # シミュレーション実行
-                p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
-                trades = core.run_ticker_simulation(t, df, p_map, o_map, a_map, params)
-                all_trades.extend(trades)
-                t_names[t] = TICKER_DETAILS.get(t, [t])[0]
-                
-            st.session_state['res_df'] = pd.DataFrame(all_trades)
-            st.session_state['t_names'] = t_names
-            st_text.empty(); pb.empty()
-            st.rerun()
+                df = df.dropna(subset=['Close'])
+                latest = float(df['Close'].values.ravel()[-1])
+                prev = float(df['Close'].values.ravel()[-2])
+                data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
+        except: data[name] = {"val": None, "pct": None}
+    return data
 
-    # 分析結果サブタブの展開
-    res_df = st.session_state['res_df']
-    ticker_names = st.session_state['t_names']
+@st.cache_data(ttl=300)
+def analyze_market_environment():
+    """主要指数から今日の相場環境をプロ視点で診断する (Ver 4.7.2：エラー解消版)"""
+    indices = {"N225": "^N225", "VIX": "^VIX", "SOX": "^SOX", "WTI": "CL=F", "CME": "NIY=F", "USDJPY": "JPY=X", "GOLD": "GC=F"}
+    data_map = {}
     
-    if not res_df.empty:
-        bt_tabs = st.tabs(["📊 サマリー", "🏅 勝ちパターン", "📉 ギャップ分析", "🧐 VWAP分析", "🕒 時間分析", "📝 詳細ログ"])
-        
-        with bt_tabs[0]: # 📊 サマリー (6.3 完全移植 + 3.0 整合版)
-            # --- 1. 計測期間の取得 (フォールバック付) ---
-            display_period = st.session_state.get('bt_period')
-            if not display_period or display_period == "不明":
-                display_period = f"{(datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')} - {datetime.now().strftime('%Y-%m-%d')}"
+    jst = timezone(timedelta(hours=9))
+    now_dt = datetime.now(jst)
+    today = now_dt.date()
+
+    for k, ticker in indices.items():
+        try:
+            df = yf.download(ticker, period="40d", interval="1d", progress=False)
+            if df.empty: continue
+            if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+
+            if df.index[-1].date() != today:
+                t_obj = yf.Ticker(ticker)
+                current_p = t_obj.info.get('regularMarketPrice') or t_obj.info.get('previousClose')
+                if current_p:
+                    new_row = pd.DataFrame([[current_p] * 4 + [0, 0, 0]], columns=df.columns, index=[pd.Timestamp(today)])
+                    df = pd.concat([df, new_row])
             
-            # --- 2. 全体集計 ---
-            count_all = len(res_df)
-            wins_all = res_df[res_df['PnL'] > 0]
-            losses_all = res_df[res_df['PnL'] <= 0]
-            win_rate_all = len(wins_all) / count_all if count_all > 0 else 0
-            pf_all = wins_all['PnL'].sum() / abs(losses_all['PnL'].sum()) if not losses_all.empty else 0
-            expectancy_all = res_df['PnL'].mean()
+            data_map[k] = df.dropna(subset=['Close'])
+        except: continue
 
-            # --- 3. メトリクス表示 (3.0のデザインを継承) ---
-            st.markdown(f"""
-                <div class='metric-grid'>
-                    <div class='summary-box'><div class='card-label'>総トレード数</div><div class='card-value'>{count_all}</div></div>
-                    <div class='summary-box'><div class='card-label'>勝率</div><div class='card-value'>{win_rate_all:.1%}</div></div>
-                    <div class='summary-box'><div class='card-label'>PF（利益÷損失）</div><div class='card-value'>{pf_all:.2f}</div></div>
-                    <div class='summary-box'><div class='card-label'>期待値</div><div class='card-value'>{expectancy_all:.2%}</div></div>
-                </div>""", unsafe_allow_html=True)
-            st.divider()
-        
-            # --- 4. テキストレポート生成 (6.3の詳細度を復元) ---
-            report = ["=================\n BACKTEST REPORT \n=================", f"Period: {display_period}\n"]
-            
-            for t in res_df['Ticker'].unique():
-                tdf = res_df[res_df['Ticker'] == t]
-                if tdf.empty: continue
-                
-                t_wins = tdf[tdf['PnL'] > 0]
-                t_losses = tdf[tdf['PnL'] <= 0]
-                t_wr = len(t_wins) / len(tdf)
-                t_pf = t_wins['PnL'].sum() / abs(t_losses['PnL'].sum()) if not t_losses.empty else 9.9
-                
-                report.append(f">>> TICKER: {t} | {ticker_names.get(t, t)}")
-                report.append(f"トレード数: {len(tdf)} | 勝率: {t_wr:.1%} | 利益平均: {t_wins['PnL'].mean():+.2%} | 損失平均: {t_losses['PnL'].mean():+.2%} | PF: {t_pf:.2f} | 期待値: {tdf['PnL'].mean():+.2%}\n")
-            
-            st.caption("右上のコピーボタンで全文コピーできます↓")
-            st.code("\n".join(report), language="text")
-
-            if st.button("♻️ バックテスト結果をクリア", key="reset_summary_final"):
-                st.session_state['res_df'] = pd.DataFrame()
-                st.rerun()
-                
-        with bt_tabs[1]: # 🏅 勝ちパターン (3回以上優先 ＆ 1回以上代用版)
-            st.markdown("### 🏅 勝ちパターン分析")
-            st.caption("チャートパターン別の成績分析と、ベストなエントリー条件を言語化して勝ちパターンを抽出します。")
-            if not res_df.empty and 'Ticker' in res_df.columns:
-                unique_res_tickers = res_df['Ticker'].unique()
-
-                for t in unique_res_tickers:
-                    tdf = res_df[res_df['Ticker'] == t].copy()
-                    if tdf.empty: continue
-                    t_name = ticker_names.get(t, t)
-                    st.markdown(f"### [{t}] {t_name}")
-
-                    # --- 勝ちパターン分析 (文字列変換 ＆ 左揃え) ---
-                    pat_stats = tdf.groupby('Pattern', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
-                    pat_stats.columns = ['パターン', '回数', '勝率', '平均損益']
-
-                    # 表示用に全ての列を文字列に変換する
-                    pat_stats_disp = pat_stats.copy()
-                    pat_stats_disp['回数'] = pat_stats_disp['回数'].astype(str)
-                    pat_stats_disp['勝率'] = pat_stats_disp['勝率'].apply(lambda x: f"{x:.1%}")
-                    pat_stats_disp['平均損益'] = pat_stats_disp['平均損益'].apply(lambda x: f"{x:+.2%}")
-
-                    st.dataframe(
-                        pat_stats_disp.style.set_properties(**{'text-align': 'left'}), # 文字列なので確実に左に寄る
-                        hide_index=True, 
-                        use_container_width=True
-                    )
-
-                    # 2. ベスト条件抽出用ヘルパー関数 (代用ロジック)
-                    def get_best_row(df, count_col, rate_col, threshold=3):
-                        # まずは3回以上で探す
-                        valid = df[df[count_col] >= threshold]
-                        if valid.empty:
-                            # なければ1回以上で探す (一番良い数字を代用)
-                            valid = df[df[count_col] >= 1]
-                        return valid.loc[valid[rate_col].idxmax()] if not valid.empty else None
-
-                    try:
-                        # A. ギャップ分析 (0.5%刻み)
-                        g_min, g_max = tdf['Gap(%)'].min(), tdf['Gap(%)'].max()
-                        if pd.isna(g_min): g_min, g_max = -3.0, 1.0
-                        bins_g = np.arange(np.floor(g_min), np.ceil(g_max) + 0.5, 0.5)
-                        if len(bins_g) < 2: bins_g = [g_min - 0.5, g_min + 0.5] # 境界不足対策
-                        tdf['GapRange'] = pd.cut(tdf['Gap(%)'], bins=bins_g)
-                        g_s = tdf.groupby('GapRange', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
-                        
-                        # B. VWAP分析 (0.2%刻み)
-                        tdf['VWAP_Diff'] = ((tdf['In'] - tdf['EntryVWAP']) / tdf['EntryVWAP']) * 100
-                        v_min, v_max = tdf['VWAP_Diff'].min(), tdf['VWAP_Diff'].max()
-                        if pd.isna(v_min): v_min, v_max = -1.0, 1.0
-                        bins_v = np.arange(np.floor(v_min*5)/5, np.ceil(v_max*5)/5 + 0.2, 0.2)
-                        if len(bins_v) < 2: bins_v = [v_min - 0.2, v_min + 0.2]
-                        tdf['VwapRange'] = pd.cut(tdf['VWAP_Diff'], bins=bins_v)
-                        v_s = tdf.groupby('VwapRange', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
-
-                        # C. 時間分析 (5分刻み)
-                        tdf['TR'] = tdf['Entry'].apply(lambda dt: f"{dt.strftime('%H:%M')}～{(dt + timedelta(minutes=5)).strftime('%H:%M')}")
-                        t_s = tdf.groupby('TR', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean()]).reset_index()
-
-                        # ベスト行の取得 (3回以上を優先し、なければ最大値を採用)
-                        best_p = get_best_row(pat_stats, '回数', '勝率')
-                        best_g = get_best_row(g_s, 'count', '<lambda_0>')
-                        best_v = get_best_row(v_s, 'count', '<lambda_0>')
-                        best_t = get_best_row(t_s, 'count', '<lambda_0>')
-
-                        if all([best_p is not None, best_g is not None, best_v is not None, best_t is not None]):
-                            g_txt = "ギャップアップ" if best_g['GapRange'].left >= 0 else "ギャップダウン"
-                            reliability = "⭐⭐" if best_p['回数'] >= 3 else "⭐" # 信頼度アイコン
-                            
-                            st.info(f"**🏆 最高勝率パターン {reliability}**\n\n"
-                                    f"最も勝率が高かったのは、"
-                                    f"**{g_txt} ({best_g['GapRange'].left:.1f}% ～ {best_g['GapRange'].right:.1f}%)** スタートで、"
-                                    f"**{best_p['パターン']}** の形になり、"
-                                    f"**VWAPから {best_v['VwapRange'].left:.1f}% ～ {best_v['VwapRange'].right:.1f}%** の位置にある時、"
-                                    f"**{best_t['TR']}** にエントリーするパターンです。\n\n"
-                                    f"（GAP勝率: {best_g['<lambda_0>']:.1%} / VWAP勝率: {best_v['<lambda_0>']:.1%} / 時間勝率: {best_t['<lambda_0>']:.1%})")
-                        else:
-                            st.warning("⚠️ パターンを特定するためのトレードデータが足りません。")
-                            
-                    except Exception as e:
-                        st.error(f"[{t}] 分析エラー: データの範囲が狭すぎるか、不足しています。")
-                    st.divider()
-
-        with bt_tabs[2]: # 📉 ギャップ分析 (BACK TESTER 6.3 完全移植版)
-            if not res_df.empty and 'Ticker' in res_df.columns:
-                for t in res_df['Ticker'].unique():
-                    tdf = res_df[res_df['Ticker'] == t].copy()
-                    t_name = ticker_names.get(t, t)
-                    st.markdown(f"### [{t}] {t_name}")
-                    
-                    # --- 1. 始値ギャップ方向の分析 ---
-                    st.markdown("##### 始値ギャップ方向と成績")
-                    tdf['GapDir'] = tdf['Gap(%)'].apply(lambda x: 'ギャップアップ' if x > 0 else ('ギャップダウン' if x < 0 else 'フラット'))
-                    gap_dir_stats = tdf.groupby('GapDir', observed=True).agg(
-                        Count=('PnL', 'count'), WinRate=('PnL', lambda x: (x > 0).mean()), AvgPnL=('PnL', 'mean')
-                    ).reset_index()
-                    
-                    gap_dir_disp = gap_dir_stats.copy()
-                    gap_dir_disp['WinRate'] = gap_dir_disp['WinRate'].apply(lambda x: f"{x:.1%}")
-                    gap_dir_disp['AvgPnL'] = gap_dir_disp['AvgPnL'].apply(lambda x: f"{x:+.2%}")
-                    gap_dir_disp.columns = ['方向', '回数', '勝率', '平均損益']
-                    
-                    # --- 【修正点】文字列変換 ＆ 左揃えを適用 ---
-                    gap_dir_disp['回数'] = gap_dir_disp['回数'].astype(str)
-                    st.dataframe(
-                        gap_dir_disp.style.set_properties(**{'text-align': 'left'}), 
-                        hide_index=True, use_container_width=True
-                    )
-
-                    # --- 2. ギャップ幅ごとの分析 (0.5%刻み) ---
-                    st.markdown("##### ギャップ幅ごとの勝率")
-                    try:
-                        min_g = np.floor(tdf['Gap(%)'].min()); max_g = np.ceil(tdf['Gap(%)'].max())
-                        bins_g = np.arange(min_g if not np.isnan(min_g) else -3.0, (max_g if not np.isnan(max_g) else 1.0) + 0.5, 0.5)
-                        tdf['GapRange'] = pd.cut(tdf['Gap(%)'], bins=bins_g)
-                        gap_range_stats = tdf.groupby('GapRange', observed=True).agg(
-                            Count=('PnL', 'count'), WinRate=('PnL', lambda x: (x > 0).mean()), AvgPnL=('PnL', 'mean')
-                        ).reset_index()
-                        gap_range_stats['RangeLabel'] = gap_range_stats['GapRange'].apply(lambda i: f"{i.left:.1f}% ～ {i.right:.1f}%")
-                        disp_gap = gap_range_stats[['RangeLabel', 'Count', 'WinRate', 'AvgPnL']].copy()
-                        disp_gap['WinRate'] = disp_gap['WinRate'].apply(lambda x: f"{x:.1%}")
-                        disp_gap['AvgPnL'] = disp_gap['AvgPnL'].apply(lambda x: f"{x:+.2%}")
-                        disp_gap.columns = ['ギャップ幅', '回数', '勝率', '平均損益']
-                        
-                        # --- 【修正点】文字列変換 ＆ 左揃えを適用 ---
-                        disp_gap['回数'] = disp_gap['回数'].astype(str)
-                        st.dataframe(
-                            disp_gap.style.set_properties(**{'text-align': 'left'}), 
-                            hide_index=True, use_container_width=True
-                        )
-                    except: st.warning(f"[{t}] ギャップ幅分析用のデータが不足しています。")
-                    st.divider()
-
-        with bt_tabs[3]: # 🧐 VWAP分析 (BACK TESTER 6.3 完全移植 & 3.0 変数同期版)
-            # --- データの存在チェック ---
-            if not res_df.empty and 'Ticker' in res_df.columns:
-                # 実際に結果が存在する銘柄コードのみを抽出してループ
-                unique_res_tickers = res_df['Ticker'].unique()
-                
-                for t in unique_res_tickers:
-                    tdf = res_df[res_df['Ticker'] == t].copy()
-                    if tdf.empty: continue
-                    
-                    t_name = ticker_names.get(t, t)
-                    st.markdown(f"### [{t}] {t_name}")
-                    st.markdown("##### エントリー時のVWAPと勝率")
-                    
-                    # --- VWAP乖離の計算 ---
-                    # EntryVWAP（エントリー時点のVWAP値）から乖離率を算出
-                    tdf['VWAP乖離(%)'] = ((tdf['In'] - tdf['EntryVWAP']) / tdf['EntryVWAP']) * 100
-                    
-                    try:
-                        # レンジ（bin）の作成 (0.2%刻みに調整)
-                        # 最小・最大値を0.2単位で丸めて範囲を決定
-                        min_dev = np.floor(tdf['VWAP乖離(%)'].min() * 5) / 5
-                        max_dev = np.ceil(tdf['VWAP乖離(%)'].max() * 5) / 5
-                        if np.isnan(min_dev): min_dev = -1.0; max_dev = 1.0
-                        
-                        # 0.2刻みの配列を生成
-                        bins = np.arange(min_dev, max_dev + 0.2, 0.2)
-                        tdf['Range'] = pd.cut(tdf['VWAP乖離(%)'], bins=bins)
-                        
-                        # 統計集計（Named Aggregation形式）
-                        vwap_stats = tdf.groupby('Range', observed=True).agg(
-                            Count=('PnL', 'count'), 
-                            WinRate=('PnL', lambda x: (x > 0).mean()), 
-                            AvgPnL=('PnL', 'mean')
-                        ).reset_index()
-                        
-                        # ラベルの整形 (0.2%刻みを正確に表示)
-                        def format_vwap_interval(i): 
-                            return f"{i.left:.1f}% ～ {i.right:.1f}%"
-                        vwap_stats['RangeLabel'] = vwap_stats['Range'].apply(format_vwap_interval)
-                        
-                        # 表示用データフレームの構築
-                        display_stats = vwap_stats[['RangeLabel', 'Count', 'WinRate', 'AvgPnL']].copy()
-                        display_stats['WinRate'] = display_stats['WinRate'].apply(lambda x: f"{x:.1%}")
-                        display_stats['AvgPnL'] = display_stats['AvgPnL'].apply(lambda x: f"{x:+.2%}")
-                        display_stats['Count'] = display_stats['Count'].astype(str)
-                        display_stats.columns = ['乖離率レンジ', '回数', '勝率', '平均損益']
-                        
-                        # 表の表示
-                        st.dataframe(display_stats.style.set_properties(**{'text-align': 'left'}), hide_index=True, use_container_width=True)
-                    
-                    except Exception:
-                        st.warning(f"[{t}] VWAP乖離分析を生成するためのデータが不足しています。")
-                    
-                    st.divider()
-
-        with bt_tabs[4]: # 🕒 時間分析 (BACK TESTER 6.3 完全移植版)
-            # --- データの存在チェック ---
-            if not res_df.empty and 'Ticker' in res_df.columns:
-                # 実際に結果が存在する銘柄コードのみを抽出してループ
-                unique_res_tickers = res_df['Ticker'].unique()
-
-                for t in unique_res_tickers:
-                    tdf = res_df[res_df['Ticker'] == t].copy()
-                    if tdf.empty: continue
-                    
-                    t_name = ticker_names.get(t, t)
-                    st.markdown(f"### [{t}] {t_name}")
-                    st.markdown("##### エントリー時間帯ごとの勝率")
-                    
-                    # --- エントリー時間帯の5分刻み文字列作成 ---
-                    def get_time_range(dt): 
-                        return f"{dt.strftime('%H:%M')}～{(dt + timedelta(minutes=5)).strftime('%H:%M')}"
-                    
-                    tdf['TimeRange'] = tdf['Entry'].apply(get_time_range)
-                    
-                    # --- 時間帯ごとの集計 ---
-                    try:
-                        time_stats = tdf.groupby('TimeRange', observed=True)['PnL'].agg(['count', lambda x: (x>0).mean(), 'mean']).reset_index()
-                        
-                        # 表示用に整形
-                        time_disp = time_stats.copy()
-                        time_disp.columns = ['時間帯', 'count', 'win_rate', 'mean']
-                        time_disp['WinRate'] = time_disp['win_rate'].apply(lambda x: f"{x:.1%}")
-                        time_disp['AvgPnL'] = time_disp['mean'].apply(lambda x: f"{x:+.2%}")
-                        time_disp['Count'] = time_disp['count'].astype(str)
-                        
-                        # 最終的な表示用カラム
-                        final_disp = time_disp[['時間帯', 'Count', 'WinRate', 'AvgPnL']]
-                        final_disp.columns = ['時間帯', '回数', '勝率', '平均損益']
-                        
-                        st.dataframe(final_disp, hide_index=True, use_container_width=True)
-                    except Exception:
-                        st.warning(f"[{t}] 時間分析を生成するためのデータが不足しています。")
-                    
-                    st.divider()
-
-        with bt_tabs[5]: # 📝 詳細ログ (BACK TESTER 6.3 完全移植版)
-            st.markdown("### 📝 詳細取引ログ")
-            
-            # --- データの存在チェック ---
-            if not res_df.empty and 'Ticker' in res_df.columns:
-                # リストの初期化
-                log_report = []
-                
-                # 実際に結果が存在する銘柄コードのみを抽出してループ
-                unique_res_tickers = res_df['Ticker'].unique()
-
-                for t in unique_res_tickers:
-                    # データの抽出とソート (新しい順)
-                    tdf = res_df[res_df['Ticker'] == t].copy().sort_values('Entry', ascending=False).reset_index(drop=True)
-                    if tdf.empty: continue
-                    
-                    # VWAP乖離の再計算
-                    tdf['VWAP乖離(%)'] = ((tdf['In'] - tdf['EntryVWAP']) / tdf['EntryVWAP']) * 100
-                    t_name = ticker_names.get(t, t)
-                    
-                    log_report.append(f"[{t}] {t_name} 取引履歴")
-                    log_report.append("-" * 80)
-                    
-                    for i, row in tdf.iterrows():
-                        entry_str = row['Entry'].strftime('%Y-%m-%d %H:%M')
-                        
-                        # VWAP表示の整形
-                        if pd.notna(row['EntryVWAP']) and row['EntryVWAP'] != 0:
-                            vwap_val = int(round(row['EntryVWAP']))
-                            vwap_dev = f"{row['VWAP乖離(%)']:+.2f}%"
-                            vwap_str = f"{vwap_val} (乖離 {vwap_dev})"
-                        else:
-                            vwap_str = "- (乖離 -)"
-                        
-                        # 6.3形式の1行詳細ログ作成 (金額は int で整形)
-                        line = (
-                            f"{entry_str} | "
-                            f"前終値：{int(row['PrevClose'])} | 始値：{int(row['DayOpen'])} | "
-                            f"{row['Pattern']} | "
-                            f"PnL: {row['PnL']:+.2%} | Gap: {row['Gap(%)']:+.2f}% | "
-                            f"買：{int(row['In'])} | 売：{int(row['Out'])} | "
-                            f"VWAP: {vwap_str} | "
-                            f"{row['Reason']}"
-                        )
-                        log_report.append(line)
-                    log_report.append("\n")
-                
-                st.caption("右上のコピーボタンで全文コピーできます↓")
-                st.code("\n".join(log_report), language="text")
-
-                st.divider()
-
-# --- タブ4: 指値戦略 (Ver 4.7.0：計算順序最適化 & 構造クリーンアップ) ---
-with tab_strategy:
-    st.markdown("### 🔮 指値戦略プランナー")
-    st.caption("統計的勝率・地合い・リアルタイムの勢いを統合した最終判断用パネルです。始値確定後の利用を推奨します。")
+    # --- 1. 基礎データの抽出 (0円回避ガード) ---
+    n225_close = 0; n225_prev_close = 0; n225_ma25 = 0; cme_val = 0
+    if "N225" in data_map:
+        df_n = data_map["N225"]
+        valid_df = df_n.dropna(subset=['Close'])
+        if len(valid_df) >= 2:
+            n225_close = float(valid_df['Close'].iloc[-1])
+            n225_prev_close = float(valid_df['Close'].iloc[-2])
+            n225_ma25 = float(valid_df['Close'].rolling(25).mean().iloc[-1])
     
-    res_df = st.session_state.get('res_df', pd.DataFrame())
-    ticker_names = st.session_state.get('t_names', {})
-    
-    # 重複を除去してリスト化
-    raw_tickers = [t.strip() for t in st.session_state.get('target_tickers', "").split(",") if t.strip()]
-    t_list = list(dict.fromkeys(raw_tickers)) 
+    # 日経平均が0なら昨日の値を代入してエラーを防ぐ
+    if n225_close == 0: n225_close = n225_prev_close if n225_prev_close > 0 else 39000
 
-    if not t_list:
-        st.warning("⚠️ 銘柄コードを入力してください。")
-    elif res_df.empty:
-        st.info("💡 まずは「バックテスト」を実行してください。過去の統計データが必要です。")
+    # CMEデータの取得 (0円・NaNの時は現物を代入して乖離0%にする)
+    if "CME" in data_map: 
+        cme_val = float(data_map["CME"]['Close'].values.ravel()[-1])
+        if cme_val == 0 or pd.isna(cme_val): cme_val = n225_close
     else:
-        # --- 【修正】指標ウォッチの数値を引用して地合いを同期 ---
-        m_data = core.fetch_market_info(MARKET_INDICES)
-        n225_val = m_data.get("日経平均", {}).get("val")
-        cme_val = m_data.get("日経先物(CME)", {}).get("val")
-        m_curr_pct = m_data.get("日経平均", {}).get("pct", 0.0)
+        cme_val = n225_close
 
-        # 乖離率(m_gap)の計算
-        if n225_val and cme_val and n225_val != 0:
-            m_gap = (cme_val - n225_val) / n225_val
-        else:
-            m_gap = 0.0
+    market_pct = (n225_close - n225_prev_close) / n225_prev_close if n225_prev_close > 0 else 0
+    dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 > 0 else 0
+    gap_pct = (cme_val - n225_close) / n225_close if n225_close > 0 else 0
 
-        # 指標ウォッチと同じ前日比（%）を表示
-        m_curr_pct = m_data.get("日経平均", {}).get("pct", 0.0)
-        m_cls = "rakuten-plus" if m_curr_pct >= 0 else "rakuten-minus"
-        st.markdown(f"<div class='strat-market-header'><b>日経平均／前日比:</b> <span class='{m_cls}' style='font-size:1.2em; font-weight:bold;'>{m_curr_pct:+.2f}%</span></div>", unsafe_allow_html=True)
-        st.divider()
+    # 地合い判定の文字化
+    if dev_25 > 3:
+        balance_txt = f"買われ過ぎ / 25日線乖離 +{dev_25:.1f}%"; alert_lvl = "▶︎▶︎高値警戒（過熱）"
+    elif dev_25 < -3:
+        balance_txt = f"売られ過ぎ / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎底打ち待ち（過売）"
+    else:
+        balance_txt = f"均衡しています / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎正常範囲（ニュートラル）"
 
-       # --- ループ内のフィルタリング強化 ---
-        for t in t_list:
-            tdf = res_df[res_df['Ticker'] == t].copy()
-            if tdf.empty: continue
-            
-            # --- 1. 勝率の計算 ---
-            win_rate = len(tdf[tdf['PnL'] > 0]) / len(tdf) if len(tdf) > 0 else 0
-            
-            # --- 2. テクニカル勢いの事前チェック (プランB用) ---
-            tech_ok = True
-            if st.session_state.get('preset') == "PLAN_B":
-                if win_rate < 0.55: continue
-                t_obj = yf.Ticker(t)
-                df_now = t_obj.history(interval="1m", period="1d")
-                if not df_now.empty:
-                    rsi_s = core.calculate_rsi(df_now['Close'])
-                    if len(rsi_s) >= 6:
-                        slope = rsi_s.tail(3).mean() - rsi_s.iloc[-6:-3].mean()
-                        if slope < -0.2: tech_ok = False
-                    ema5_val = df_now['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
-                    if df_now['Close'].iloc[-1] <= ema5_val: tech_ok = False
-
-            if st.session_state.get('preset') == "PLAN_B" and not tech_ok:
-                continue
-
-            # --- 3. 表示対象となった銘柄のみパネルを生成 ---
-            t_name = ticker_names.get(t, t)
-            with st.expander(f"[{t}] {t_name}", expanded=True):
-                with st.spinner("データ同期中..."):
-                    ticker_live = yf.Ticker(t)
-                    
-                    # --- 【修正】時間帯別基準値ロジック (前日終値 vs 前場の終値) ---
-                    jst = timezone(timedelta(hours=9))
-                    now_jst = datetime.now(jst)
-                    today_jst = now_jst.date()
-                    current_t = now_jst.time()
-                    
-                    # 履歴取得 (30日分)
-                    hist_live = ticker_live.history(period="30d")
-                    # 今日(未確定)の行を除いた「昨日まで」の過去データ
-                    past_hist = hist_live[hist_live.index.date < today_jst]
-                    prev_close_val = past_hist['Close'].iloc[-1] if not past_hist.empty else 0.0
-
-                    # モード判定 (11:30〜15:30のみ「前場モード」、それ以外は「前日終値モード」)
-                    is_zenba_mode = (time(11, 30) <= current_t < time(15, 30))
-
-                    if is_zenba_mode:
-                        # 条件1：11:30〜15:30 → 「前場の終値」を表示
-                        df_today_30m = ticker_live.history(period="1d", interval="30m")
-                        # 09:00〜11:40の間の最後の足（＝11:30の引け値）を取得
-                        zenba_df = df_today_30m.between_time('09:00', '11:40')
-                        if not zenba_df.empty:
-                            last_c = zenba_df['Close'].iloc[-1]
-                            baseline_label = "前場の終値"
-                        else:
-                            last_c = prev_close_val
-                            baseline_label = "前日終値"
-                    else:
-                        baseline_label = "前日終値"
-                        if current_t >= time(15, 30) and not hist_live.empty:
-                            last_c = hist_live['Close'].iloc[-1]
-                        else:
-                            last_c = prev_close_val
-                            
-                    # ATRの計算 (last_c が安定したことで精度向上)
-                    if len(hist_live) >= 15:
-                        hl = hist_live['High'] - hist_live['Low']
-                        hc = np.abs(hist_live['High'] - hist_live['Close'].shift())
-                        lc = np.abs(hist_live['Low'] - hist_live['Close'].shift())
-                        tr = pd.concat([hl, hc, lc], axis=1).max(axis=1)
-                        atr_p = (tr.rolling(14).mean().iloc[-1] / last_c) * 100 if last_c > 0 else 1.5
-                    else: 
-                        atr_p = 1.5
+    # 変数の初期化 (UnboundLocalError 回避用)
+    forecast_title = "寄付予測"; forecast_txt = "分析中..."; phase_txt = "分析中..."
+    strategy_idx = 2
     
-                # 共通変数の計算
-                v_factor = max(0.6, min(2.5, atr_p / 1.5))
-                tdf['Entry_Push'] = ((tdf['In'] - tdf['DayOpen']) / tdf['DayOpen']) * 100
-                win_tdf = tdf[tdf['PnL'] > 0]
-                avg_push = win_tdf['Entry_Push'].mean() if not win_tdf.empty else 0
-                pred_o = last_c * (1 + m_gap)
+    # 1. ギャップに応じた基本方向の決定（判定を簡潔に統合）
+    if gap_pct <= -0.0015:
+        strategy_idx = 1
+        base_forecast = "ギャップダウン" if gap_pct <= -0.01 else "下落"
+    elif gap_pct >= 0.0015:
+        strategy_idx = 0
+        base_forecast = "ギャップアップ" if gap_pct >= 0.01 else "上昇"
+    else:
+        base_forecast = "フラット"
 
-                # --- 1. 上段レイアウト (基本情報) ---
-                c_top_l, c_top_r = st.columns([2, 1])
-                with c_top_l:
-                    g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
-                    st.markdown(f"""
-                    <div class="mobile-flex-container">
-                        <div class="flex-item strat-card-top">
-                            <div class="card-label">{baseline_label}</div> 
-                            <div class="strat-value">{last_c:,.0f}</div>
-                            <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div>
-                        </div>
-                        <div class="flex-item strat-card-top">
-                            <div class="card-label">寄り付き予想</div>
-                            <div class="strat-value">{pred_o:,.0f}</div>
-                            <div class="strat-delta {g_cls}">{m_gap:+.2%}</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                with c_top_r:
-                    input_key = f"act_in_{t}"
-                    if input_key not in st.session_state:
-                        st.session_state[input_key] = None
-                    
-                    actual_open_val = st.number_input(
-                        f"始値を入力 ({t})", step=1, format="%d", key=input_key, 
-                        label_visibility="collapsed", placeholder="始値を入力"
-                    )
-                    
-                    if st.button(f"始値を更新する ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
-                        new_val = core.get_realtime_opening_price(t)
-                        if new_val:
-                            st.session_state[input_key] = new_val
-                            st.rerun()
-
-                # --- 2. 始値確定後の詳細診断ロジック ---
-                if actual_open_val:
-                    # 【重要】最優先で gap を定義
-                    today_gap = (actual_open_val - last_c) / last_c
-                    
-                    with st.spinner("リアルタイム診断中..."):
-                        # テクニカル指標の計算 (1分足)
-                        df_m = ticker_live.history(interval="1m", period="1d")
-                        rsi_slope = 0; ema_gap = 0; tech_warning = False
-                        
-                        if len(df_m) >= 5:
-                            rsi_series = core.calculate_rsi(df_m['Close'])
-                            if len(rsi_series) >= 6:
-                                rsi_slope = rsi_series.tail(3).mean() - rsi_series.iloc[-6:-3].mean()
-                            elif len(rsi_series) >= 2:
-                                rsi_slope = rsi_series.iloc[-1] - rsi_series.iloc[-2]
-
-                            ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
-                            ema_gap = ((actual_open_val - ema5) / ema5) * 100
-                            if rsi_slope < -0.2 or abs(ema_gap) > 1.5: tech_warning = True
-
-                        # 各種価格の計算
-                        today_limit = actual_open_val * (1 + (avg_push / 100))
-                        avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
-                        target_price = today_limit * (1 + avg_profit)
-                        adj_sl = params['sl_fix'] * v_factor
-                        stop_price = today_limit * (1 + adj_sl)
-
-                        # --- 3. 下段レイアウト (目標価格) ---
-                        st.markdown(f"""
-                        <div class="mobile-flex-container" style="margin-top: 15px;">
-                            <div class="flex-item strat-card-bottom">
-                                <div class="card-label">今日の指値</div>
-                                <div class="strat-value">{int(today_limit):,}</div>
-                                <div class="strat-guide">で逆指値注文</div>
-                            </div>
-                            <div class="flex-item strat-card-bottom">
-                                <div class="card-label">目標利確</div>
-                                <div class="strat-value">{int(target_price):,}</div>
-                                <div class="strat-delta rakuten-plus">{avg_profit:+.2%}</div>
-                            </div>
-                            <div class="flex-item strat-card-bottom">
-                                <div class="card-label">損切ライン</div>
-                                <div class="strat-value">{int(stop_price):,}</div>
-                                <div class="strat-delta rakuten-minus">{adj_sl:+.2%}</div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                        # --- 4. テクニカル状態表示 ---
-                        r_cls = "rakuten-plus" if rsi_slope > -0.2 else "rakuten-minus"
-                        r_text = "上昇・維持" if rsi_slope > -0.2 else "低下中"
-                        st.markdown(f"""
-                        <div class="strat-tech-flex">
-                            <div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{r_text}</span></div>
-                            <div class="strat-tech-item"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                        # --- 5. 最終統計判定 ---
-                        similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
-                        n_count = len(similar_trades)
-                        sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
-                        is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c)
-
-                        if is_dev_large:
-                            st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り</b><br>予想乖離からのズレ: {dev_val:.2f}%<br>寄付き乖離が大きいため見送り推奨です。</div>""", unsafe_allow_html=True)
-                        elif m_curr_pct < -0.003 and sim_win_rate >= 0.55:
-                            st.markdown(f"""<div class="strat-msg-box msg-bg-warning">⚠️ <b>CAUTION</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>地合い軟調。慎重に判断してください。</div>""", unsafe_allow_html=True)
-                        elif sim_win_rate >= 0.55:
-                            msg = "統計は良いが勢いが弱まっています。" if tech_warning else "統計・勢い共に良好。"
-                            st.markdown(f"""<div class="strat-msg-box msg-bg-success">🔥 <b>エントリー可能</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>{msg}</div>""", unsafe_allow_html=True)
-                        else:
-                            st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>エントリーなし</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>期待値が不十分です。</div>""", unsafe_allow_html=True)
-
-                        # --- 6. トレイリング停止案 ---
-                        st.markdown(f"""<div class="strat-msg-box msg-bg-info">🚀 <b>トレイリング最適化</b><br>開始{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}</div>""", unsafe_allow_html=True)
-                        st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
-                else:
-                    st.info("始値を入力、または「更新ボタン」を押して診断を開始してください。")
-            st.divider()
-                    
-# --- タブ5: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
-with tab_rank:
-    st.markdown("### 🏆 登録銘柄ランキング")
-    st.caption("日経225＋αの銘柄から、エントリー条件をクリアした期待値の高い20銘柄をランキングで抽出します。")
-    p_range = st.slider("価格帯フィルター (円)", 0, 20000, (500, 5000), 500, key="rank_sld_p")
+    # 2. 指標データの取得（.emptyチェックと .iloc による安全なアクセス）
+    vix_val = 15; sox_pct = 0; fx_pct = 0
     
-    if st.button("ランキング生成開始", type="primary", use_container_width=True, key="rank_run_btn"):
-        rank_list = []
-        all_tickers = list(TICKER_DETAILS.keys())
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days_back)
+    if "VIX" in data_map and not data_map["VIX"].empty:
+        vix_val = float(data_map["VIX"]['Close'].iloc[-1])
         
-        with st.status("🔍 全銘柄を分析中...", expanded=True) as status:
-            pb_r = st.progress(0)
-            for i, t in enumerate(all_tickers):
-                pb_r.progress((i+1)/len(all_tickers))
-                status.update(label=f"Scanning {i+1}/{len(all_tickers)}: {t}")
+    if "SOX" in data_map and len(data_map["SOX"]) >= 2: 
+        s_df = data_map["SOX"]
+        sox_pct = (s_df['Close'].iloc[-1] / s_df['Close'].iloc[-2]) - 1
+        
+    if "USDJPY" in data_map and len(data_map["USDJPY"]) >= 2:
+        f_df = data_map["USDJPY"]
+        fx_pct = (f_df['Close'].iloc[-1] / f_df['Close'].iloc[-2]) - 1
 
-                # 1. 前日比取得のための日足取得 (5dに変更して週末の空白をカバー)
-                df_d = yf.download(t, period="5d", interval="1d", progress=False)
-                
-                # 直近2日分以上のデータがあるか確認
-                if df_d.empty or len(df_d) < 2: 
-                    continue
-                
-                if isinstance(df_d.columns, pd.MultiIndex): 
-                    df_d.columns = df_d.columns.get_level_values(0)
-                
-                # 末尾2行を使って前日比を計算
-                # 計算式: $Day\_Gain = \frac{Close_{today} - Close_{yesterday}}{Close_{yesterday}} \times 100$
-                day_gain = ((df_d['Close'].iloc[-1] - df_d['Close'].iloc[-2]) / df_d['Close'].iloc[-2]) * 100
-                current_p = float(df_d['Close'].iloc[-1])
-                
-                # 価格帯フィルター
-                if p_range[0] <= current_p <= p_range[1]:
-                    # 2. シミュレーション用の5分足取得
-                    df_r = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
-                    if df_r.empty: continue
-                    if isinstance(df_r.columns, pd.MultiIndex): df_r.columns = df_r.columns.get_level_values(0)
-                    
-                    p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
-                    t_trades = core.run_ticker_simulation(t, df_r, p_map, o_map, a_map, params)
-                    
-                    if t_trades:
-                        score_data = core.get_one_touch_score(t_trades)
-                        if score_data:
-                            # 【修正】10項目のデータ収集
-                            rank_list.append({
-                                'コード': t, 
-                                '銘柄名': TICKER_DETAILS.get(t, [t])[0],
-                                '前日比': day_gain,
-                                '回数': score_data['count'],
-                                '勝率': score_data['win_rate'], 
-                                '利益平均': score_data['avg_win'],
-                                '損失平均': score_data['avg_loss'],
-                                'PF': score_data['pf'], 
-                                '期待値': score_data['ev'],
-                                '総合スコア': score_data['score']
-                            })
-            status.update(label="✅ スキャン完了！", state="complete")
+    # 3. 時間帯の定義とリスト初期化
+    now = now_dt.time()
+    l_s, l_e = time(11, 30), time(12, 30); a_s, a_e = time(15, 0), time(19, 0)
+    bias_list = []
+
+    # --- 時間帯別の展望生成 ---
+    if l_s <= now <= l_e:
+        forecast_title = "前場総括"
+        forecast_txt = f"前場は {base_forecast} で推移。現在の乖離率は {dev_25:.1f}% です。"
+        phase_txt = "前場が終了しました。後場の寄り付きまで待機、または前場の振り返りを行いましょう。"
         
-        if rank_list:
-            # 期待値順にソートして保存
-            st.session_state['last_rank_df'] = pd.DataFrame(rank_list).sort_values('期待値', ascending=False).head(20)
-            st.rerun()
+    elif a_s <= now <= a_e:
+        forecast_title = "今日の結果"
+        actual_result = "上昇" if market_pct > 0 else "下落" if market_pct < 0 else "変わらず"
+        forecast_txt = f"本日は {actual_result} で終了。大引け時点の乖離率は {dev_25:.1f}% です。"
+        phase_txt = "お疲れ様でした。明日に向け期待値の高い銘柄をランキングで精査しましょう。"
+    else:
+        # 朝・夜・市場稼働中
+        if fx_pct <= -0.003: bias_list.append("円高バイアス")
+        elif fx_pct >= 0.003: bias_list.append("円安バイアス")
+        forecast_txt = f"{base_forecast} ({' / '.join(bias_list)})" if bias_list else f"{base_forecast}"
+
+        if "高値警戒" in alert_lvl:
+            phase_txt = "加熱圏のギャップアップ。利確をこなしつつ、ボリンジャー+2σ付近の攻防に警戒。" if "上昇" in base_forecast else "高値警戒感から上値が重い展開。"
+        elif "底打ち待ち" in alert_lvl:
+            phase_txt = "売られすぎ圏での寄り付き。パニック売り後の反発に妙味。" if "下落" in base_forecast else "底堅い動き。リバウンドを想定。"
         else:
-            st.warning("⚠️ 指定した価格帯で期待値が算出された銘柄はありませんでした。")
+            phase_txt = "堅調なスタート。VWAPを支持線にできるか注視。" if "上昇" in base_forecast else "売り先行。主要な節目での下げ止まりを確認。"
 
-    # --- 結果の表示と転送機能 ---
-    if 'last_rank_df' in st.session_state:
-        rdf = st.session_state['last_rank_df']
-        st.caption("👇 チェックを入れると銘柄リストに追加できます。")
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        # 【修正】10項目の表示設定と％表記
-        # ご自身で設定された高さ height=735 を維持しています。
-        event = st.dataframe(
-            rdf[['コード', '銘柄名', '前日比', '回数', '勝率', '利益平均', '損失平均', 'PF', '期待値', '総合スコア']].style.format({
-                '前日比': '{:+.2f}%', '勝率': '{:.1%}', '期待値': '{:+.2%}', 
-                '利益平均': '{:+.2%}', '損失平均': '{:+.2%}', 'PF': '{:.2f}', 
-                '総合スコア': '{:.2%}' # ％表記に変更
-            }),
-            use_container_width=True, hide_index=True, 
-            on_select="rerun", selection_mode="multi-row", 
-            key="rank_df_view_final",
-            height=735 
-        )
-        
-        # 監視リストへの反映ロジック (既存維持)
-        selected_rows = event.selection.rows
-        if selected_rows:
-            selected_codes = rdf.iloc[selected_rows]['コード'].tolist()
-            current_str = st.session_state.get('target_tickers', "")
-            current_list = [t.strip() for t in current_str.split(",") if t.strip()]
-            new_found = [c for c in selected_codes if c not in current_list]
-            if new_found:
-                updated_list = sorted(list(set(current_list + selected_codes)))
-                st.session_state['target_tickers'] = ", ".join(updated_list)
-                st.toast(f"期待値トップ銘柄を監視リストに追加しました！")
-                st.rerun() 
+    # --- 米国株・チップス等の処理 ---
+    us_impact = "米国株の変動は限定的。"
+    if vix_val >= 20 or sox_pct <= -0.015: us_impact = "半導体安。指数主導の下落に警戒。"
+    elif sox_pct >= 0.005: us_impact = "ハイテク株への買い波及を期待。"
 
-        if st.button("♻️ ランキングをクリア", key="rank_clear_btn"):
-            del st.session_state['last_rank_df']
-            st.rerun()
+    tips = []
+    if "WTI" in data_map and len(data_map["WTI"]) >= 2:
+        if (data_map["WTI"]['Close'].iloc[-1] / data_map["WTI"]['Close'].iloc[-2]) - 1 >= 0.005: tips.append("1:鉱業 / 10:石油・石炭")
+    if sox_pct >= 0.005: tips.append("17:電気機器 / 16:機械")
+    
+    return {
+        "strategy": strategy_idx, "opening_forecast": forecast_txt, "forecast_title": forecast_title,
+        "balance": balance_txt, "phase_comment": phase_txt, "us_impact": us_impact, "alert_level": alert_lvl, 
+        "tips": " / ".join(tips) if tips else "個別材料株（全業種対象）",
+        "gap_pct": gap_pct, "market_pct": market_pct
+    }
+    
+# --- 3. スクリーニング・シミュレーション ---
+# logic_core.py の判定ロジック（修正版）
+
+def evaluate_screening_conditions(df, params):
+    """銘柄の日次データに対して全項目の条件に合致するか判定する"""
+    if df.empty or len(df) < 30: return None
+    if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+    df = df.dropna(subset=['Close', 'Volume'])
+    if df.empty: return None
+
+    # 基本情報の取得
+    p = float(df['Close'].values.ravel()[-1])
+    v = float(df['Volume'].values.ravel()[-1])
+    prev_p = float(df['Close'].values.ravel()[-2])
+    day_gain = ((p - prev_p) / prev_p) * 100
+    
+    # 指標の算出
+    ma25_series = df['Close'].rolling(25).mean()
+    ma25 = ma25_series.values.ravel()[-1]
+    ma25_dev = ((p - ma25) / ma25) * 100 if ma25 > 0 else 0
+    
+    atr = AverageTrueRange(df['High'], df['Low'], df['Close'], 14).average_true_range().values.ravel()[-1]
+    rsi = RSIIndicator(df['Close'], 14).rsi().values.ravel()[-1]
+    rci = calculate_rci(df['Close'], 9).values.ravel()[-1]
+    
+    adx = ADXIndicator(df['High'], df['Low'], df['Close'], 14).adx().values.ravel()[-1]
+    
+    # 【修正箇所】ボリンジャーバンドの計算ロジック
+    bb = BollingerBands(df['Close'], 20, 2)
+    mavg = bb.bollinger_mavg().values.ravel()[-1]
+    hband = bb.bollinger_hband().values.ravel()[-1]
+    
+    # シグマの幅（Hband - Mavg）が0でないことを確認して算出
+    diff = hband - mavg
+    bb_val = (p - mavg) * 2 / diff if diff != 0 else 0
+    
+    val_total = (p * v) / 100000000 # 億円
+    v_prev_avg = df['Volume'].shift(1).rolling(5).mean().values.ravel()[-1]
+    v_ratio = v / v_prev_avg if v_prev_avg > 0 else 1.0
+
+    # 判定フラグのチェック
+    match = True
+    if params.get('c_gain') and not (params['gain_range'][0] <= day_gain <= params['gain_range'][1]): match = False
+    if params.get('c_p') and not (params['p_range'][0] <= p <= params['p_range'][1]): match = False
+    if params.get('c_v') and val_total < params.get('v_min', 0): match = False
+    if params.get('c_atrp') and not (params['atrp_range'][0] <= (atr/p)*100 <= params['atrp_range'][1]): match = False
+    if params.get('c_rsi') and not (params['rsi_range'][0] <= rsi <= params['rsi_range'][1]): match = False
+    if params.get('c_rci') and not (params['rci_range'][0] <= rci <= params['rci_range'][1]): match = False
+    if params.get('c_adx') and not (params['adx_range'][0] <= adx <= params['adx_range'][1]): match = False
+    if params.get('c_ma25') and not (params['ma25_range'][0] <= ma25_dev <= params['ma25_range'][1]): match = False
+    if params.get('c_vup') and v_ratio < params.get('vup_min', 1.0): match = False
+    if params.get('c_bb') and not (params['bb_range'][0] <= bb_val <= params['bb_range'][1]): match = False
+
+    if match:
+        return {
+            "株価": int(p), "前日比": day_gain, "売買代金": val_total, "出来高": int(v), 
+            "RSI": round(rsi, 1), "25MA乖離": round(ma25_dev, 2), "ATR%": round((atr/p)*100, 2)
+        }
+    return None
+
+@st.cache_data(ttl=3600)
+def fetch_daily_stats_maps(ticker, start):
+    p_map, o_map, a_map = {}, {}, {}
+    try:
+        df = yf.download(ticker, start=start-timedelta(days=60), progress=False, auto_adjust=False)
+        if df.empty: return p_map, o_map, a_map
+        if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+        df.index = df.index.tz_localize('UTC').tz_convert('Asia/Tokyo') if df.index.tzinfo is None else df.index.tz_convert('Asia/Tokyo')
+        tr = pd.concat([df['High']-df['Low'], abs(df['High']-df['Close'].shift(1)), abs(df['Low']-df['Close'].shift(1))], axis=1).max(axis=1)
+        atr_prev = tr.rolling(window=14).mean().shift(1)
+        p_map = {d.strftime('%Y-%m-%d'): c for d, c in zip(df.index, df['Close'].shift(1)) if pd.notna(c)}
+        o_map = {d.strftime('%Y-%m-%d'): o for d, o in zip(df.index, df['Open']) if pd.notna(o)}
+        a_map = {d.strftime('%Y-%m-%d'): a for d, a in zip(df.index, atr_prev) if pd.notna(a)}
+    except: pass
+    return p_map, o_map, a_map
+
+def run_ticker_simulation(ticker, df, pc_map, co_map, a_map, params):
+    trades = []
+    if df.empty: return trades
+    if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+    df = df[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
+    df.index = df.index.tz_localize('UTC').tz_convert('Asia/Tokyo') if df.index.tzinfo is None else df.index.tz_convert('Asia/Tokyo')
+    df['EMA5'] = EMAIndicator(close=df['Close'], window=5).ema_indicator()
+    
+    for d in np.unique(df.index.date):
+        day = df[df.index.date == d].copy().between_time('09:00', '15:00')
+        if day.empty: continue
+        day['VWAP'] = (day['Close'] * day['Volume']).cumsum() / day['Volume'].cumsum().replace(0, np.nan)
+        date_str = d.strftime('%Y-%m-%d')
+        pc = pc_map.get(date_str); do = co_map.get(date_str)
+        if pc is None or do is None: continue
+        gap_v = (do - pc) / pc
+        in_pos = False; entry_p = 0; stop_p = 0; t_high = 0; t_active = False
+        for ts, row in day.iterrows():
+            if not in_pos:
+                if params['start_t'] <= ts.time() <= params['end_t'] and params['g_min'] <= gap_v <= params['g_max']:
+                    if (not params['u_vwap'] or row['Close'] > row['VWAP']) and (not params['u_ema'] or row['Close'] > row['EMA5']):
+                        entry_p = row['Close'] * 1.0003; in_pos = True; entry_t = ts; entry_vwap = row['VWAP']
+                        stop_p = entry_p * (1 - abs(params['sl_fix'])); t_high = row['High']
+            else:
+                t_high = max(t_high, row['High'])
+                if not t_active and t_high >= entry_p * (1 + params['ts_start']): t_active = True
+                ex_p = None
+                if t_active and row['Low'] <= t_high * (1 - params['ts_width']): ex_p = t_high * (1 - params['ts_width']) * 0.9997; rsn = "トレーリング"
+                elif row['Low'] <= stop_p: ex_p = stop_p * 0.9997; rsn = "損切り"
+                elif ts.time() >= time(14, 55): ex_p = row['Close'] * 0.9997; rsn = "時間切れ"
+                if ex_p:
+                    # 修正点：PrevClose と DayOpen を辞書に追加
+                    trades.append({'Ticker': ticker, 'Entry': entry_t, 'Exit': ts, 'PnL': (ex_p - entry_p)/entry_p, 'In': entry_p, 'Out': ex_p, 'Reason': rsn, 'Pattern': get_trade_pattern(row, gap_v), 'Gap(%)': gap_v*100, 'EntryVWAP': entry_vwap, 'PrevClose': pc, 'DayOpen': do})
+                    in_pos = False; break
+    return trades
+
+def get_one_touch_score(trades):
+    if not trades: return None
+    tdf = pd.DataFrame(trades)
+    pnls = tdf['PnL'].values
+    wins = pnls[pnls > 0]; losses = pnls[pnls <= 0]
+    win_rate = len(wins) / len(pnls); pf = wins.sum() / abs(losses.sum()) if len(losses) > 0 and losses.sum() != 0 else 9.99
+    return {"win_rate": win_rate, "pf": pf, "ev": pnls.mean(), "score": pnls.mean() * win_rate * pf, "count": len(pnls), "avg_win": wins.mean() if len(wins)>0 else 0, "avg_loss": losses.mean() if len(losses)>0 else 0}
+
+# RSIとEMA判定
+def calculate_rsi(series, period=14):
+    """
+    RSI (相対力指数) を計算する
+    """
+    delta = series.diff()
+    # 上昇幅と下落幅を分離
+    gain = (delta.where(delta > 0, 0))
+    loss = (-delta.where(delta < 0, 0))
+
+    # 指数移動平均(EMA)を用いて平滑化
+    avg_gain = gain.ewm(com=period - 1, min_periods=period).mean()
+    avg_loss = loss.ewm(com=period - 1, min_periods=period).mean()
+
+    rs = avg_gain / avg_loss
+    return 100 - (100 / (1 + rs))
+
+# --- 4. 指値戦略用ガードロジック ---
+
+def check_opening_deviation(actual, expected, last_close):
+    """
+    予想寄付きと実際の始値の乖離をチェックするガードロジック
+    """
+    if actual is None or expected is None or last_close is None:
+        return False, 0.0
+    
+    # 1. 乖離率の計算: abs(Actual - Expected) / Expected * 100
+    dev_pct = abs(actual - expected) / expected * 100
+    
+    # 2. ギャップ幅の比較 (予想ギャップの2倍判定用)
+    exp_gap_abs = abs(expected - last_close) / last_close * 100
+    act_gap_abs = abs(actual - last_close) / last_close * 100
+    
+    # 判定条件:
+    # A. 乖離率が 0.5% 以上
+    # B. 実際のギャップが予想の 2倍以上 (予想が 0.1% 以上の有意な時のみ)
+    is_large = (dev_pct >= 0.5) or (exp_gap_abs >= 0.1 and act_gap_abs >= 2 * exp_gap_abs)
+    
+    return is_large, dev_pct
+
+# --- 5. 始値の自動取得ロジック (Ver 4.6.8：高精度・後場安定版) ---
+def get_realtime_opening_price(ticker_symbol):
+    try:
+        jst = timezone(timedelta(hours=9))
+        now_dt = datetime.now(jst)
+        today = now_dt.date()
+        
+        if now_dt.time() < time(9, 0) or now_dt.time() > time(15, 30):
+            return None
+            
+        t = yf.Ticker(ticker_symbol)
+        is_afternoon = now_dt.time() >= time(12, 30)
+
+        # 前場(9:00-12:29)は info から速報取得
+        if not is_afternoon:
+            todays_open = t.info.get('open')
+            if todays_open and todays_open > 0:
+                return int(todays_open)
+
+        # 後場、または info が空の場合：より確実に 2d 分の履歴を取りに行く
+        df = t.history(period="2d", interval="1m")
+        if df.empty: return None
+        
+        df.index = df.index.tz_convert('Asia/Tokyo')
+        # 厳密に「今日」のデータだけに絞る
+        df_today = df[df.index.date == today]
+        
+        if df_today.empty: return None
+
+        if is_afternoon:
+            # 12:30以降の最初の足を探す。もし12:30ちょうどがなければ、その直後の足を拾う
+            df_pm = df_today.between_time('12:30', '15:00')
+            if not df_pm.empty:
+                return int(df_pm['Open'].iloc[0])
+        else:
+            df_am = df_today.between_time('09:00', '11:30')
+            if not df_am.empty:
+                return int(df_am['Open'].iloc[0])
+                
+    except Exception:
+        pass
+    return None
