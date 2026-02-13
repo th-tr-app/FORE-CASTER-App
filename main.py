@@ -1085,7 +1085,7 @@ with tab_strategy:
 
                         # 執行タイミングのテキスト生成
                         dist_msg = ""
-                        if mode == "リアルタイム戦略" and locals().get('current_p'):
+                        if mode == "リアルタイム／指値戦略" and locals().get('current_p'):
                             diff = today_limit - current_p
                             dist_msg = f" (指値まであと {int(diff)}円)" if diff > 0 else " 🔥 **指値到達！**"
 
