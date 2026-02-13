@@ -978,12 +978,12 @@ with tab_strategy:
                         st.session_state[input_key] = 0.0
 
                     # -----------------------------------------------------
-                    # 上段レイアウト：入力・カードセクション (Ver 4.91 安定版)
+                    # 上段レイアウト：入力・カードセクション (Ver 4.92 永続化対応)
                     # -----------------------------------------------------
-                    # 【重要】エラー防止のため、まず変数を初期化
-                    actual_open_val = 0.0
-                    is_dev_large = False
-                    dev_v = 0.0
+                    # 【重要】消えない変数（Master State）の初期化
+                    perm_key = f"perm_open_{t}"
+                    if perm_key not in st.session_state:
+                        st.session_state[perm_key] = 0.0
                     
                     c_top_l, c_top_r = st.columns([2, 1])
 
@@ -1006,22 +1006,31 @@ with tab_strategy:
                             """, unsafe_allow_html=True)
                         
                         with c_top_r:
-                            # 1. 更新ボタン（描画前に入力値を書き換えるため先に配置）
+                            # 1. 更新ボタン：Master Stateを直接書き換える
                             if st.button(f"始値を更新する ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
                                 new_val = core.get_realtime_opening_price(t)
                                 if new_val:
-                                    st.session_state[input_key] = new_val
+                                    st.session_state[perm_key] = float(new_val)
                                     st.rerun()
                             
-                            # 2. 始値入力欄
-                            actual_open_val = st.number_input(
+                            # 2. 始値入力：Master Stateの値を初期値として使う
+                            temp_open = st.number_input(
                                 f"始値を入力 ({t})", min_value=0.0, step=1.0, format="%f", 
-                                key=input_key, label_visibility="collapsed"
+                                value=float(st.session_state[perm_key]), # 常に保持された値を表示
+                                label_visibility="collapsed"
                             )
+                            # 入力があれば Master State に反映
+                            if temp_open != st.session_state[perm_key]:
+                                st.session_state[perm_key] = temp_open
+                            
+                            # 診断用に確定値を代入
+                            actual_open_val = st.session_state[perm_key]
+
                     else:
                         # リアルタイム戦略モード
                         with c_top_l:
-                            confirmed_o = st.session_state.get(input_key, 0.0)
+                            # 保持されている始値を表示
+                            confirmed_o = st.session_state[perm_key]
                             st.markdown(f"""
                             <div class="mobile-flex-container">
                                 <div class="flex-item strat-card-top" style="border-left: 5px solid #fffd00;">
@@ -1046,8 +1055,8 @@ with tab_strategy:
                             if st.button("更新", key=f"btn_now_{t}", use_container_width=True):
                                 st.rerun()
                         
-                        # 【重要】リアルタイムモードでも診断ロジックに値を渡す
-                        actual_open_val = st.session_state.get(input_key, 0.0)
+                        # 診断用に確定値を代入
+                        actual_open_val = st.session_state[perm_key]
                         
                     # -----------------------------------------------------
                     # 下段：詳細診断セクション (始値が入力されている場合のみ)
@@ -1094,13 +1103,19 @@ with tab_strategy:
                         """, unsafe_allow_html=True)
 
                         # リアルタイム判定メッセージ (リアルタイムモード時かつ現在値がある場合)
-                        if mode == "リアルタイム戦略" and 'current_p' in locals() and current_p:
-                            diff = today_limit - current_p
-                            if diff > 0:
-                                st.markdown(f"""<div class="strat-msg-box msg-bg-info">💡 <b>待機中</b>: あと <b>{int(diff)}円</b> 上昇で指値ラインに到達します。</div>""", unsafe_allow_html=True)
+                        # --- メッセージエリアの出し分け ---
+                        if mode == "リアルタイム戦略":
+                            if 'current_p' in locals() and current_p and current_p > 0:
+                                # 現在値が入力されている時
+                                diff = today_limit - current_p
+                                if diff > 0:
+                                    st.markdown(f"""<div class="strat-msg-box msg-bg-info">💡 <b>待機中</b>: あと <b>{int(diff)}円</b> 上昇で指値ラインに到達します。</div>""", unsafe_allow_html=True)
+                                else:
+                                    st.markdown(f"""<div class="strat-msg-box msg-bg-success">🔥 <b>条件到達</b>: 指値ラインを超えています。執行を検討してください。</div>""", unsafe_allow_html=True)
                             else:
-                                st.markdown(f"""<div class="strat-msg-box msg-bg-success">🔥 <b>条件到達</b>: 指値ラインを超えています。執行を検討してください。</div>""", unsafe_allow_html=True)
-
+                                # 始値はあるが、現在値が未入力の時
+                                st.warning("「現在値」を入力してリアルタイム診断を開始してください。")
+                                
                         # 統計判定と警告 (変数名を統一してエラーを防止)
                         similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
                         n_count = len(similar_trades)
