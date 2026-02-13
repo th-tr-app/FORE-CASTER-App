@@ -913,7 +913,7 @@ with tab_strategy:
             # モードに応じたヘッダー
             header_label = f"[{t}] {t_name}"
             if mode == "リアルタイム／指値戦略":
-                header_label = f":yellow[[{t}] {t_name} (リアルタイム監視)]"
+                header_label = f":orange[[{t}] {t_name} (リアルタイム監視)]"
 
             with st.expander(header_label, expanded=True):
                 # キーの定義
