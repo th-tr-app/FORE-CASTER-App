@@ -992,30 +992,33 @@ with tab_strategy:
                     with c_top_r:
                             now_p_key = f"now_p_{t}"
                             
-                            # 1. 現在値を同期ボタン
-                            if st.button(f"現在値を同期 ({t})", key=f"btn_now_sync_{t}", use_container_width=True, type="secondary"):
+                            # 1. 現在値を同期ボタン (APIから取得)
+                            if st.button("現在値を同期", key=f"btn_now_sync_{t}", use_container_width=True, type="secondary"):
                                 df_now = ticker_live.history(period="1d", interval="1m")
                                 if not df_now.empty:
                                     val = int(df_now['Close'].iloc[-1])
                                     st.session_state[now_p_key] = val
                                     st.rerun()
 
-                            # 2. 現在値入力欄：ここで「変化の検知」と「再描画」を入れます
+                            # 2. 現在値の入力欄
+                            # key=now_p_key を指定することで、セッションデータと常に連動します
                             current_p_val = st.number_input(
-                                f"現在値", step=1, format="%d", 
+                                f"現在値", 
+                                step=1, 
+                                format="%d", 
                                 value=int(st.session_state[now_p_key]), 
-                                key=now_p_key, 
+                                key=f"widget_{now_p_key}", # keyをウィジェット専用に変えて同期を安定化
                                 label_visibility="collapsed"
                             )
                             
-                            # 【解決策：ここを追加】
-                            # +/- ボタンや手入力で値が変わった瞬間、永続キーを更新して st.rerun() をかける
+                            # 3. 【最重要】+/- ボタンによる変化を検知して強制再描画
                             if current_p_val != st.session_state[now_p_key]:
                                 st.session_state[now_p_key] = current_p_val
-                                st.rerun()
-                            
-                            # 診断ロジックに渡す変数を確定
+                                st.rerun() # ここでリランをかけることで、下の診断ロジックに最新値が伝わります
+
+                            # 4. 診断ロジックで使う変数を、ここで最終確定させる
                             current_p = current_p_val
+                            actual_open_val = st.session_state[perm_key]
                 
                 # -----------------------------------------------------
                 # 3. 変数の確定 (診断セクションの直前で最新の値を取る)
