@@ -1000,17 +1000,42 @@ with tab_strategy:
                         r_cls = "rakuten-plus" if rsi_slope > -0.2 else "rakuten-minus"; r_text = "上昇・維持" if rsi_slope > -0.2 else "低下中"
                         st.markdown(f"""<div class="strat-tech-flex"><div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{r_text}</span></div><div class="strat-tech-item"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div></div>""", unsafe_allow_html=True)
 
-                        # --- 【統合判定ボックス】 ---
+                        # --- 【改善版：統合判定ボックス】 ---
                         similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
-                        n_count = len(similar_trades); sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
+                        n_count = len(similar_trades)
+                        sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
                         is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c)
 
-                        # 執行判定メッセージの生成 (リアルタイムモードのみ)
-                        exec_msg = ""
+                        # A. 執行タイミングのテキスト生成 (リアルタイムモード時)
+                        dist_msg = ""
                         if mode == "リアルタイム戦略" and locals().get('current_p'):
                             diff = today_limit - current_p
-                            if diff > 0: exec_msg = f"💡 <b>待機中</b>: あと <b>{int(diff)}円</b> 上昇で指値ライン <br>"
-                            else: exec_msg = "🔥 <b>条件到達</b>: 指値ラインを超えています。執行を検討！ <br>"
+                            if diff > 0:
+                                dist_msg = f" (指値まであと {int(diff)}円)"
+                            else:
+                                dist_msg = " 🔥 **指値到達！**"
+
+                        # B. 条件判定とメッセージの統合
+                        if is_dev_large:
+                            # 1. 異常乖離（最優先）
+                            st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り推奨 (異常乖離)</b><br>予想からのズレ {dev_val:.2f}% により統計が機能しません。{dist_msg}</div>""", unsafe_allow_html=True)
+                        
+                        elif sim_win_rate < 0.55:
+                            # 2. 期待値不足（統計的にNG）
+                            st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>見送り (期待値不足)</b><br>勝率 {sim_win_rate:.1%} / {n_count}回。{dist_msg if diff > 0 else "価格は到達していますが、統計的優位性がありません。"}</div>""", unsafe_allow_html=True)
+                        
+                        else:
+                            # 3. エントリー可能（統計的にOK）
+                            bg_cls = "msg-bg-success" if m_curr_pct > -0.003 else "msg-bg-warning"
+                            status_label = "エントリー可能" if m_curr_pct > -0.003 else "CAUTION (地合い注意)"
+                            
+                            # 到達状況によってメインメッセージを変える
+                            if mode == "リアルタイム戦略" and locals().get('current_p') and diff <= 0:
+                                main_msg = f"✅ <b>今、執行チャンス！</b>"
+                            else:
+                                main_msg = f"✅ <b>{status_label}</b>"
+
+                            st.markdown(f"""<div class="strat-msg-box {bg_cls}">{main_msg}{dist_msg}<br>統計勝率 {sim_win_rate:.1%} / {n_count}回。{ '勢い低下に注意' if tech_warning else '勢いも良好' }</div>""", unsafe_allow_html=True)
 
                         # 統計判定の決定
                         if is_dev_large:
