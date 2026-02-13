@@ -972,82 +972,74 @@ with tab_strategy:
                             if st.button("更新", key=f"btn_now_{t}", use_container_width=True): st.rerun()
 
                     # -----------------------------------------------------
-                    # 2. メッセージの出し分け場所（情報の入り口）
+                    # 2. 状態に応じた案内メッセージ (情報の入り口を1つに統合)
                     # -----------------------------------------------------
+                    # 始値や現在値が足りない場合のメッセージをここで切り替えます
+                    show_diagnosis = False
+                    
                     if not actual_open_val or actual_open_val <= 0:
                         st.info("始値を入力、または「更新ボタン」を押して診断を開始してください。")
                     elif mode == "リアルタイム戦略" and (not locals().get('current_p') or current_p <= 0):
                         st.warning("「現在値」を入力してリアルタイム診断を開始してください。")
                     else:
-                        # -----------------------------------------------------
-                        # 3. 詳細診断セクション (始値＋現在値が揃った場合)
-                        # -----------------------------------------------------
+                        show_diagnosis = True
+
+                    # -----------------------------------------------------
+                    # 3. 詳細診断セクション (数値が揃った場合のみ実行)
+                    # -----------------------------------------------------
+                    if show_diagnosis:
                         today_gap = (actual_open_val - last_c) / last_c
                         df_m = ticker_live.history(interval="1m", period="1d")
                         rsi_slope = 0; ema_gap = 0; tech_warning = False
+                        
                         if not df_m.empty and len(df_m) >= 5:
                             rsi_series = core.calculate_rsi(df_m['Close'])
                             if len(rsi_series) >= 6: rsi_slope = rsi_series.tail(3).mean() - rsi_series.iloc[-6:-3].mean()
                             ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]; ema_gap = ((df_m['Close'].iloc[-1] - ema5) / ema5) * 100
                             if rsi_slope < -0.2: tech_warning = True
 
+                        # 指値・価格計算
                         today_limit = actual_open_val * (1 + (avg_push / 100))
                         avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
                         target_price = today_limit * (1 + avg_profit); adj_sl = params['sl_fix'] * v_factor; stop_price = today_limit * (1 + adj_sl)
 
+                        # 価格カード表示
                         st.markdown(f"""<div class="mobile-flex-container" style="margin-top: 15px;"><div class="flex-item strat-card-bottom"><div class="card-label">今日の指値</div><div class="strat-value">{int(today_limit):,}</div><div class="strat-guide">で逆指値注文</div></div><div class="flex-item strat-card-bottom"><div class="card-label">目標利確</div><div class="strat-value">{int(target_price):,}</div><div class="strat-delta rakuten-plus">{avg_profit:+.2%}</div></div><div class="flex-item strat-card-bottom"><div class="card-label">損切ライン</div><div class="strat-value">{int(stop_price):,}</div><div class="strat-delta rakuten-minus">{adj_sl:+.2%}</div></div></div>""", unsafe_allow_html=True)
                         
                         r_cls = "rakuten-plus" if rsi_slope > -0.2 else "rakuten-minus"; r_text = "上昇・維持" if rsi_slope > -0.2 else "低下中"
                         st.markdown(f"""<div class="strat-tech-flex"><div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{r_text}</span></div><div class="strat-tech-item"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div></div>""", unsafe_allow_html=True)
 
-                        # --- 【改善版：統合判定ボックス】 ---
+                        # --- 【統合判定ロジック】 ---
                         similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
-                        n_count = len(similar_trades)
-                        sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
+                        n_count = len(similar_trades); sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
                         is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c)
 
-                        # A. 執行タイミングのテキスト生成 (リアルタイムモード時)
+                        # 執行タイミングのテキスト生成
                         dist_msg = ""
                         if mode == "リアルタイム戦略" and locals().get('current_p'):
                             diff = today_limit - current_p
-                            if diff > 0:
-                                dist_msg = f" (指値まであと {int(diff)}円)"
-                            else:
-                                dist_msg = " 🔥 **指値到達！**"
+                            dist_msg = f" (指値まであと {int(diff)}円)" if diff > 0 else " 🔥 **指値到達！**"
 
-                        # B. 条件判定とメッセージの統合
+                        # 判定表示 (1つの if-elif-else チェーンに集約)
                         if is_dev_large:
-                            # 1. 異常乖離（最優先）
-                            st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り推奨 (異常乖離)</b><br>予想からのズレ {dev_val:.2f}% により統計が機能しません。{dist_msg}</div>""", unsafe_allow_html=True)
+                            # A. 異常乖離 (最優先：赤)
+                            st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り (異常乖離)</b><br>予想からのズレ {dev_val:.2f}% により統計が機能しません。{dist_msg}</div>""", unsafe_allow_html=True)
                         
                         elif sim_win_rate < 0.55:
-                            # 2. 期待値不足（統計的にNG）
-                            st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>見送り (期待値不足)</b><br>勝率 {sim_win_rate:.1%} / {n_count}回。{dist_msg if diff > 0 else "価格は到達していますが、統計的優位性がありません。"}</div>""", unsafe_allow_html=True)
+                            # B. 期待値不足 (赤)
+                            st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>見送り (期待値不足)</b><br>勝率 {sim_win_rate:.1%} / {n_count}回。{dist_msg if 'diff' in locals() and diff > 0 else "価格到達済みですが、優位性がありません。"}</div>""", unsafe_allow_html=True)
                         
                         else:
-                            # 3. エントリー可能（統計的にOK）
+                            # C. エントリー可能 (地合いにより 緑 または 黄色)
                             bg_cls = "msg-bg-success" if m_curr_pct > -0.003 else "msg-bg-warning"
                             status_label = "エントリー可能" if m_curr_pct > -0.003 else "CAUTION (地合い注意)"
                             
-                            # 到達状況によってメインメッセージを変える
-                            if mode == "リアルタイム戦略" and locals().get('current_p') and diff <= 0:
-                                main_msg = f"✅ <b>今、執行チャンス！</b>"
-                            else:
-                                main_msg = f"✅ <b>{status_label}</b>"
-
+                            # リアルタイムかつ到達済みなら文言を強化
+                            main_msg = f"✅ <b>今、執行チャンス！</b>" if (mode == "リアルタイム戦略" and locals().get('current_p') and diff <= 0) else f"✅ <b>{status_label}</b>"
+                            
                             st.markdown(f"""<div class="strat-msg-box {bg_cls}">{main_msg}{dist_msg}<br>統計勝率 {sim_win_rate:.1%} / {n_count}回。{ '勢い低下に注意' if tech_warning else '勢いも良好' }</div>""", unsafe_allow_html=True)
 
-                        # 統計判定の決定
-                        if is_dev_large:
-                            st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り</b><br>予想乖離からのズレ: {dev_val:.2f}%<br>寄付き乖離が大きいため見送り推奨です。</div>""", unsafe_allow_html=True)
-                        elif sim_win_rate >= 0.55:
-                            bg_cls = "msg-bg-success" if m_curr_pct > -0.003 else "msg-bg-warning"
-                            status_label = "エントリー可能" if m_curr_pct > -0.003 else "CAUTION (地合い軟調)"
-                            msg_content = "統計・勢い共に良好。" if not tech_warning else "統計は良いが勢いが弱まっています。"
-                            st.markdown(f"""<div class="strat-msg-box {bg_cls}">{exec_msg} ✅ <b>{status_label}</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>{msg_content}</div>""", unsafe_allow_html=True)
-                        else:
-                            st.markdown(f"""<div class="strat-msg-box msg-bg-error">{exec_msg} ❄️ <b>エントリーなし</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>期待値が不十分です。</div>""", unsafe_allow_html=True)
-
+                        # トレイリング停止案
                         st.markdown(f"""<div class="strat-msg-box msg-bg-info">🚀 <b>トレイリング最適化</b><br>開始{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}</div>""", unsafe_allow_html=True)
                         st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
             st.divider()
