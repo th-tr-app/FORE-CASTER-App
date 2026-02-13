@@ -972,7 +972,7 @@ with tab_strategy:
                     with c_top_l:
                         st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">始値 (引用)</div><div class="strat-value">{st.session_state[perm_key]:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">現在の乖離</div><div class="strat-value">{m_curr_pct:+.2f}%</div><div class="strat-guide">市場全体の地合い</div></div></div>""", unsafe_allow_html=True)
                     with c_top_r:
-                        if st.button("現在値を同期", key=f"btn_now_sync_{t}", use_container_width=True, type="secondary"):
+                        if st.button(f"現在値を同期 ({t})", key=f"btn_now_sync_{t}", use_container_width=True, type="secondary"):
                             df_now = ticker_live.history(period="1d", interval="1m")
                             if not df_now.empty:
                                 val = int(df_now['Close'].iloc[-1]); st.session_state[now_p_key] = val; st.session_state[widget_now_key] = val; st.rerun()
