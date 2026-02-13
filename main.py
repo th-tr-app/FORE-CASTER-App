@@ -958,11 +958,33 @@ with tab_strategy:
                             g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
                             st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top"><div class="card-label">{baseline_label}</div><div class="strat-value">{last_c:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top"><div class="card-label">寄り付き予想</div><div class="strat-value">{pred_o:,.0f}</div><div class="strat-delta {g_cls}">{m_gap:+.2%}</div></div></div>""", unsafe_allow_html=True)
                         with c_top_r:
+                            # 1. 永続キーとウィジェット用キーの定義
+                            widget_key = f"input_o_{t}"
+                            
+                            # 2. 更新ボタン：永続変数とウィジェット状態の両方を強制上書き
                             if st.button(f"始値を更新 ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
                                 new_val = core.get_realtime_opening_price(t)
-                                if new_val: st.session_state[perm_key] = float(new_val); st.rerun()
-                            temp_o = st.number_input(f"始値", min_value=0.0, step=1.0, format="%f", value=float(st.session_state[perm_key]), key=f"input_o_{t}", label_visibility="collapsed")
-                            if temp_o != st.session_state[perm_key]: st.session_state[perm_key] = temp_o; st.rerun()
+                                if new_val:
+                                    # 永続変数を更新
+                                    st.session_state[perm_key] = float(new_val)
+                                    # ウィジェットの内部状態も直接書き換えて同期を強制する
+                                    st.session_state[widget_key] = float(new_val)
+                                    st.rerun()
+                            
+                            # 3. 始値入力欄
+                            # valueだけでなく、直接キーを指定して同期を安定させます
+                            temp_o = st.number_input(
+                                f"始値", 
+                                min_value=0.0, 
+                                step=1.0, 
+                                format="%f", 
+                                key=widget_key, # キーを固定
+                                label_visibility="collapsed"
+                            )
+                            
+                            # 手入力があった場合、永続変数に同期させる
+                            if temp_o != st.session_state[perm_key]:
+                                st.session_state[perm_key] = temp_o
                     else:
                         with c_top_l:
                             st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top" style="border-left: 5px solid #fffd00;"><div class="card-label">確定始値 (引用中)</div><div class="strat-value">{actual_open_val:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">現在の乖離</div><div class="strat-value">{m_curr_pct:+.2f}%</div><div class="strat-guide">市場全体の地合い</div></div></div>""", unsafe_allow_html=True)
