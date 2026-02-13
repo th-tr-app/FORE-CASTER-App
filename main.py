@@ -888,10 +888,19 @@ with tab_strategy:
     elif res_df.empty:
         st.info("💡 まずは「バックテスト」を実行してください。過去の統計データが必要です。")
     else:
-        # 地合い情報の取得
-        diag = core.analyze_market_environment()
-        m_curr_pct = diag.get('market_pct', 0.0)
-        m_gap = diag.get('gap_pct', 0.0)
+        # --- 指標ウォッチの数値を直接引用して地合いを同期 ---
+        m_data = core.fetch_market_info(MARKET_INDICES)
+        n225_val = m_data.get("日経平均", {}).get("val")
+        cme_val = m_data.get("日経先物(CME)", {}).get("val")
+
+        # 指標ウォッチの生データから「乖離率(m_gap)」を再計算する
+        if n225_val and cme_val and n225_val != 0:
+            m_gap = (cme_val - n225_val) / n225_val
+        else:
+            m_gap = 0.0
+
+        # 表示用の前日比(%)を取得
+        m_curr_pct = m_data.get("日経平均", {}).get("pct", 0.0)
 
         m_cls = "rakuten-plus" if m_curr_pct >= 0 else "rakuten-minus"
         st.markdown(f"<div class='strat-market-header'><b>日経平均／前日比:</b> <span class='{m_cls}' style='font-size:1.2em; font-weight:bold;'>{m_curr_pct:+.2%}</span></div>", unsafe_allow_html=True)
