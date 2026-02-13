@@ -991,25 +991,25 @@ with tab_strategy:
                             st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">始値 (引用)</div><div class="strat-value">{st.session_state[perm_key]:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">現在の乖離</div><div class="strat-value">{m_curr_pct:+.2f}%</div><div class="strat-guide">市場全体の地合い</div></div></div>""", unsafe_allow_html=True)
                         with c_top_r:
                             # 1. ウィジェット用キーの定義
-                            now_p_key = f"now_p_{t}"
-                            
-                            # 2. 【位置変更】更新ボタンを上に配置
-                            # これにより、ボタン押下直後の再描画で入力欄が最新状態になります
-                            if st.button(f"現在値を更新 ({t})", key=f"btn_now_{t}", use_container_width=True, type="primary"):
-                                # リアルタイム価格の取得ロジック（必要に応じて core から取得）
-                                # ここでは単に画面のリフレッシュをトリガーします
-                                st.rerun()
+                            # --- Ver 4.97 で追加された「市場価格との同期」ロジック ---
 
-                            # 3. 【位置変更】現在値の入力欄を下に配置
-                            current_p = st.number_input(
-                                f"現在値", 
-                                step=1, 
-                                format="%d", 
-                                key=now_p_key, 
-                                placeholder="現在値", 
-                                label_visibility="collapsed"
-                            )
-                            
+                        with c_top_r:
+                            now_p_key = f"now_p_{t}"
+    
+                            # 1. 「現在値を同期」ボタンが押された時の処理
+                            if st.button("現在値を同期", key=f"btn_now_{t}", use_container_width=True, type="secondary"):
+                                # 市場から今日の「1分足」の最新データを取得
+                                df_now = ticker_live.history(period="1d", interval="1m")
+        
+                                if not df_now.empty:
+                                    # 最新の終値を整数にして、入力欄の「キー」に直接書き込む
+                                    st.session_state[now_p_key] = int(df_now['Close'].iloc[-1])
+                                    # 画面を再描画して、入力欄に値を反映させる
+                                    st.rerun()
+
+                            # 2. 上記ボタンで書き換えられた値が、この入力欄に自動で表示される
+                            current_p = st.number_input(f"現在値", step=1, format="%d", key=now_p_key, ...)
+                                                
                     # -----------------------------------------------------
                     # 2. 状態に応じた案内メッセージ (情報の入り口を1つに統合)
                     # -----------------------------------------------------
