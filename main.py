@@ -980,8 +980,6 @@ with tab_strategy:
                             st.session_state[perm_key] = temp_o
                             st.rerun()
                 else:
-                    # リアルタイム指値戦略
-else:
                         # リアルタイム指値戦略
                         with c_top_l:
                             # 永続キーから最新の始値を取得
@@ -989,7 +987,7 @@ else:
                             st.markdown(f"""
                             <div class="mobile-flex-container">
                                 <div class="flex-item strat-card-top" style="background-color: #1e2630;">
-                                    <div class="card-label">始値 (引用)</div>
+                                    <div class="card-label">確定始値 (引用中)</div>
                                     <div class="strat-value">{perm_open:,.0f}</div>
                                     <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div>
                                 </div>
