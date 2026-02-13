@@ -990,7 +990,7 @@ with tab_strategy:
                         with c_top_r:
                             widget_o_key = f"input_o_{t}"
                             # 1. 更新ボタン：永続キーとウィジェットキーの両方を書き換える
-                            if st.button(f"始値を更新 ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
+                            if st.button(f"始値を更新 ({t})", key=f"btn_now_{t}", use_container_width=True, type="primary"):
                                 new_val = core.get_realtime_opening_price(t)
                                 if new_val:
                                     st.session_state[perm_key] = float(new_val)
