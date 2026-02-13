@@ -1023,17 +1023,13 @@ with tab_strategy:
                             )
                             
                             # 3. 【最重要】変化を検知してリランを実行
-                            # ウィジェットの値(current_p_val)と、保存されている値(st.session_state[now_p_key])を比較
                             if current_p_val != st.session_state[now_p_key]:
                                 st.session_state[now_p_key] = current_p_val
-                                st.rerun() # これで下の診断ロジックに最新値が即座に伝わります
-                
-                # -----------------------------------------------------
-                # 3. 変数の確定 (診断セクションの直前で最新の値を取る)
-                # -----------------------------------------------------
-                # タブ移動時も +/- 操作時も、ここを通ることで計算用変数が最新になります
-                actual_open_val = float(st.session_state.get(perm_key, 0.0))
-                current_p = int(st.session_state.get(now_p_key, 0))
+                                st.rerun() # ← これで計算が最新値でやり直されます
+
+                        # --- 【ここがポイント！】診断用の変数をここでセットする ---
+                        current_p = current_p_val # 最新の入力をそのまま使う
+                        actual_open_val = st.session_state[perm_key]
 
                 # -----------------------------------------------------
                 # 4. メッセージエリア
