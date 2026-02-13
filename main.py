@@ -878,8 +878,8 @@ with tab_strategy:
 
     # 1. 検証モード選択
     mode = st.segmented_control(
-        options=["寄付／指値戦略", "リアルタイム戦略"],
-        default="寄付／指値戦略",
+        options=["寄付き／始値戦略", "リアルタイム戦略"],
+        default="寄付き／始値戦略",
         key="strategy_mode_selector"
     )
     
