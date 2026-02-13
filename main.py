@@ -989,10 +989,26 @@ with tab_strategy:
                         with c_top_l:
                             st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top" style="border-left: 5px solid #fffd00;"><div class="card-label">確定始値 (引用中)</div><div class="strat-value">{actual_open_val:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">現在の乖離</div><div class="strat-value">{m_curr_pct:+.2f}%</div><div class="strat-guide">市場全体の地合い</div></div></div>""", unsafe_allow_html=True)
                         with c_top_r:
-                            st.write("")
-                            current_p = st.number_input(f"現在値", step=1, format="%d", key=f"now_p_{t}", placeholder="現在値", label_visibility="collapsed")
-                            if st.button("更新", key=f"btn_now_{t}", use_container_width=True): st.rerun()
+                            # 1. ウィジェット用キーの定義
+                            now_p_key = f"now_p_{t}"
+                            
+                            # 2. 【位置変更】更新ボタンを上に配置
+                            # これにより、ボタン押下直後の再描画で入力欄が最新状態になります
+                            if st.button("現在値を更新", key=f"btn_now_{t}", use_container_width=True, type="secondary"):
+                                # リアルタイム価格の取得ロジック（必要に応じて core から取得）
+                                # ここでは単に画面のリフレッシュをトリガーします
+                                st.rerun()
 
+                            # 3. 【位置変更】現在値の入力欄を下に配置
+                            current_p = st.number_input(
+                                f"現在値", 
+                                step=1, 
+                                format="%d", 
+                                key=now_p_key, 
+                                placeholder="現在値", 
+                                label_visibility="collapsed"
+                            )
+                            
                     # -----------------------------------------------------
                     # 2. 状態に応じた案内メッセージ (情報の入り口を1つに統合)
                     # -----------------------------------------------------
