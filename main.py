@@ -957,7 +957,12 @@ with tab_strategy:
                     if mode == "寄付き限定／指値戦略":
                         with c_top_l:
                             g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
-                            st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top"><div class="card-label">{baseline_label}</div><div class="strat-value">{last_c:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top"><div class="card-label">寄り付き予想</div><div class="strat-value">{pred_o:,.0f}</div><div class="strat-delta {g_cls}">{m_gap:+.2%}</div></div></div>""", unsafe_allow_html=True)
+                            st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top">
+                            <div class="card-label">{baseline_label}</div>
+                            <div class="strat-value">{last_c:,.0f}</div>
+                            <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div>
+                            <div class="flex-item strat-card-top"><div class="card-label">寄り付き予想</div>
+                            <div class="strat-value">{pred_o:,.0f}</div><div class="strat-delta {g_cls}">{m_gap:+.2%}</div></div></div>""", unsafe_allow_html=True)
                         with c_top_r:
                             # 1. 永続キーとウィジェット用キーの定義
                             widget_key = f"input_o_{t}"
@@ -988,7 +993,12 @@ with tab_strategy:
                                 st.session_state[perm_key] = temp_o
                     else:
                         with c_top_l:
-                            st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">始値 (引用)</div><div class="strat-value">{st.session_state[perm_key]:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">現在の乖離</div><div class="strat-value">{m_curr_pct:+.2f}%</div><div class="strat-guide">市場全体の地合い</div></div></div>""", unsafe_allow_html=True)
+                            st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top" style="background-color: #1e2630;">
+                            <div class="card-label">始値 (引用)</div>
+                            <div class="strat-value">{st.session_state[perm_key]:,.0f}</div>
+                            <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div>
+                            <div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">現在の乖離</div>
+                            <div class="strat-value">{m_curr_pct:+.2f}%</div><div class="strat-guide">市場全体の地合い</div></div></div>""", unsafe_allow_html=True)
 
                         # 1. ウィジェット用キーの定義
                         # --- Ver 4.97 で追加された「市場価格との同期」ロジック ---
@@ -1007,7 +1017,14 @@ with tab_strategy:
                                     st.rerun()
 
                             # 2. 上記ボタンで書き換えられた値が、この入力欄に自動で表示される
-                            current_p = st.number_input(f"現在値", step=1, format="%d", key=now_p_key, ...)    
+                            current_p = st.number_input(
+                            f"現在値", 
+                            step=1, 
+                            format="%d", 
+                            key=now_p_key, 
+                            placeholder="現在値", 
+                            label_visibility="collapsed"
+                        )
                                                 
                     # -----------------------------------------------------
                     # 2. 状態に応じた案内メッセージ (情報の入り口を1つに統合)
@@ -1042,10 +1059,17 @@ with tab_strategy:
                         target_price = today_limit * (1 + avg_profit); adj_sl = params['sl_fix'] * v_factor; stop_price = today_limit * (1 + adj_sl)
 
                         # 価格カード表示
-                        st.markdown(f"""<div class="mobile-flex-container" style="margin-top: 15px;"><div class="flex-item strat-card-bottom"><div class="card-label">今日の指値</div><div class="strat-value">{int(today_limit):,}</div><div class="strat-guide">で逆指値注文</div></div><div class="flex-item strat-card-bottom"><div class="card-label">目標利確</div><div class="strat-value">{int(target_price):,}</div><div class="strat-delta rakuten-plus">{avg_profit:+.2%}</div></div><div class="flex-item strat-card-bottom"><div class="card-label">損切ライン</div><div class="strat-value">{int(stop_price):,}</div><div class="strat-delta rakuten-minus">{adj_sl:+.2%}</div></div></div>""", unsafe_allow_html=True)
+                        st.markdown(f"""<div class="mobile-flex-container" style="margin-top: 15px;">
+                        <div class="flex-item strat-card-bottom"><div class="card-label">今日の指値</div>
+                        <div class="strat-value">{int(today_limit):,}</div><div class="strat-guide">で逆指値注文</div></div>
+                        <div class="flex-item strat-card-bottom"><div class="card-label">目標利確</div>
+                        <div class="strat-value">{int(target_price):,}</div><div class="strat-delta rakuten-plus">{avg_profit:+.2%}</div></div>
+                        <div class="flex-item strat-card-bottom"><div class="card-label">損切ライン</div><div class="strat-value">{int(stop_price):,}</div>
+                        <div class="strat-delta rakuten-minus">{adj_sl:+.2%}</div></div></div>""", unsafe_allow_html=True)
                         
                         r_cls = "rakuten-plus" if rsi_slope > -0.2 else "rakuten-minus"; r_text = "上昇・維持" if rsi_slope > -0.2 else "低下中"
-                        st.markdown(f"""<div class="strat-tech-flex"><div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{r_text}</span></div><div class="strat-tech-item"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div></div>""", unsafe_allow_html=True)
+                        st.markdown(f"""<div class="strat-tech-flex"><div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{r_text}</span></div>
+                        <div class="strat-tech-item"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div></div>""", unsafe_allow_html=True)
 
                         # --- 【統合判定ロジック】 ---
                         similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
