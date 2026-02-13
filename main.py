@@ -1009,18 +1009,27 @@ with tab_strategy:
                 with c_top_r:
                     input_key = f"act_in_{t}"
                     if input_key not in st.session_state:
-                        st.session_state[input_key] = None
-                    
-                    actual_open_val = st.number_input(
-                        f"始値を入力 ({t})", step=1, format="%d", key=input_key, 
-                        label_visibility="collapsed", placeholder="始値を入力"
-                    )
-                    
+                        st.session_state[input_key] = None # 初期値は数値(0)にしておく方が安全です
+
+                    # --- 【修正：順番を入れ替える】 ---
+                    # 1. まずボタンが押されたか判定し、値を更新する
                     if st.button(f"始値を更新する ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
                         new_val = core.get_realtime_opening_price(t)
                         if new_val:
+                            # 入力欄が描画される前なので、ここで値をセットすればエラーになりません
                             st.session_state[input_key] = new_val
                             st.rerun()
+
+                    # 2. その後に、最新の値が入った session_state を使って入力欄を表示する
+                    actual_open_val = st.number_input(
+                        f"始値を入力 ({t})", 
+                        min_value=0,
+                        step=1, 
+                        format="%d", 
+                        key=input_key, 
+                        label_visibility="collapsed", 
+                        placeholder="始値を入力"
+                    )
 
                 # --- 2. 始値確定後の詳細診断ロジック ---
                 if actual_open_val:
