@@ -974,26 +974,44 @@ with tab_strategy:
                         st.session_state[input_key] = 0.0
 
                     # -----------------------------------------------------
-                    # 1. 上段レイアウト：入力・カード
-                    # -----------------------------------------------------
+                    # 上段レイアウト：入力・カードセクション (Ver 4.94 最終安定版)
+                    # -----------------------------------------------------                   
                     c_top_l, c_top_r = st.columns([2, 1])
+
                     if mode == "寄付き／始値戦略":
                         with c_top_l:
                             g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
                             st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top"><div class="card-label">{baseline_label}</div><div class="strat-value">{last_c:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top"><div class="card-label">寄り付き予想</div><div class="strat-value">{pred_o:,.0f}</div><div class="strat-delta {g_cls}">{m_gap:+.2%}</div></div></div>""", unsafe_allow_html=True)
+                        
                         with c_top_r:
+                            # 1. 更新ボタン：直接セッションステートを書き換えてリロード
                             if st.button(f"始値を更新 ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
                                 new_val = core.get_realtime_opening_price(t)
-                                if new_val: st.session_state[perm_key] = float(new_val); st.rerun()
-                            temp_o = st.number_input(f"始値", min_value=0.0, step=1.0, format="%f", value=float(st.session_state[perm_key]), key=f"input_o_{t}", label_visibility="collapsed")
-                            if temp_o != st.session_state[perm_key]: st.session_state[perm_key] = temp_o; st.rerun()
+                                if new_val:
+                                    st.session_state[perm_key] = float(new_val)
+                                    st.rerun()
+                            
+                            # 2. 始値入力：valueを指定せず、keyだけに任せるのがStreamlitの正解
+                            st.number_input(
+                                "始値", min_value=0.0, step=1.0, format="%f", 
+                                key=perm_key, # これだけで入力値が st.session_state[perm_key] に自動保存される
+                                label_visibility="collapsed"
+                            )
                     else:
+                        # リアルタイム戦略モード
                         with c_top_l:
+                            # 保存されている値を読み出すだけ
+                            actual_open_val = st.session_state.get(perm_key, 0.0)
                             st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top" style="border-left: 5px solid #fffd00;"><div class="card-label">確定始値 (引用中)</div><div class="strat-value">{actual_open_val:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">現在の乖離</div><div class="strat-value">{m_curr_pct:+.2f}%</div><div class="strat-guide">市場全体の地合い</div></div></div>""", unsafe_allow_html=True)
+                        
                         with c_top_r:
                             st.write("")
                             current_p = st.number_input(f"現在値", step=1, format="%d", key=f"now_p_{t}", placeholder="現在値", label_visibility="collapsed")
-                            if st.button("更新", key=f"btn_now_{t}", use_container_width=True): st.rerun()
+                            if st.button("更新", key=f"btn_now_{t}", use_container_width=True):
+                                st.rerun()
+
+                    # 診断用変数の確定
+                    actual_open_val = st.session_state.get(perm_key, 0.0)
 
                     # -----------------------------------------------------
                     # 2. メッセージの出し分け場所（情報の入り口）
