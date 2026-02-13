@@ -925,6 +925,12 @@ with tab_strategy:
                 header_label = f":yellow[[{t}] {t_name} (リアルタイム監視)]"
 
             with st.expander(header_label, expanded=True):
+                # --- 【エラー解消の要】変数の初期化をここで行う ---
+                actual_open_val = 0.0
+                is_dev_large = False  # これで Line 1094 のエラーを防ぎます
+                dev_v = 0.0
+                tech_warning = False
+
                 with st.spinner("同期中..."):
                     ticker_live = yf.Ticker(t)
                     
@@ -966,14 +972,19 @@ with tab_strategy:
                     avg_push = win_tdf['Entry_Push'].mean() if not win_tdf.empty else 0
                     pred_o = last_c * (1 + m_gap)
 
-                    # セッションキー (始値をタブ間で共有)
+                    # セッションキー (始値を共有)
                     input_key = f"act_in_{t}"
                     if input_key not in st.session_state:
                         st.session_state[input_key] = 0.0
 
                     # -----------------------------------------------------
-                    # 上段レイアウト：入力・カードセクション
+                    # 上段レイアウト：入力・カードセクション (Ver 4.91 安定版)
                     # -----------------------------------------------------
+                    # 【重要】エラー防止のため、まず変数を初期化
+                    actual_open_val = 0.0
+                    is_dev_large = False
+                    dev_v = 0.0
+                    
                     c_top_l, c_top_r = st.columns([2, 1])
 
                     if mode == "寄付き／始値戦略":
@@ -995,20 +1006,22 @@ with tab_strategy:
                             """, unsafe_allow_html=True)
                         
                         with c_top_r:
+                            # 1. 更新ボタン（描画前に入力値を書き換えるため先に配置）
                             if st.button(f"始値を更新する ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
                                 new_val = core.get_realtime_opening_price(t)
                                 if new_val:
                                     st.session_state[input_key] = new_val
                                     st.rerun()
                             
+                            # 2. 始値入力欄
                             actual_open_val = st.number_input(
                                 f"始値を入力 ({t})", min_value=0.0, step=1.0, format="%f", 
                                 key=input_key, label_visibility="collapsed"
                             )
                     else:
-                        # リアルタイム戦略タブ
+                        # リアルタイム戦略モード
                         with c_top_l:
-                            confirmed_o = st.session_state[input_key]
+                            confirmed_o = st.session_state.get(input_key, 0.0)
                             st.markdown(f"""
                             <div class="mobile-flex-container">
                                 <div class="flex-item strat-card-top" style="border-left: 5px solid #fffd00;">
@@ -1032,8 +1045,10 @@ with tab_strategy:
                             )
                             if st.button("更新", key=f"btn_now_{t}", use_container_width=True):
                                 st.rerun()
-                            actual_open_val = st.session_state[input_key]
-
+                        
+                        # 【重要】リアルタイムモードでも診断ロジックに値を渡す
+                        actual_open_val = st.session_state.get(input_key, 0.0)
+                        
                     # -----------------------------------------------------
                     # 下段：詳細診断セクション (始値が入力されている場合のみ)
                     # -----------------------------------------------------
@@ -1047,6 +1062,7 @@ with tab_strategy:
                             rsi_series = core.calculate_rsi(df_m['Close'])
                             if len(rsi_series) >= 6:
                                 rsi_slope = rsi_series.tail(3).mean() - rsi_series.iloc[-6:-3].mean()
+                            
                             ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
                             ema_gap = ((df_m['Close'].iloc[-1] - ema5) / ema5) * 100
                             if rsi_slope < -0.2: tech_warning = True
@@ -1077,7 +1093,7 @@ with tab_strategy:
                         </div>
                         """, unsafe_allow_html=True)
 
-                        # リアルタイム判定メッセージ (Bタブ時かつ現在値がある場合)
+                        # リアルタイム判定メッセージ (リアルタイムモード時かつ現在値がある場合)
                         if mode == "リアルタイム戦略" and 'current_p' in locals() and current_p:
                             diff = today_limit - current_p
                             if diff > 0:
@@ -1085,11 +1101,13 @@ with tab_strategy:
                             else:
                                 st.markdown(f"""<div class="strat-msg-box msg-bg-success">🔥 <b>条件到達</b>: 指値ラインを超えています。執行を検討してください。</div>""", unsafe_allow_html=True)
 
-                        # 統計判定と警告
+                        # 統計判定と警告 (変数名を統一してエラーを防止)
                         similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
                         n_count = len(similar_trades)
-                        sim_win = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
-                        is_large, dev_v = core.check_opening_deviation(actual_open_val, pred_o, last_c)
+                        sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
+                        
+                        # 予想乖離チェック (変数名を is_dev_large, dev_val に統一)
+                        is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c)
 
                         if is_dev_large:
                             st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り</b><br>予想乖離からのズレ: {dev_val:.2f}%<br>寄付き乖離が大きいため見送り推奨です。</div>""", unsafe_allow_html=True)
