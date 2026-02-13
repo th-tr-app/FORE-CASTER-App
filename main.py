@@ -993,7 +993,6 @@ with tab_strategy:
                         # 1. ウィジェット用キーの定義
                         # --- Ver 4.97 で追加された「市場価格との同期」ロジック ---
                         with c_top_r:
-                        with c_top_r:
                             now_p_key = f"now_p_{t}"
     
                             # 1. 「現在値を同期」ボタンが押された時の処理
