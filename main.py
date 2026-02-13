@@ -994,7 +994,7 @@ with tab_strategy:
                             
                             # 2. 【位置変更】更新ボタンを上に配置
                             # これにより、ボタン押下直後の再描画で入力欄が最新状態になります
-                            if st.button("現在値を更新", key=f"btn_now_{t}", use_container_width=True, type="secondary"):
+                            if st.button(f"現在値を更新 ({t})", key=f"btn_now_{t}", use_container_width=True, type="primary"):
                                 # リアルタイム価格の取得ロジック（必要に応じて core から取得）
                                 # ここでは単に画面のリフレッシュをトリガーします
                                 st.rerun()
