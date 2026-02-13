@@ -1110,7 +1110,7 @@ with tab_strategy:
                         # 判定表示 (1つの if-elif-else チェーンに集約)
                         if is_dev_large:
                             # A. 異常乖離 (最優先：赤)
-                            st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り (異常乖離)</b><br>予想からのズレ {dev_val:.2f}% により統計対象外です。{dist_msg}</div>""", unsafe_allow_html=True)
+                            st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り (異常乖離)</b><br>予想からのズレ {dev_val:.2f}% により統計の対象外。{dist_msg}</div>""", unsafe_allow_html=True)
                         
                         elif sim_win_rate < 0.55:
                             # B. 期待値不足 (赤)
