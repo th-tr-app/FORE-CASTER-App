@@ -871,13 +871,12 @@ with tab_bt:
 
                 st.divider()
 
-# --- タブ4: 指値戦略 (Ver 4.90：検証モード・セグメント制御 完全版) ---
+# --- タブ4: 指値戦略 (Ver 4.93：UI統合 ＆ メッセージ同期版) ---
 with tab_strategy:
     st.markdown("### 🔮 指値戦略プランナー")
     st.caption("統計的勝率・地合い・リアルタイムの勢いを統合した最終判断用パネルです。始値確定後の利用を推奨します。")
 
     # 1. 検証モード選択 (st.segmented_control)
-    # スマホでの視認性を高めるため、日経平均の前日比表示は非表示にしています
     mode = st.segmented_control(
         "検証モードを選択",
         options=["寄付き／始値戦略", "リアルタイム戦略"],
@@ -905,10 +904,7 @@ with tab_strategy:
         m_curr_pct = m_data.get("日経平均", {}).get("pct", 0.0)
 
         # 寄り付き乖離率(m_gap)を再計算
-        if n225_val and cme_val and n225_val != 0:
-            m_gap = (cme_val - n225_val) / n225_val
-        else:
-            m_gap = 0.0
+        m_gap = (cme_val - n225_val) / n225_val if n225_val and cme_val and n225_val != 0 else 0.0
 
         st.divider()
 
@@ -978,167 +974,81 @@ with tab_strategy:
                         st.session_state[input_key] = 0.0
 
                     # -----------------------------------------------------
-                    # 上段レイアウト：入力・カードセクション (Ver 4.92 永続化対応)
+                    # 1. 上段レイアウト：入力・カード
                     # -----------------------------------------------------
-                    # 【重要】消えない変数（Master State）の初期化
-                    perm_key = f"perm_open_{t}"
-                    if perm_key not in st.session_state:
-                        st.session_state[perm_key] = 0.0
-                    
                     c_top_l, c_top_r = st.columns([2, 1])
-
                     if mode == "寄付き／始値戦略":
                         with c_top_l:
                             g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
-                            st.markdown(f"""
-                            <div class="mobile-flex-container">
-                                <div class="flex-item strat-card-top">
-                                    <div class="card-label">{baseline_label}</div> 
-                                    <div class="strat-value">{last_c:,.0f}</div>
-                                    <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div>
-                                </div>
-                                <div class="flex-item strat-card-top">
-                                    <div class="card-label">寄り付き予想</div>
-                                    <div class="strat-value">{pred_o:,.0f}</div>
-                                    <div class="strat-delta {g_cls}">{m_gap:+.2%}</div>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        
+                            st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top"><div class="card-label">{baseline_label}</div><div class="strat-value">{last_c:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top"><div class="card-label">寄り付き予想</div><div class="strat-value">{pred_o:,.0f}</div><div class="strat-delta {g_cls}">{m_gap:+.2%}</div></div></div>""", unsafe_allow_html=True)
                         with c_top_r:
-                            # 1. 更新ボタン：Master Stateを直接書き換える
-                            if st.button(f"始値を更新する ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
+                            if st.button(f"始値を更新 ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
                                 new_val = core.get_realtime_opening_price(t)
-                                if new_val:
-                                    st.session_state[perm_key] = float(new_val)
-                                    st.rerun()
-                            
-                            # 2. 始値入力：Master Stateの値を初期値として使う
-                            temp_open = st.number_input(
-                                f"始値を入力 ({t})", min_value=0.0, step=1.0, format="%f", 
-                                value=float(st.session_state[perm_key]), # 常に保持された値を表示
-                                label_visibility="collapsed"
-                            )
-                            # 入力があれば Master State に反映
-                            if temp_open != st.session_state[perm_key]:
-                                st.session_state[perm_key] = temp_open
-                            
-                            # 診断用に確定値を代入
-                            actual_open_val = st.session_state[perm_key]
-
+                                if new_val: st.session_state[perm_key] = float(new_val); st.rerun()
+                            temp_o = st.number_input(f"始値", min_value=0.0, step=1.0, format="%f", value=float(st.session_state[perm_key]), key=f"input_o_{t}", label_visibility="collapsed")
+                            if temp_o != st.session_state[perm_key]: st.session_state[perm_key] = temp_o; st.rerun()
                     else:
-                        # リアルタイム戦略モード
                         with c_top_l:
-                            # 保持されている始値を表示
-                            confirmed_o = st.session_state[perm_key]
-                            st.markdown(f"""
-                            <div class="mobile-flex-container">
-                                <div class="flex-item strat-card-top" style="border-left: 5px solid #fffd00;">
-                                    <div class="card-label">確定始値 (引用中)</div>
-                                    <div class="strat-value">{confirmed_o:,.0f}</div>
-                                    <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div>
-                                </div>
-                                <div class="flex-item strat-card-top" style="background-color: #1e2630;">
-                                    <div class="card-label">現在の乖離</div>
-                                    <div class="strat-value">{m_curr_pct:+.2f}%</div>
-                                    <div class="strat-guide">市場全体の地合い</div>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        
+                            st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top" style="border-left: 5px solid #fffd00;"><div class="card-label">確定始値 (引用中)</div><div class="strat-value">{actual_open_val:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">現在の乖離</div><div class="strat-value">{m_curr_pct:+.2f}%</div><div class="strat-guide">市場全体の地合い</div></div></div>""", unsafe_allow_html=True)
                         with c_top_r:
-                            st.write("") # スペース調整
-                            current_p = st.number_input(
-                                f"現在値を入力 ({t})", step=1, format="%d", key=f"now_p_{t}", 
-                                placeholder="現在値", label_visibility="collapsed"
-                            )
-                            if st.button("更新", key=f"btn_now_{t}", use_container_width=True):
-                                st.rerun()
-                        
-                        # 診断用に確定値を代入
-                        actual_open_val = st.session_state[perm_key]
-                        
+                            st.write("")
+                            current_p = st.number_input(f"現在値", step=1, format="%d", key=f"now_p_{t}", placeholder="現在値", label_visibility="collapsed")
+                            if st.button("更新", key=f"btn_now_{t}", use_container_width=True): st.rerun()
+
                     # -----------------------------------------------------
-                    # 下段：詳細診断セクション (始値が入力されている場合のみ)
+                    # 2. メッセージの出し分け場所（情報の入り口）
                     # -----------------------------------------------------
-                    if actual_open_val and actual_open_val > 0:
+                    if not actual_open_val or actual_open_val <= 0:
+                        st.info("始値を入力、または「更新ボタン」を押して診断を開始してください。")
+                    elif mode == "リアルタイム戦略" and (not locals().get('current_p') or current_p <= 0):
+                        st.warning("「現在値」を入力してリアルタイム診断を開始してください。")
+                    else:
+                        # -----------------------------------------------------
+                        # 3. 詳細診断セクション (始値＋現在値が揃った場合)
+                        # -----------------------------------------------------
                         today_gap = (actual_open_val - last_c) / last_c
-                        
-                        # 1分足テクニカル診断
                         df_m = ticker_live.history(interval="1m", period="1d")
                         rsi_slope = 0; ema_gap = 0; tech_warning = False
                         if not df_m.empty and len(df_m) >= 5:
                             rsi_series = core.calculate_rsi(df_m['Close'])
-                            if len(rsi_series) >= 6:
-                                rsi_slope = rsi_series.tail(3).mean() - rsi_series.iloc[-6:-3].mean()
-                            
-                            ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
-                            ema_gap = ((df_m['Close'].iloc[-1] - ema5) / ema5) * 100
+                            if len(rsi_series) >= 6: rsi_slope = rsi_series.tail(3).mean() - rsi_series.iloc[-6:-3].mean()
+                            ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]; ema_gap = ((df_m['Close'].iloc[-1] - ema5) / ema5) * 100
                             if rsi_slope < -0.2: tech_warning = True
 
-                        # 指値・目標・損切の計算
                         today_limit = actual_open_val * (1 + (avg_push / 100))
                         avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
-                        target_price = today_limit * (1 + avg_profit)
-                        adj_sl = params['sl_fix'] * v_factor
-                        stop_price = today_limit * (1 + adj_sl)
+                        target_price = today_limit * (1 + avg_profit); adj_sl = params['sl_fix'] * v_factor; stop_price = today_limit * (1 + adj_sl)
 
-                        # 結果カードの表示
-                        st.markdown(f"""
-                        <div class="mobile-flex-container" style="margin-top: 15px;">
-                            <div class="flex-item strat-card-bottom"><div class="card-label">今日の指値</div><div class="strat-value">{int(today_limit):,}</div><div class="strat-guide">で逆指値注文</div></div>
-                            <div class="flex-item strat-card-bottom"><div class="card-label">目標利確</div><div class="strat-value">{int(target_price):,}</div><div class="strat-delta rakuten-plus">{avg_profit:+.2%}</div></div>
-                            <div class="flex-item strat-card-bottom"><div class="card-label">損切ライン</div><div class="strat-value">{int(stop_price):,}</div><div class="strat-delta rakuten-minus">{adj_sl:+.2%}</div></div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                        # RSI・EMA情報の表示
-                        r_cls = "rakuten-plus" if rsi_slope > -0.2 else "rakuten-minus"
-                        r_text = "上昇・維持" if rsi_slope > -0.2 else "低下中"
-                        st.markdown(f"""
-                        <div class="strat-tech-flex">
-                            <div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{r_text}</span></div>
-                            <div class="strat-tech-item"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                        # リアルタイム判定メッセージ (リアルタイムモード時かつ現在値がある場合)
-                        # --- メッセージエリアの出し分け ---
-                        if mode == "リアルタイム戦略":
-                            if 'current_p' in locals() and current_p and current_p > 0:
-                                # 現在値が入力されている時
-                                diff = today_limit - current_p
-                                if diff > 0:
-                                    st.markdown(f"""<div class="strat-msg-box msg-bg-info">💡 <b>待機中</b>: あと <b>{int(diff)}円</b> 上昇で指値ラインに到達します。</div>""", unsafe_allow_html=True)
-                                else:
-                                    st.markdown(f"""<div class="strat-msg-box msg-bg-success">🔥 <b>条件到達</b>: 指値ラインを超えています。執行を検討してください。</div>""", unsafe_allow_html=True)
-                            else:
-                                # 始値はあるが、現在値が未入力の時
-                                st.warning("「現在値」を入力してリアルタイム診断を開始してください。")
-                                
-                        # 統計判定と警告 (変数名を統一してエラーを防止)
-                        similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
-                        n_count = len(similar_trades)
-                        sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
+                        st.markdown(f"""<div class="mobile-flex-container" style="margin-top: 15px;"><div class="flex-item strat-card-bottom"><div class="card-label">今日の指値</div><div class="strat-value">{int(today_limit):,}</div><div class="strat-guide">で逆指値注文</div></div><div class="flex-item strat-card-bottom"><div class="card-label">目標利確</div><div class="strat-value">{int(target_price):,}</div><div class="strat-delta rakuten-plus">{avg_profit:+.2%}</div></div><div class="flex-item strat-card-bottom"><div class="card-label">損切ライン</div><div class="strat-value">{int(stop_price):,}</div><div class="strat-delta rakuten-minus">{adj_sl:+.2%}</div></div></div>""", unsafe_allow_html=True)
                         
-                        # 予想乖離チェック (変数名を is_dev_large, dev_val に統一)
+                        r_cls = "rakuten-plus" if rsi_slope > -0.2 else "rakuten-minus"; r_text = "上昇・維持" if rsi_slope > -0.2 else "低下中"
+                        st.markdown(f"""<div class="strat-tech-flex"><div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{r_text}</span></div><div class="strat-tech-item"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div></div>""", unsafe_allow_html=True)
+
+                        # --- 【統合判定ボックス】 ---
+                        similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
+                        n_count = len(similar_trades); sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
                         is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c)
 
+                        # 執行判定メッセージの生成 (リアルタイムモードのみ)
+                        exec_msg = ""
+                        if mode == "リアルタイム戦略" and locals().get('current_p'):
+                            diff = today_limit - current_p
+                            if diff > 0: exec_msg = f"💡 <b>待機中</b>: あと <b>{int(diff)}円</b> 上昇で指値ライン <br>"
+                            else: exec_msg = "🔥 <b>条件到達</b>: 指値ラインを超えています。執行を検討！ <br>"
+
+                        # 統計判定の決定
                         if is_dev_large:
                             st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り</b><br>予想乖離からのズレ: {dev_val:.2f}%<br>寄付き乖離が大きいため見送り推奨です。</div>""", unsafe_allow_html=True)
-                        elif m_curr_pct < -0.003 and sim_win_rate >= 0.55:
-                            st.markdown(f"""<div class="strat-msg-box msg-bg-warning">⚠️ <b>CAUTION</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>地合い軟調。慎重に判断してください。</div>""", unsafe_allow_html=True)
                         elif sim_win_rate >= 0.55:
-                            msg = "統計は良いが勢いが弱まっています。" if tech_warning else "統計・勢い共に良好。"
-                            st.markdown(f"""<div class="strat-msg-box msg-bg-success">🔥 <b>エントリー可能</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>{msg}</div>""", unsafe_allow_html=True)
+                            bg_cls = "msg-bg-success" if m_curr_pct > -0.003 else "msg-bg-warning"
+                            status_label = "エントリー可能" if m_curr_pct > -0.003 else "CAUTION (地合い軟調)"
+                            msg_content = "統計・勢い共に良好。" if not tech_warning else "統計は良いが勢いが弱まっています。"
+                            st.markdown(f"""<div class="strat-msg-box {bg_cls}">{exec_msg} ✅ <b>{status_label}</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>{msg_content}</div>""", unsafe_allow_html=True)
                         else:
-                            st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>エントリーなし</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>期待値が不十分です。</div>""", unsafe_allow_html=True)
+                            st.markdown(f"""<div class="strat-msg-box msg-bg-error">{exec_msg} ❄️ <b>エントリーなし</b> (勝率 {sim_win_rate:.1%} / {n_count}回)<br>期待値が不十分です。</div>""", unsafe_allow_html=True)
 
-                        # --- 6. トレイリング停止案 ---
                         st.markdown(f"""<div class="strat-msg-box msg-bg-info">🚀 <b>トレイリング最適化</b><br>開始{params['ts_start']*v_factor:.2%} / 幅：{params['ts_width']*v_factor:.2%} / 損切り：{adj_sl:+.2%}</div>""", unsafe_allow_html=True)
                         st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
-                    else:
-                        st.info("始値を入力、または「更新ボタン」を押して診断を開始してください。")
             st.divider()
                     
 # --- タブ5: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
