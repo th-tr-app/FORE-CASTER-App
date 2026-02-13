@@ -913,7 +913,7 @@ with tab_strategy:
             t_name = ticker_names.get(t, t)
             
             # モードに応じて銘柄名の色を変更
-            header_label = f":yellow[[{t}] {t_name} (リアルタイム監視)]" if mode == "リアルタイム／指値戦略" else f"[{t}] {t_name}"
+            header_label = f":orange[[{t}] {t_name} (リアルタイム監視)]" if mode == "リアルタイム／指値戦略" else f"[{t}] {t_name}"
             
             with st.expander(header_label, expanded=True):
                 # 1. 永続キーとウィジェット用キーの定義
