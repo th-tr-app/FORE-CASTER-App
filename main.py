@@ -981,48 +981,61 @@ with tab_strategy:
                             st.rerun()
                 else:
                     # リアルタイム指値戦略
-                    with c_top_l:
-                        st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top" style="background-color: #1e2630;">
-                        <div class="card-label">始値 (引用)</div><div class="strat-value">{st.session_state[perm_key]:,.0f}</div>
-                        <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div>
-                        <div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">現在の乖離</div>
-                        <div class="strat-value">{m_curr_pct:+.2f}%</div>
-                        <div class="strat-guide">市場全体の地合い</div></div></div>""", unsafe_allow_html=True)
+else:
+                        # リアルタイム指値戦略
+                        with c_top_l:
+                            # 永続キーから最新の始値を取得
+                            perm_open = st.session_state.get(perm_key, 0.0)
+                            st.markdown(f"""
+                            <div class="mobile-flex-container">
+                                <div class="flex-item strat-card-top" style="background-color: #1e2630;">
+                                    <div class="card-label">始値 (引用)</div>
+                                    <div class="strat-value">{perm_open:,.0f}</div>
+                                    <div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div>
+                                </div>
+                                <div class="flex-item strat-card-top" style="background-color: #1e2630;">
+                                    <div class="card-label">現在の乖離</div>
+                                    <div class="strat-value">{m_curr_pct:+.2f}%</div>
+                                    <div class="strat-guide">市場全体の地合い</div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
                    
-                    with c_top_r:
-                            now_p_key = f"now_p_{t}"
+                        with c_top_r:
+                            # 【解決策】ウィジェット専用のキー（w_now_）を使用する
+                            widget_now_key = f"w_now_{t}"
                             
-                            # 1. 現在値を同期ボタン
+                            # 1. 現在値を同期ボタン (API取得)
                             if st.button(f"現在値を同期 ({t})", key=f"btn_now_sync_{t}", use_container_width=True, type="secondary"):
                                 df_now = ticker_live.history(period="1d", interval="1m")
                                 if not df_now.empty:
                                     val = int(df_now['Close'].iloc[-1])
+                                    # 永続キーとウィジェットキーの両方を強制的に書き換える
                                     st.session_state[now_p_key] = val
+                                    st.session_state[widget_now_key] = val
                                     st.rerun()
 
-                            # 2. 現在値入力欄：ここで「変化の検知」と「再描画」を入れます
+                            # 2. 現在値入力欄
+                            # value= に永続キーの値を指定し、key= にウィジェット専用キーを指定
                             current_p_val = st.number_input(
                                 f"現在値", step=1, format="%d", 
                                 value=int(st.session_state[now_p_key]), 
-                                key=now_p_key, 
+                                key=widget_now_key, 
                                 label_visibility="collapsed"
                             )
                             
-                            # 【解決策：ここを追加】
-                            # +/- ボタンや手入力で値が変わった瞬間、永続キーを更新して st.rerun() をかける
+                            # 3. 【最重要】変化を検知してリランを実行
+                            # ウィジェットの値(current_p_val)と、保存されている値(st.session_state[now_p_key])を比較
                             if current_p_val != st.session_state[now_p_key]:
                                 st.session_state[now_p_key] = current_p_val
-                                st.rerun()
-                            
-                            # 診断ロジックに渡す変数を確定
-                            current_p = current_p_val
+                                st.rerun() # これで下の診断ロジックに最新値が即座に伝わります
                 
                 # -----------------------------------------------------
                 # 3. 変数の確定 (診断セクションの直前で最新の値を取る)
                 # -----------------------------------------------------
-                # これにより +/- ボタンの操作が即座に結果に反映されます
-                actual_open_val = float(st.session_state[perm_key])
-                current_p = int(st.session_state[now_p_key])
+                # タブ移動時も +/- 操作時も、ここを通ることで計算用変数が最新になります
+                actual_open_val = float(st.session_state.get(perm_key, 0.0))
+                current_p = int(st.session_state.get(now_p_key, 0))
 
                 # -----------------------------------------------------
                 # 4. メッセージエリア
