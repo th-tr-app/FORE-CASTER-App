@@ -1032,7 +1032,7 @@ with tab_strategy:
                         with c_top_r:
                             now_p_key = f"now_p_{t}"
                             # 1. 現在値を同期ボタン：APIから最新価格を取得して反映
-                            if st.button(f"現在値を同期 ({t})", key=f"btn_upd_{t}", use_container_width=True, type="success"):
+                            if st.button(f"現在値を同期 ({t})", key=f"btn_upd_{t}", use_container_width=True, type="secondary"):
                                 df_now = ticker_live.history(period="1d", interval="1m")
                                 if not df_now.empty:
                                     val = int(df_now['Close'].iloc[-1])
