@@ -1013,29 +1013,34 @@ with tab_strategy:
                     n_count = len(similar_trades); sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
                     is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c)
 
-                    # 1. 距離メッセージの生成（同額なら到達とみなすよう修正）
+                    # --- 【Ver 5.03：端数問題を解決した到達判定】 ---
+                    # 1. 判定用の指値を整数（int）として定義
+                    # これにより 2407.2円 のような端数が消え、実戦の株価と一致します
+                    target_int = int(today_limit)
+
                     dist_msg = ""
                     if mode == "リアルタイム／指値戦略" and current_p > 0:
-                        diff = today_limit - current_p
-                        # 【修正】1円未満の端数で「あと0円」と出ないよう、現在値が指値以上なら到達表示
-                        if current_p >= today_limit:
+                        # 指値（整数）と同額以上なら「到達」とみなす
+                        if current_p >= target_int:
                             dist_msg = " 🔥 **指値到達！**"
                         else:
-                            dist_msg = f" (指値まであと {int(diff)}円)"
+                            # 残り距離も整数同士で計算して「0円」を防止
+                            diff = target_int - current_p
+                            dist_msg = f" (指値まであと {diff}円)"
 
-                    # 2. メイン判定の出力
+                    # 2. 診断メッセージの出力
                     if is_dev_large:
                         st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り (異常乖離)</b><br>予想からのズレ {dev_val:.2f}% により統計の対象外。{dist_msg}</div>""", unsafe_allow_html=True)
                     
                     elif sim_win_rate < 0.55:
-                        st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>見送り (期待値不足)</b><br>勝率 {sim_win_rate:.1%} / {n_count}回。{dist_msg if current_p < today_limit else "価格到達済みですが、優位性がありません。"}</div>""", unsafe_allow_html=True)
+                        st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>見送り (期待値不足)</b><br>勝率 {sim_win_rate:.1%} / {n_count}回。{dist_msg if current_p < target_int else "価格到達済みですが、優位性がありません。"}</div>""", unsafe_allow_html=True)
                     
                     else:
                         bg_cls = "msg-bg-success" if m_curr_pct > -0.003 else "msg-bg-warning"
                         status_label = "エントリー可能" if m_curr_pct > -0.003 else "CAUTION (地合い注意)"
                         
-                        # 【修正】モード名の不一致を直し、同額以上で「執行チャンス」を表示
-                        if mode == "リアルタイム／指値戦略" and current_p >= today_limit:
+                        # 執行チャンスの文言も、整数比較で同期させる
+                        if mode == "リアルタイム／指値戦略" and current_p >= target_int:
                             main_msg = "✅ <b>今、執行チャンス！</b>"
                         else:
                             main_msg = f"✅ <b>{status_label}</b>"
