@@ -343,7 +343,7 @@ with tab_screen:
     st.markdown("### 🔍 スクリーニング条件の設定")
     
     # 1. Segmented Control に変更（タブの代わりにボタンで選択）
-    options = ["通常フィルタ", "ディフェンシブ", " 横ばい 相場 "]
+    options = ["通常フィルタ", "ディフェンシブ", " 横ばい相場 "]
     sel_tab = st.segmented_control(
         "スクリーニングプラン選択",
         options=options,
