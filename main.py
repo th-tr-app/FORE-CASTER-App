@@ -358,7 +358,7 @@ with tab_screen:
     
     # 3. 選択されたインデックス i を使用して設定を表示
     p = st.session_state['sc_params'][i]
-    exp_t = f"🔍 スクリーニング設定 ({['通常フィルタ', 'ディフェンシブ', '横ばい相場'][i]})"
+    exp_t = f"🔍 スクリーニング設定 ({['通常フィルタ', 'ディフェンシブ', ' 横ばい相場 '][i]})"
             
     # --- 1. パラメーター設定エリア ---
     with st.expander(exp_t, expanded=False):
@@ -871,7 +871,7 @@ with tab_bt:
 
                 st.divider()
 
-# --- タブ4: 指値戦略 (Ver 5.01：構文エラー解消 ＆ 判定一本化 最終版) ---
+# --- タブ4: 指値戦略 (Ver 4.88：構文エラー解消 ＆ 判定一本化 最終版) ---
 with tab_strategy:
     st.markdown("### 🔮 指値戦略プランナー")
     st.caption("統計的勝率・地合い・リアルタイムの勢いを統合した最終判断用パネルです。始値確定後の利用を推奨します。")
@@ -1008,12 +1008,12 @@ with tab_strategy:
                     r_cls = "rakuten-plus" if rsi_slope > -0.2 else "rakuten-minus"; r_text = "上昇・維持" if rsi_slope > -0.2 else "低下中"
                     st.markdown(f"""<div class="strat-tech-flex"><div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{r_text}</span></div><div class="strat-tech-item"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div></div>""", unsafe_allow_html=True)
 
-                    # --- 【統合判定ロジック：Ver 5.02 到達判定強化版】 ---
+                    # --- 【統合判定ロジック：Ver 4.89 到達判定強化版】 ---
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
                     n_count = len(similar_trades); sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
                     is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c)
 
-                    # --- 【Ver 5.03：端数問題を解決した到達判定】 ---
+                    # --- 【Ver 4.90：端数問題を解決した到達判定】 ---
                     # 1. 判定用の指値を整数（int）として定義
                     # これにより 2407.2円 のような端数が消え、実戦の株価と一致します
                     target_int = int(today_limit)
