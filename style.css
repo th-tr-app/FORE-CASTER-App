@@ -14,7 +14,7 @@
 
 /* --- アプリメインタイトル (.main-title) の統合設定 --- */
 h1, .main-title {
-    font-size: 42px !important;      /* スマホ最適化だと32 */
+    font-size: 32px !important;      /* スマホ最適化だと32 */
     font-weight: 400 !important;      /* 太さを少し強調 */
     margin: 0 !important;            /* 基本余白をリセット */
     margin-bottom: 5px !important;   /* 下に少しだけ隙間を作る */
@@ -25,7 +25,7 @@ h1, .main-title {
 /* --- .sub-title の設定：メインタイトルの下のバージョン表記用 --- */
 .sub-title {
     font-weight: 300 !important;
-    font-size: 15.5px !important;
+    font-size: 5.5px !important;
     margin-top: -5px !important;
     margin-bottom: 30px !important;
     padding: 0 !important;
