@@ -352,7 +352,7 @@ with tab_screen:
         label_visibility="collapsed"
     )
 
-        st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
     # 2. 選択されたプランのインデックス (0, 1, 2) を取得
     i = options.index(sel_tab)
