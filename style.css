@@ -25,7 +25,7 @@ h1, .main-title {
 /* --- .sub-title の設定：メインタイトルの下のバージョン表記用 --- */
 .sub-title {
     font-weight: 300 !important;
-    font-size: 10.5px !important;
+    font-size: 12.5px !important;      /* 最初は15.5 */
     margin-top: -5px !important;
     margin-bottom: 30px !important;
     padding: 0 !important;
