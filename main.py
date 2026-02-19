@@ -1062,7 +1062,7 @@ with tab_strategy:
                     st.markdown(f"""
                     <div class="strat-msg-box msg-bg-info">
                         🚀 <b>トレイリング最適化</b><br>
-                        トレイリング開始：{ts_start_pct:.2%} （{ts_start_price:,}円） / <br>
+                        開始：{ts_start_pct:.2%} （株価：{ts_start_price:,}円） / <br>
                         幅：{ts_width_pct:.2%} / 
                         損切り：{adj_sl:+.2%}
                     </div>
