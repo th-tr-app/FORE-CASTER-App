@@ -518,17 +518,16 @@ with tab_bt:
                 st_text.text(f"分析中 {t}..."); pb.progress((i+1)/len(t_list))
                 
                 # --- 【追加：バックテストへのボラティリティ反映】 ---
-                # 現在のボラ係数を取得して、シミュレーション用パラメーターに一時適用
-                
-                # 1. データのダウンロード (ここで 'df' を定義)
+                # 現在のボラ係数を取得して、シミュレーション用パラメーターに一時適用                
+                # 1. データのダウンロード
                 df = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
                 if df.empty: continue
                 if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
                 
-                # 2. 本日の始値をセッションに保存
+                # 2. 本日の始値を自動取得してセッションに保存 (指値戦略タブと同期)
                 st.session_state[f"act_in_{t}"] = core.get_realtime_opening_price(t)
                 
-                # 3. 【新機能】現在のボラティリティ(v_factor)を算出
+                # 3. 現在のボラティリティ(v_factor)を算出
                 ticker_bt = yf.Ticker(t)
                 h_bt = ticker_bt.history(period="30d")
                 v_fact_bt = 1.0
@@ -541,28 +540,15 @@ with tab_bt:
                     atr_p_bt = (tr.rolling(14).mean().iloc[-1] / last_c_bt) * 100
                     v_fact_bt = max(0.6, min(2.5, atr_p_bt / 1.5))
 
-                # 4. パラメーターの動的補正
-                # サイドバーの損切り設定を、銘柄ごとのボラ係数で掛け合わせます
+                # 4. パラメーターの動的補正 (サイドバー設定 × ボラ係数)
                 temp_params = params.copy()
                 temp_params['sl_fix'] = params['sl_fix'] * v_fact_bt
                 
-                # 5. シミュレーション実行 (定義された 'df' を渡す)
+                # 5. シミュレーション実行 (補正後の temp_params を使用)
                 p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
                 trades = core.run_ticker_simulation(t, df, p_map, o_map, a_map, temp_params)
-                all_trades.extend(trades)
                 
-                # --- ⚡️ 重要：本日の始値を自動取得してセッションに保存 ---
-                # 指値戦略タブの入力欄（act_in_銘柄コード）とキーを同期させます
-                st.session_state[f"act_in_{t}"] = core.get_realtime_opening_price(t)
-                
-                # データのダウンロードとMultiIndex対策
-                df = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
-                if df.empty: continue
-                if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-                
-                # シミュレーション実行
-                p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
-                trades = core.run_ticker_simulation(t, df, p_map, o_map, a_map, params)
+                # 6. 結果の格納と銘柄名の保存
                 all_trades.extend(trades)
                 t_names[t] = TICKER_DETAILS.get(t, [t])[0]
                 
