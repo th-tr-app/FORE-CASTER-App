@@ -908,6 +908,17 @@ with tab_strategy:
         key="strategy_mode_selector",
         label_visibility="collapsed"
     )
+
+    # --- 【Ver 5.20 追加：安全マージン・スイッチ】 ---
+    st.markdown("<br>", unsafe_allow_html=True)
+    c_sw1, c_sw2 = st.columns([1, 2])
+    with c_sw1:
+        safety_mode = st.toggle("🛡️ 安全マージンモード", value=False, help="不安定な相場で指値をさらに深く（安く）設定します。")
+    with c_sw2:
+        multiplier = 1.3 if safety_mode else 1.0
+        if safety_mode:
+            st.caption(f"⚠️ 不安定相場と判断：指値を通常の **{multiplier}倍** 深く設定中")
+    # ----------------------------------------------
     
     res_df = st.session_state.get('res_df', pd.DataFrame())
     ticker_names = st.session_state.get('t_names', {})
