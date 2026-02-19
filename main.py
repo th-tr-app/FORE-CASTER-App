@@ -1031,7 +1031,7 @@ with tab_strategy:
 
                     # 2. 診断メッセージの出力
                     if is_dev_large:
-                        st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り (異常乖離)</b><br>予想からのズレ {dev_val:.2f}% により統計の対象外。{dist_msg}</div>""", unsafe_allow_html=True)
+                        st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り (乖離し過ぎ)</b><br>予想からのズレ {dev_val:.2f}% により統計の対象外。{dist_msg}</div>""", unsafe_allow_html=True)
                     
                     elif sim_win_rate < 0.55:
                         st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>見送り (期待値不足)</b><br>勝率 {sim_win_rate:.1%} / {n_count}回。{dist_msg if current_p < target_int else "価格到達済みですが、優位性がありません。"}</div>""", unsafe_allow_html=True)
