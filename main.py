@@ -1063,7 +1063,7 @@ with tab_strategy:
                     <div class="strat-msg-box msg-bg-info">
                         🚀 <b>トレイリング最適化</b><br>
                         開始の目安：{ts_start_pct:.2%} （株価 {ts_start_price:,}円）  <br>
-                        幅：{ts_width_pct:.2%} / 
+                        幅：{ts_width_pct:.2%} ｜ 
                         損切り：{adj_sl:+.2%}
                     </div>
                     """, unsafe_allow_html=True)
