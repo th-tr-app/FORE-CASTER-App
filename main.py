@@ -524,10 +524,7 @@ with tab_bt:
                 if df.empty: continue
                 if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
                 
-                # 2. 本日の始値を自動取得してセッションに保存 (指値戦略タブと同期)
-                st.session_state[f"act_in_{t}"] = core.get_realtime_opening_price(t)
-                
-                # 3. 現在のボラティリティ(v_factor)を算出
+                # 2. 現在のボラティリティ(v_factor)を算出
                 ticker_bt = yf.Ticker(t)
                 h_bt = ticker_bt.history(period="30d")
                 v_fact_bt = 1.0
@@ -540,17 +537,23 @@ with tab_bt:
                     atr_p_bt = (tr.rolling(14).mean().iloc[-1] / last_c_bt) * 100
                     v_fact_bt = max(0.6, min(2.5, atr_p_bt / 1.5))
 
-                # 4. パラメーターの動的補正 (サイドバー設定 × ボラ係数)
+                # 3. パラメーターの動的補正 (temp_params を作成)
                 temp_params = params.copy()
+                # 固定損切り・ATR最低損切りの両方を、現在のボラ係数で補正する
+                # これにより、サイドバーの「ATR損切り」がONでもOFFでも結果が変動するようになります
                 temp_params['sl_fix'] = params['sl_fix'] * v_fact_bt
+                temp_params['atr_min'] = params['atr_min'] * v_fact_bt
                 
-                # 5. シミュレーション実行 (補正後の temp_params を使用)
+                # 4. シミュレーション実行 (補正後の temp_params を 1回だけ使用)
                 p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
                 trades = core.run_ticker_simulation(t, df, p_map, o_map, a_map, temp_params)
                 
-                # 6. 結果の格納と銘柄名の保存
+                # 5. 結果の格納
                 all_trades.extend(trades)
                 t_names[t] = TICKER_DETAILS.get(t, [t])[0]
+                
+                # 6. 本日の始値をセッションに保存 (指値戦略タブ用)
+                st.session_state[f"act_in_{t}"] = core.get_realtime_opening_price(t)
                 
             st.session_state['res_df'] = pd.DataFrame(all_trades)
             st.session_state['t_names'] = t_names
