@@ -1033,9 +1033,19 @@ with tab_strategy:
                         ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]; ema_gap = ((df_m['Close'].iloc[-1] - ema5) / ema5) * 100
                         if rsi_slope < -0.2: tech_warning = True
 
-                    today_limit = actual_open_val * (1 + (avg_push / 100))
+                    # --- 【Ver 5.20：安全マージン適用ロジック】 ---
+                    # 統計上の押し目(avg_push)に、トグルの倍率(multiplier)を掛け合わせる
+                    # 不安定モードなら、押し目（マイナス値）がさらに深く（小さく）なります
+                    adj_push_val = avg_push * multiplier
+                    
+                    today_limit = actual_open_val * (1 + (adj_push_val / 100))
+                    
+                    # 目標価格・損切り価格も、調整後の指値(today_limit)から逆算します
                     avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
-                    target_price = today_limit * (1 + avg_profit); adj_sl = params['sl_fix'] * v_factor; stop_price = today_limit * (1 + adj_sl)
+                    target_price = today_limit * (1 + avg_profit)
+                    
+                    adj_sl = params['sl_fix'] * v_factor
+                    stop_price = today_limit * (1 + adj_sl)
 
                     # 価格カード
                     st.markdown(f"""<div class="mobile-flex-container" style="margin-top: 15px;"><div class="flex-item strat-card-bottom"><div class="card-label">今日の指値</div><div class="strat-value">{int(today_limit):,}</div><div class="strat-guide">で逆指値注文</div></div><div class="flex-item strat-card-bottom"><div class="card-label">目標利確</div><div class="strat-value">{int(target_price):,}</div><div class="strat-delta rakuten-plus">{avg_profit:+.2%}</div></div><div class="flex-item strat-card-bottom"><div class="card-label">損切ライン</div><div class="strat-value">{int(stop_price):,}</div><div class="strat-delta rakuten-minus">{adj_sl:+.2%}</div></div></div>""", unsafe_allow_html=True)
