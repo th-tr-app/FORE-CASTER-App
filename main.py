@@ -1048,24 +1048,26 @@ with tab_strategy:
                         
                         st.markdown(f"""<div class="strat-msg-box {bg_cls}">{main_msg}{dist_msg}<br>統計勝率 {sim_win_rate:.1%} / {n_count}回。{ '勢い低下に注意' if tech_warning else '勢いも良好' }</div>""", unsafe_allow_html=True)
 
-                        # --- 【Ver 5.05：トレイリング開始の最適化】 ---
-                        
-                        # 従来の固定％ではなく、目標利確(avg_profit)の「70%」に達したら開始、
-                        # あるいはボラティリティ(ATR)から算出した値の「小さい方」を採用します。
-                        # これにより、目標の手前で確実にセーフティネットが張られます。
-                        
-                    ts_start_pct = min(params['ts_start'] * v_factor, abs(avg_profit) * 0.7)
+                    # --- 【Ver 5.06：トレイリング最適化（利益保証型）】 ---
+                    # トレイリング幅をATRに基づいて算出
                     ts_width_pct = params['ts_width'] * v_factor
                         
+                    # セオリーに基づき「開始 = 目標 + 幅」で算出
+                    # これにより、開始直後に反転しても目標利確(avg_profit)が守られます
+                    ts_start_pct = abs(avg_profit) + ts_width_pct
+                        
+                    # 視認性のための参考価格
+                    ts_start_price = int(today_limit * (1 + ts_start_pct))
+
                     st.markdown(f"""
                     <div class="strat-msg-box msg-bg-info">
                         🚀 <b>トレイリング最適化</b><br>
-                        開始：{ts_start_pct:.2%} ({int(today_limit * (1 + ts_start_pct)):,}円) / 
+                        開始：{ts_start_pct:.2%} ({ts_start_price:,}円) / 
                         幅：{ts_width_pct:.2%} / 
                         損切り：{adj_sl:+.2%}
                     </div>
-                    """, unsafe_allow_html=True)  
-                    st.caption(f"目標比70% | ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
+                    """, unsafe_allow_html=True)
+                    st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
             st.divider()
                     
 # --- タブ5: ランキング (3.3 安定版：10項目 ＆ ％表記) ---
