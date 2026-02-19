@@ -517,6 +517,32 @@ with tab_bt:
             for i, t in enumerate(t_list):
                 st_text.text(f"分析中 {t}..."); pb.progress((i+1)/len(t_list))
                 
+                # --- 【追加：バックテストへのボラティリティ反映】 ---
+                # 現在のボラ係数を取得して、シミュレーション用パラメーターに一時適用
+                ticker_bt = yf.Ticker(t)
+                h_bt = ticker_bt.history(period="30d")
+                v_fact_bt = 1.0
+                if len(h_bt) >= 15:
+                    # 指値戦略タブと同じ計算式で v_factor を算出
+                    last_c_bt = h_bt['Close'].iloc[-1]
+                    hl = h_bt['High'] - h_bt['Low']
+                    hc = np.abs(h_bt['High'] - h_bt['Close'].shift())
+                    lc = np.abs(h_bt['Low'] - h_bt['Close'].shift())
+                    tr = pd.concat([hl, hc, lc], axis=1).max(axis=1)
+                    atr_p_bt = (tr.rolling(14).mean().iloc[-1] / last_c_bt) * 100
+                    v_fact_bt = max(0.6, min(2.5, atr_p_bt / 1.5))
+
+                # 一時的なパラメーターを作成
+                temp_params = params.copy()
+                # 損切り幅を現在のボラティリティで補正（これがバックテスト結果を変える鍵）
+                temp_params['sl_fix'] = params['sl_fix'] * v_fact_bt
+                # -----------------------------------------------
+
+                # シミュレーション実行（temp_params を渡す）
+                p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
+                trades = core.run_ticker_simulation(t, df, p_map, o_map, a_map, temp_params)
+                all_trades.extend(trades)
+                
                 # --- ⚡️ 重要：本日の始値を自動取得してセッションに保存 ---
                 # 指値戦略タブの入力欄（act_in_銘柄コード）とキーを同期させます
                 st.session_state[f"act_in_{t}"] = core.get_realtime_opening_price(t)
