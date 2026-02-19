@@ -558,7 +558,6 @@ with tab_bt:
             st.session_state['res_df'] = pd.DataFrame(all_trades)
             st.session_state['t_names'] = t_names
             st_text.empty(); pb.empty()
-            st.rerun()
 
     # 分析結果サブタブの展開
     res_df = st.session_state['res_df']
