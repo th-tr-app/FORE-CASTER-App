@@ -2,7 +2,7 @@
 
 /* メインヘッダーのコンテナ */
 .header-container {
-    margin-top: -50px !important; /* マイナス値を大きくすると上に上がります */
+    margin-top: -40px !important; /* マイナス値を大きくすると上に上がります */
     margin-bottom: 20px;
 }
 
@@ -14,7 +14,7 @@
 
 /* --- アプリメインタイトル (.main-title) の統合設定 --- */
 h1, .main-title {
-    font-size: 22px !important;      /* 最初は42 */
+    font-size: 32px !important;      /* 最初は42 */
     font-weight: 400 !important;      /* 太さを少し強調 */
     margin: 0 !important;            /* 基本余白をリセット */
     margin-bottom: 5px !important;   /* 下に少しだけ隙間を作る */
