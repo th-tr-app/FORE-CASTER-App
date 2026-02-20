@@ -124,8 +124,19 @@ params = {
     'g_min': g_min, 'g_max': g_max, 'ts_start': ts_s, 'ts_width': ts_w, 'sl_fix': sl_f, 'u_atr': u_atr, 'atr_mul': a_mul, 'atr_min': a_min
 }
 
+st.sidebar.divider()
+st.sidebar.markdown(
+    """
+    <div style='text-align: center; color: gray; font-size: 0.8em;'>
+        <h3 style='margin-bottom: 0;'>FORE CASTER</h3>
+        <p>Day trade manager | Ver 5.30</p>
+    </div>
+    """, 
+    unsafe_allow_html=True
+)
+
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
-st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>All-in-one Day trade manager | ver 4.90</p></div>", unsafe_allow_html=True)
+# st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>All-in-one Day trade manager | ver 4.90</p></div>", unsafe_allow_html=True) # コメントアウト
 
 # 【修正ポイント】key="target_tickers" を削除し、value= を使用します
 ticker_input_val = st.text_input(
