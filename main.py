@@ -914,20 +914,17 @@ with tab_strategy:
     
     # 3段階でエントリーの「距離」を調整できるようにします
     sensitivity = st.select_slider(
-        "🎯 エントリー感度（指値の距離調整）",
+        "エントリー感度（指値の距離調整）",
         options=["追撃 (早め)", "標準", "慎重 (深め)"],
         value="標準",
-        help="『追撃』は一直線に上がる相場用、『慎重』は荒れた相場の深掘り待ち用です。"
+        help="『追撃』は一直線に上がる相場用、初動で早めにエントリーします。『慎重』は荒れた相場の深掘り待ち用、十分に引き付けてからエントリーします。"
     )
 
     # 倍率のマッピング
     # 追撃：距離を半分(0.5倍)にして、すぐにエントリー
     # 慎重：距離を1.5倍に伸ばして、確実な押し目やブレイクを待つ
-    multiplier = 0.5 if sensitivity == "追撃 (早め)" else 1.5 if sensitivity == "慎重 (深め)" else 1.0
+    multiplier = 0.5 if sensitivity == else 1.5 if sensitivity == else 1.0
     
-    if multiplier != 1.0:
-        msg = "🚀 追撃モード：初動で早めにエントリーします" if multiplier < 1.0 else "🛡️ 慎重モード：十分に引き付けてからエントリーします"
-        st.caption(f"{msg} (調整倍率: {multiplier}x)")
     # ----------------------------------------------
     
     res_df = st.session_state.get('res_df', pd.DataFrame())
