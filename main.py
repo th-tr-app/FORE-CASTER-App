@@ -923,7 +923,7 @@ with tab_strategy:
     # 倍率のマッピング
     # 追撃：距離を半分(0.5倍)にして、すぐにエントリー
     # 慎重：距離を1.5倍に伸ばして、確実な押し目やブレイクを待つ
-    multiplier = 0.5 if sensitivity == "0.5倍" else 1.5 if sensitivity == "1.5倍" else 1.0
+    multiplier = 0.5 if sensitivity == "追撃 (早め)" else 1.5 if sensitivity == "慎重 (深め)" else 1.0
     
     # ----------------------------------------------
     
@@ -944,8 +944,6 @@ with tab_strategy:
         cme_val = m_data.get("日経先物(CME)", {}).get("val")
         m_curr_pct = m_data.get("日経平均", {}).get("pct", 0.0)
         m_gap = (cme_val - n225_val) / n225_val if n225_val and cme_val and n225_val != 0 else 0.0
-
-        st.divider()
 
         for t in t_list:
             tdf = res_df[res_df['Ticker'] == t].copy()
