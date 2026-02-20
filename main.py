@@ -923,7 +923,7 @@ with tab_strategy:
     # 倍率のマッピング
     # 追撃：距離を半分(0.5倍)にして、すぐにエントリー
     # 慎重：距離を1.5倍に伸ばして、確実な押し目やブレイクを待つ
-    multiplier == else 0.5 if sensitivity == else 1.5 if sensitivity == else 1.0
+    multiplier = 0.5 if sensitivity == else 1.5 if sensitivity == else 1.0
     
     # ----------------------------------------------
     
