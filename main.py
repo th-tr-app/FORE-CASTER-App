@@ -9,8 +9,8 @@ from const import SECTOR_MAP, TICKER_DETAILS, MARKET_INDICES
 import logic_core as core
 
 # --- 1. ページ設定 & セッション管理 (永続化の定義) ---
-st.set_page_config(page_title="FORE CASTER", page_icon="image_14.png", layout="wide")
-st.logo("image_13.png", icon_image="image_12.png")
+st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
+st.logo("image_13.png", icon_image="image_14.png")
 
 # 基本情報の初期化
 if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = ""
