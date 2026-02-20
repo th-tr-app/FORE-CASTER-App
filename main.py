@@ -1024,6 +1024,7 @@ with tab_strategy:
                 elif mode == "リアルタイム／指値戦略" and current_p <= 0:
                     st.warning("「現在値」を入力または同期して診断を開始してください。")
                 else:
+                    # 1. ギャップとテクニカルの計算
                     today_gap = (actual_open_val - last_c) / last_c
                     df_m = ticker_live.history(interval="1m", period="1d")
                     rsi_slope = 0; ema_gap = 0; tech_warning = False
@@ -1032,75 +1033,56 @@ with tab_strategy:
                         if len(rsi_series) >= 6: rsi_slope = rsi_series.tail(3).mean() - rsi_series.iloc[-6:-3].mean()
                         ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]; ema_gap = ((df_m['Close'].iloc[-1] - ema5) / ema5) * 100
                         if rsi_slope < -0.2: tech_warning = True
+
+                    # 2. 安全マージンを適用した指値計算
+                    # ここで multiplier (1.0 or 1.3) を掛け合わせます
+                    adj_push_val = avg_push * multiplier
+                    today_limit = actual_open_val * (1 + (adj_push_val / 100))
                     
-                    today_limit = actual_open_val * (1 + (avg_push / 100))
+                    # 3. 決済・損切りラインの算出
                     avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
-                    target_price = today_limit * (1 + avg_profit); adj_sl = params['sl_fix'] * v_factor; stop_price = today_limit * (1 + adj_sl)
-   
-                    # 価格カード
+                    target_price = today_limit * (1 + avg_profit)
+                    adj_sl = params['sl_fix'] * v_factor
+                    stop_price = today_limit * (1 + adj_sl)
+
+                    # 4. 価格カードの表示
                     st.markdown(f"""<div class="mobile-flex-container" style="margin-top: 15px;"><div class="flex-item strat-card-bottom"><div class="card-label">今日の指値</div><div class="strat-value">{int(today_limit):,}</div><div class="strat-guide">で逆指値注文</div></div><div class="flex-item strat-card-bottom"><div class="card-label">目標利確</div><div class="strat-value">{int(target_price):,}</div><div class="strat-delta rakuten-plus">{avg_profit:+.2%}</div></div><div class="flex-item strat-card-bottom"><div class="card-label">損切ライン</div><div class="strat-value">{int(stop_price):,}</div><div class="strat-delta rakuten-minus">{adj_sl:+.2%}</div></div></div>""", unsafe_allow_html=True)
                     
                     r_cls = "rakuten-plus" if rsi_slope > -0.2 else "rakuten-minus"; r_text = "上昇・維持" if rsi_slope > -0.2 else "低下中"
                     st.markdown(f"""<div class="strat-tech-flex"><div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{r_text}</span></div><div class="strat-tech-item"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div></div>""", unsafe_allow_html=True)
 
-                    # --- 【統合判定ロジック：Ver 4.89 到達判定強化版】 ---
+                    # 5. 勝率判定ロジック（ここが消えると勝率0%になります）
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
-                    n_count = len(similar_trades); sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
+                    n_count = len(similar_trades)
+                    sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
                     is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c)
 
-                    # --- 【Ver 4.90：端数問題を解決した到達判定】 ---
-                    # 1. 判定用の指値を整数（int）として定義
-                    # これにより 2407.2円 のような端数が消え、実戦の株価と一致します
+                    # 6. 到達判定とメッセージ
                     target_int = int(today_limit)
-
                     dist_msg = ""
                     if mode == "リアルタイム／指値戦略" and current_p > 0:
-                        # 指値（整数）と同額以上なら「到達」とみなす
                         if current_p >= target_int:
                             dist_msg = " 🔥 **指値到達！**"
                         else:
-                            # 残り距離も整数同士で計算して「0円」を防止
                             diff = target_int - current_p
                             dist_msg = f" (指値まであと {diff}円)"
 
-                    # 2. 診断メッセージの出力
+                    # 7. 診断メッセージの出力
                     if is_dev_large:
                         st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り (乖離し過ぎ)</b><br>予想からのズレ {dev_val:.2f}% により統計の対象外。{dist_msg}</div>""", unsafe_allow_html=True)
-                    
                     elif sim_win_rate < 0.55:
-                        st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>見送り (期待値不足)</b><br>勝率 {sim_win_rate:.1%} / {n_count}回。{dist_msg if current_p < target_int else "価格到達済みですが、優位性がありません。"}</div>""", unsafe_allow_html=True)
-                    
+                        st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>見送り (期待値不足)</b><br>勝率 {sim_win_rate:.1%} / {n_count}回。{dist_msg if current_p < target_int else "価格到達済みですが優位性がありません。"}</div>""", unsafe_allow_html=True)
                     else:
                         bg_cls = "msg-bg-success" if m_curr_pct > -0.003 else "msg-bg-warning"
                         status_label = "エントリー可能" if m_curr_pct > -0.003 else "CAUTION (地合い注意)"
-                        
-                        # 執行チャンスの文言も、整数比較で同期させる
-                        if mode == "リアルタイム／指値戦略" and current_p >= target_int:
-                            main_msg = "✅ <b>今、執行チャンス！</b>"
-                        else:
-                            main_msg = f"✅ <b>{status_label}</b>"
-                        
+                        main_msg = "✅ <b>今、執行チャンス！</b>" if (mode == "リアルタイム／指値戦略" and current_p >= target_int) else f"✅ <b>{status_label}</b>"
                         st.markdown(f"""<div class="strat-msg-box {bg_cls}">{main_msg}{dist_msg}<br>統計勝率 {sim_win_rate:.1%} / {n_count}回。{ '勢い低下に注意' if tech_warning else '勢いも良好' }</div>""", unsafe_allow_html=True)
 
-                    # --- 【Ver 5.06：トレイリング最適化（利益保証型）】 ---
-                    # トレイリング幅をATRに基づいて算出
+                    # 8. トレイリング情報の表示
                     ts_width_pct = params['ts_width'] * v_factor
-                        
-                    # セオリーに基づき「開始 = 目標 + 幅」で算出
-                    # これにより、開始直後に反転しても目標利確(avg_profit)が守られます
                     ts_start_pct = abs(avg_profit) + ts_width_pct
-                        
-                    # 視認性のための参考価格
                     ts_start_price = int(today_limit * (1 + ts_start_pct))
-
-                    st.markdown(f"""
-                    <div class="strat-msg-box msg-bg-info">
-                        🚀 <b>トレイリング最適化</b><br>
-                        開始の目安：{ts_start_pct:.2%} （株価 {ts_start_price:,}円）  <br>
-                        幅：{ts_width_pct:.2%} ｜ 
-                        損切り：{adj_sl:+.2%}
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"""<div class="strat-msg-box msg-bg-info">🚀 <b>トレイリング最適化</b><br>開始の目安：{ts_start_pct:.2%} （株価 {ts_start_price:,}円）<br>幅：{ts_width_pct:.2%} ｜ 損切り：{adj_sl:+.2%}</div>""", unsafe_allow_html=True)
                     st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
             st.divider()
                     
