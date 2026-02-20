@@ -129,7 +129,7 @@ st.sidebar.markdown(
     """
     <div style='text-align: left; color: white; font-size: 1.0em;'>
         <h6 style='margin-bottom: 0;'>FORE CASTER</h6>
-        <p>All-in-one Day trade manager | ver 4.92</p>
+        <p class='sub-title'>All-in-one Day trade manager | ver 4.90</p>
     </div>
     """, 
     unsafe_allow_html=True
