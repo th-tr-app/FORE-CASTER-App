@@ -128,7 +128,7 @@ st.sidebar.divider()
 st.sidebar.markdown(
     """
     <div style='text-align: left; color: white;'><h6 style='margin-bottom: 0;'>FORE CASTER</h6></div>
-    <div style='text-align: center; color: white; font-size: 0.8em;'><p>All-in-one Day trade manager | ver 4.92</p></div>
+    <div style='text-align: left; color: white; font-size: 0.8em;'><p>All-in-one Day trade manager | ver 4.92</p></div>
     """, 
     unsafe_allow_html=True
 )
