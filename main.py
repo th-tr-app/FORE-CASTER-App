@@ -909,15 +909,25 @@ with tab_strategy:
         label_visibility="collapsed"
     )
 
-    # --- 【Ver 5.20 追加：安全マージン・スイッチ】 ---
+    # --- 【Ver 5.30：エントリー感度セレクター（追撃モード搭載）】 ---
     st.markdown("<br>", unsafe_allow_html=True)
-    c_sw1, c_sw2 = st.columns([1, 2])
-    with c_sw1:
-        safety_mode = st.toggle("🛡️ 安全マージンモード", value=False, help="不安定な相場で指値をさらに深く（安く）設定します。")
-    with c_sw2:
-        multiplier = 1.3 if safety_mode else 1.0
-        if safety_mode:
-            st.caption(f"⚠️ 不安定相場と判断：指値を通常の **{multiplier}倍** 深く設定中")
+    
+    # 3段階でエントリーの「距離」を調整できるようにします
+    sensitivity = st.select_slider(
+        "🎯 エントリー感度（指値の距離調整）",
+        options=["追撃 (早め)", "標準", "慎重 (深め)"],
+        value="標準",
+        help="『追撃』は一直線に上がる相場用、『慎重』は荒れた相場の深掘り待ち用です。"
+    )
+
+    # 倍率のマッピング
+    # 追撃：距離を半分(0.5倍)にして、すぐにエントリー
+    # 慎重：距離を1.5倍に伸ばして、確実な押し目やブレイクを待つ
+    multiplier = 0.5 if sensitivity == "追撃 (早め)" else 1.5 if sensitivity == "慎重 (深め)" else 1.0
+    
+    if multiplier != 1.0:
+        msg = "🚀 追撃モード：初動で早めにエントリーします" if multiplier < 1.0 else "🛡️ 慎重モード：十分に引き付けてからエントリーします"
+        st.caption(f"{msg} (調整倍率: {multiplier}x)")
     # ----------------------------------------------
     
     res_df = st.session_state.get('res_df', pd.DataFrame())
@@ -1034,11 +1044,12 @@ with tab_strategy:
                         ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]; ema_gap = ((df_m['Close'].iloc[-1] - ema5) / ema5) * 100
                         if rsi_slope < -0.2: tech_warning = True
 
-                    # 2. 安全マージンを適用した指値計算
-                    # ここで multiplier (1.0 or 1.3) を掛け合わせます
-                    adj_push_val = avg_push * multiplier
+                    #  2. --- 【Ver 5.30：感度連動型の指値計算】 ---
+                    # 統計上の距離(avg_push)に倍率を掛けます
+                    # avg_pushが正(上昇待ち)でも負(下落待ち)でも、0.5倍にすれば「寄り付き」に近づきます
+                    adj_push_val = avg_push * multiplier                  
                     today_limit = actual_open_val * (1 + (adj_push_val / 100))
-                    
+                     
                     # 3. 決済・損切りラインの算出
                     avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
                     target_price = today_limit * (1 + avg_profit)
