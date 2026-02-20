@@ -115,7 +115,7 @@ ts_w = st.sidebar.number_input("トレイリング幅 (%)", 0.1, 5.0, 0.2, 0.05)
 sl_f = st.sidebar.number_input("損切り (%)", -5.0, -0.1, -0.5, 0.05) / 100
 st.sidebar.divider()
 st.sidebar.header("📉 動的損切り設定")
-u_atr = st.sidebar.checkbox("ATR損切りを使用", value=True)
+u_atr = st.sidebar.checkbox("ATR損切りを使用", value=False)
 a_mul = st.sidebar.number_input("ATR倍率", 0.5, 5.0, 1.5, 0.1)
 a_min = st.sidebar.number_input("最低損切り (%)", 0.1, 5.0, 0.5, 0.1) / 100
 
