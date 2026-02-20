@@ -125,7 +125,7 @@ params = {
 }
 
 st.sidebar.divider()
-st.sidebar.divider()
+st.sidebar.write("")
 st.sidebar.markdown(
     """
     <div style='text-align: left; color: white;'><h6 style='margin-bottom: 0;'>FORE CASTER</h6></div>
