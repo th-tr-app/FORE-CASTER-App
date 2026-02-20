@@ -127,9 +127,9 @@ params = {
 st.sidebar.divider()
 st.sidebar.markdown(
     """
-    <div style='text-align: center; color: gray; font-size: 0.8em;'>
-        <h3 style='margin-bottom: 0;'>FORE CASTER</h3>
-        <p>Day trade manager | Ver 5.30</p>
+    <div style='text-align: left; color: gray; font-size: 1.2em;'>
+        <h1 style='margin-bottom: 0;'>FORE CASTER</h1>
+        <p>Day trade manager | Ver 4.92</p>
     </div>
     """, 
     unsafe_allow_html=True
