@@ -1091,7 +1091,7 @@ with tab_strategy:
                     ts_width_pct = params['ts_width'] * v_factor
                     ts_start_pct = abs(avg_profit) + ts_width_pct
                     ts_start_price = int(today_limit * (1 + ts_start_pct))
-                    st.markdown(f"""<div class="strat-msg-box msg-bg-info">🚀 <b>トレイリング最適化</b><br>開始の目安：{ts_start_pct:.2%} （株価 {ts_start_price:,}円）<br>幅：{ts_width_pct:.2%} ｜ 損切り：{adj_sl:+.2%}</div>""", unsafe_allow_html=True)
+                    st.markdown(f"""<div class="strat-msg-box msg-bg-info">🚀 <b>トレイリング最適化</b><br>開始：{ts_start_pct:.2%} （ {ts_start_price:,}円）<br>幅：{ts_width_pct:.2%} ｜ 損切：{adj_sl:+.2%}</div>""", unsafe_allow_html=True)
                     st.caption(f"ボラ係数: {v_factor:.2f}x (ATR {atr_p:.2f}%) | RR比: 1 : {abs(avg_profit/adj_sl):.2f}")
             st.divider()
                     
