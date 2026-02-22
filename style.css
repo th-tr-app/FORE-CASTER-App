@@ -381,7 +381,7 @@ div[data-testid="stExpander"] {
 
 /* 感度スライダー（#sensitivity-anchor のすぐ後の要素）の余白を削る */
 #sensitivity-anchor + div {
-    margin-top: -40px !important;
+    margin-top: -80px !important;
     margin-bottom: -15px !important;
 }
 
