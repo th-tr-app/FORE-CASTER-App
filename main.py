@@ -911,20 +911,17 @@ with tab_strategy:
         label_visibility="collapsed"
     )
 
-    # --- 【Ver 5.30：エントリー感度セレクター（追撃モード搭載）】 ---
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # 3段階でエントリーの「距離」を調整できるようにします
+    # --- 専用の枠 (sensitivity-box) で囲む ---
+    st.markdown('<div class="sensitivity-box">', unsafe_allow_html=True)
     sensitivity = st.select_slider(
         "↩️ エントリー感度（指値調整）",
         options=["追撃 (早め)", "標準", "慎重 (深め)"],
         value="標準",
         help="『追撃』は一直線に上がる相場用、初動で早めにエントリーします。  『慎重』は荒れた相場の深掘り待ち用、十分に引き付けてからエントリーします。"
     )
-
-    # 倍率のマッピング
-    # 追撃：距離を半分(0.5倍)にして、すぐにエントリー
-    # 慎重：距離を1.5倍に伸ばして、確実な押し目やブレイクを待つ
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # 倍率設定
     multiplier = 0.5 if sensitivity == "追撃 (早め)" else 1.5 if sensitivity == "慎重 (深め)" else 1.0
     
     # ----------------------------------------------
