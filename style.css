@@ -379,6 +379,11 @@ div[data-testid="stExpander"] {
     color: #ffffff;
 }
 
+/* 感度スライダー用（前回分） */
+.sensitivity-box [data-testid="stSlider"] {
+    margin-top: 1000px !important;
+    margin-bottom: -50px !important;
+}
 
 
 
