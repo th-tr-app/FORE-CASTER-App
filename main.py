@@ -910,15 +910,15 @@ with tab_strategy:
         key="strategy_mode_selector",
         label_visibility="collapsed"
     )
-    
-    st.markdown('<div class="sensitivity-box">', unsafe_allow_html=True)
+
+# --- スライダーの直前に目印（ID）を置く ---
+    st.markdown('<div id="sensitivity-anchor"></div>', unsafe_allow_html=True)
     sensitivity = st.select_slider(
         "↩️ エントリー感度（指値調整）",
         options=["追撃 (早め)", "標準", "慎重 (深め)"],
         value="標準",
         help="『追撃』は一直線に上がる相場用、初動で早めにエントリーします。  『慎重』は荒れた相場の深掘り待ち用、十分に引き付けてからエントリーします。"
     )
-    st.markdown('</div>', unsafe_allow_html=True)
     
     # 倍率設定
     multiplier = 0.5 if sensitivity == "追撃 (早め)" else 1.5 if sensitivity == "慎重 (深め)" else 1.0
