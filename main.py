@@ -547,7 +547,7 @@ with tab_bt:
                 else:
                     # チェックがOFFなら、補正せずサイドバーの値をそのまま使用
                     pass
-                
+                        
                 # 4. シミュレーション実行 (temp_params を使用)
                 p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
                 trades = core.run_ticker_simulation(t, df, p_map, o_map, a_map, temp_params)
