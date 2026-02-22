@@ -379,14 +379,3 @@ div[data-testid="stExpander"] {
     color: #ffffff;
 }
 
-/* 感度スライダー（#sensitivity-anchor のすぐ後の要素）の余白を削る */
-#sensitivity-anchor + div {
-    margin-top: -80px !important;
-    margin-bottom: -15px !important;
-}
-
-/* スライダー内のラベルとバーの距離も詰める */
-#sensitivity-anchor + div [data-testid="stSlider"] {
-    padding-top: 0px !important;
-}
-
