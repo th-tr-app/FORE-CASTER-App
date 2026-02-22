@@ -903,6 +903,7 @@ with tab_strategy:
     st.caption("統計的勝率・地合い・リアルタイムの勢いを統合した最終判断用パネルです。始値確定後の利用を推奨します。")
 
     # 1. モード選択（名称を統一）
+    st.markdown('<div class="mode-selector-box">', unsafe_allow_html=True)
     mode = st.segmented_control(
         "strategy_mode_selector_label",
         options=["寄付き限定／指値戦略", "リアルタイム／指値戦略"],
@@ -910,7 +911,7 @@ with tab_strategy:
         key="strategy_mode_selector",
         label_visibility="collapsed"
     )
-
+    
     # --- 専用の枠 (sensitivity-box) で囲む ---
     st.markdown('<div class="sensitivity-box">', unsafe_allow_html=True)
     sensitivity = st.select_slider(
