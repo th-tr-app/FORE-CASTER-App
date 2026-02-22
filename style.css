@@ -381,8 +381,7 @@ div[data-testid="stExpander"] {
 
 /* モード選択ボタン用（今回追加） */
 .mode-selector-box {
-    margin-top: -100px !important;  
-    margin-bottom: -25px !important; 
+    margin-bottom: -50px !important; 
 }
 
 /* ボタン自体の高さを少し抑える（必要に応じて） */
