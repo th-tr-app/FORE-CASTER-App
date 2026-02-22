@@ -1049,11 +1049,14 @@ with tab_strategy:
                     # avg_pushが正(上昇待ち)でも負(下落待ち)でも、0.5倍にすれば「寄り付き」に近づきます
                     adj_push_val = avg_push * multiplier                  
                     today_limit = actual_open_val * (1 + (adj_push_val / 100))
-                     
+                    
                     # 3. 決済・損切りラインの算出
                     avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
                     target_price = today_limit * (1 + avg_profit)
-                    adj_sl = params['sl_fix'] * v_factor
+        
+                    # 【修正】ATR損切りがONの時のみ、v_factor（ボラ係数）を損切り幅に乗算する
+                    # オフの場合はサイドバーで設定した固定%（sl_fix）がそのまま適用されます
+                    adj_sl = params['sl_fix'] * (v_factor if params['u_atr'] else 1.0)
                     stop_price = today_limit * (1 + adj_sl)
 
                     # 4. 価格カードの表示
