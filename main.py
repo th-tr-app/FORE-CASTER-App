@@ -912,7 +912,7 @@ with tab_strategy:
     )
 
 # --- スライダーの直前に目印（ID）を置く ---
-    st.markdown('<div id="sensitivity-anchor"></div>', unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
     sensitivity = st.select_slider(
         "↩️ エントリー感度（指値調整）",
         options=["追撃 (早め)", "標準", "慎重 (深め)"],
