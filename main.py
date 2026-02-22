@@ -903,7 +903,6 @@ with tab_strategy:
     st.caption("統計的勝率・地合い・リアルタイムの勢いを統合した最終判断用パネルです。始値確定後の利用を推奨します。")
 
     # 1. モード選択（名称を統一）
-    st.markdown('<div class="mode-selector-box">', unsafe_allow_html=True)
     mode = st.segmented_control(
         "strategy_mode_selector_label",
         options=["寄付き限定／指値戦略", "リアルタイム／指値戦略"],
@@ -912,15 +911,13 @@ with tab_strategy:
         label_visibility="collapsed"
     )
     
-    # --- 専用の枠 (sensitivity-box) で囲む ---
-    st.markdown('<div class="sensitivity-box">', unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
     sensitivity = st.select_slider(
         "↩️ エントリー感度（指値調整）",
         options=["追撃 (早め)", "標準", "慎重 (深め)"],
         value="標準",
         help="『追撃』は一直線に上がる相場用、初動で早めにエントリーします。  『慎重』は荒れた相場の深掘り待ち用、十分に引き付けてからエントリーします。"
     )
-    st.markdown('</div>', unsafe_allow_html=True)
     
     # 倍率設定
     multiplier = 0.5 if sensitivity == "追撃 (早め)" else 1.5 if sensitivity == "慎重 (深め)" else 1.0
