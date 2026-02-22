@@ -381,7 +381,7 @@ div[data-testid="stExpander"] {
 
 /* モード選択ボタン用（今回追加） */
 .mode-selector-box {
-    margin-top: -30px !important;  
+    margin-top: -100px !important;  
     margin-bottom: -25px !important; 
 }
 
