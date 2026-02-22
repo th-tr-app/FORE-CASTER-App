@@ -378,12 +378,30 @@ div[data-testid="stExpander"] {
     border-left-color: #ffc107;
     color: #ffffff;
 }
-/* sensitivity-box の中にあるスライダーだけ上マージンを削る */
-.sensitivity-box [data-testid="stSlider"] {
-    margin-bottom: -10px !important;
+
+/* モード選択ボタン用（今回追加） */
+.mode-selector-box {
+    margin-top: -30px !important;  
+    margin-bottom: -25px !important; 
+}
+
+/* ボタン自体の高さを少し抑える（必要に応じて） */
+.mode-selector-box button {
+    min-height: 2.2rem !important;
+    line-height: 1.2 !important;
 }
 
 /* スライダーのラベル（↩️ エントリー感度...）の文字サイズを少し小さくして更に詰める場合 */
 .sensitivity-box label {
     margin-top: -35px !important;
 }
+
+/* 感度スライダー用（前回分） */
+.sensitivity-box [data-testid="stSlider"] {
+    margin-top: -35px !important;
+    margin-bottom: -15px !important;
+}
+
+
+
+
