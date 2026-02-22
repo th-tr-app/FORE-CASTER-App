@@ -386,5 +386,4 @@ div[data-testid="stExpander"] {
 /* スライダーのラベル（↩️ エントリー感度...）の文字サイズを少し小さくして更に詰める場合 */
 .sensitivity-box label {
     margin-top: -35px !important;
-    margin-bottom: -15px !important;
 }
