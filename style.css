@@ -378,3 +378,13 @@ div[data-testid="stExpander"] {
     border-left-color: #ffc107;
     color: #ffffff;
 }
+/* sensitivity-box の中にあるスライダーだけ上マージンを削る */
+.sensitivity-box [data-testid="stSlider"] {
+    margin-top: -35px !important;
+    margin-bottom: -10px !important;
+}
+
+/* スライダーのラベル（↩️ エントリー感度...）の文字サイズを少し小さくして更に詰める場合 */
+.sensitivity-box label {
+    margin-bottom: -15px !important;
+}
