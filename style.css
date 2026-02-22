@@ -379,17 +379,6 @@ div[data-testid="stExpander"] {
     color: #ffffff;
 }
 
-/* モード選択ボタン用（今回追加） */
-.mode-selector-box {
-    margin-top: -50px !important;
-    margin-bottom: -100px !important; 
-}
-
-/* 感度スライダー用（前回分） */
-.sensitivity-box [data-testid="stSlider"] {
-    margin-top: -50px !important;
-    margin-bottom: -50px !important;
-}
 
 
 
