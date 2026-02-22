@@ -931,9 +931,6 @@ with tab_strategy:
     raw_tickers = [t.strip() for t in st.session_state.get(target_key, "").split(",") if t.strip()]
     t_list = list(dict.fromkeys(raw_tickers)) 
 
-
-    st.divider()
-
     if not t_list:
         st.warning("⚠️ 銘柄コードを入力してください。")
     elif res_df.empty:
