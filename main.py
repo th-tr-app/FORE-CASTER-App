@@ -913,7 +913,6 @@ with tab_strategy:
     
     st.markdown("<br>", unsafe_allow_html=True)
     sensitivity = st.select_slider(
-        "↩️ エントリー感度（指値調整）",
         options=["追撃 (早め)", "標準", "慎重 (深め)"],
         value="標準",
         help="『追撃』は一直線に上がる相場用、初動で早めにエントリーします。  『慎重』は荒れた相場の深掘り待ち用、十分に引き付けてからエントリーします。"
