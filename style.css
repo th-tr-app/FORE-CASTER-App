@@ -384,15 +384,9 @@ div[data-testid="stExpander"] {
     margin-bottom: -50px !important; 
 }
 
-/* ボタン自体の高さを少し抑える（必要に応じて） */
-.mode-selector-box button {
-    min-height: 2.2rem !important;
-    line-height: 1.2 !important;
-}
-
 /* スライダーのラベル（↩️ エントリー感度...）の文字サイズを少し小さくして更に詰める場合 */
 .sensitivity-box label {
-    margin-top: -35px !important;
+    margin-top: -50px !important;
 }
 
 /* 感度スライダー用（前回分） */
