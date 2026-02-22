@@ -380,7 +380,6 @@ div[data-testid="stExpander"] {
 }
 /* sensitivity-box の中にあるスライダーだけ上マージンを削る */
 .sensitivity-box [data-testid="stSlider"] {
-    margin-top: -25px !important;
     margin-bottom: -10px !important;
 }
 
