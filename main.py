@@ -902,15 +902,6 @@ with tab_strategy:
     st.markdown("### 🔮 指値戦略プランナー")
     st.caption("統計的勝率・地合い・リアルタイムの勢いを統合した最終判断用パネルです。始値確定後の利用を推奨します。")
 
-    # 1. モード選択（名称を統一）
-    mode = st.segmented_control(
-        "strategy_mode_selector_label",
-        options=["寄付き限定／指値戦略", "リアルタイム／指値戦略"],
-        default="寄付き限定／指値戦略",
-        key="strategy_mode_selector",
-        label_visibility="collapsed"
-    )
-
 # --- スライダーの直前に目印（ID）を置く ---
     st.markdown("<br>", unsafe_allow_html=True)
     sensitivity = st.select_slider(
@@ -922,7 +913,15 @@ with tab_strategy:
     
     # 倍率設定
     multiplier = 0.5 if sensitivity == "追撃 (早め)" else 1.5 if sensitivity == "慎重 (深め)" else 1.0
-        
+
+    # 1. モード選択（名称を統一）
+    mode = st.segmented_control(
+        "strategy_mode_selector_label",
+        options=["寄付き限定／指値戦略", "リアルタイム／指値戦略"],
+        default="寄付き限定／指値戦略",
+        key="strategy_mode_selector",
+        label_visibility="collapsed"
+    )
     # ----------------------------------------------
     
     res_df = st.session_state.get('res_df', pd.DataFrame())
