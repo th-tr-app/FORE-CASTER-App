@@ -903,7 +903,6 @@ with tab_strategy:
     st.caption("統計的勝率・地合い・リアルタイムの勢いを統合した最終判断用パネルです。始値確定後の利用を推奨します。")
 
 # --- スライダーの直前に目印（ID）を置く ---
-    st.markdown(unsafe_allow_html=True)
     sensitivity = st.select_slider(
         "↩️ エントリー感度（指値調整）",
         options=["追撃 (早め)", "標準", "慎重 (深め)"],
