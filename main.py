@@ -595,7 +595,15 @@ with tab_bt:
         
             # --- 4. テキストレポート生成 (6.3の詳細度を復元) ---
             report = ["=================\n BACKTEST REPORT \n=================", f"Period: {display_period}\n"]
-            
+
+            # --- 【追加】ATR設定に応じた条件表示 ---
+            if params['u_atr']:
+                # ATR損切りがONの場合：倍率と最低損切りを表示
+                report.append(f"ATR倍率: {params['atr_mul']:.1f}倍 | 損切り: {abs(params['atr_min']*100):.2f}%\n")
+            else:
+                # ATR損切りがOFFの場合：固定損切りを表示
+                report.append(f"損切り: {abs(params['sl_fix']*100):.2f}%\n")
+      
             for t in res_df['Ticker'].unique():
                 tdf = res_df[res_df['Ticker'] == t]
                 if tdf.empty: continue
