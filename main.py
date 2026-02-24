@@ -594,7 +594,8 @@ with tab_bt:
             st.divider()
         
             # --- 4. テキストレポート生成 (6.3の詳細度を復元) ---
-            report = ["=================\n BACKTEST REPORT \n=================", f"Period: {display_period}\n"]
+            report = ["=================\n BACKTEST REPORT \n=================", f"Period: {display_period}"]
+            
             # --- 【追加】ATR設定に応じた条件表示 ---
             if params['u_atr']:
                 # ATR損切りがONの場合：倍率と最低損切りを表示
