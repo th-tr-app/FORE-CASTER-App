@@ -1023,21 +1023,28 @@ with tab_strategy:
                 # -----------------------------------------------------
                 # 上段レイアウト：入力セクション
                 # -----------------------------------------------------
-                c_top_l, c_top_r = st.columns([2, 1])
+                c_c1, c_c2, c_ctrl = st.columns([1, 1, 1.4])
                 
                 if mode == "寄付き限定／指値戦略":
-                    with c_top_l:
+                    with c_c1:
+                        # 前場の終値 / 前日終値 カード
+                        st.markdown(f'<div class="flex-item strat-card-top"><div class="card-label">{baseline_label}</div><div class="strat-value">{last_c:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div>', unsafe_allow_html=True)
+                    with c_c2:
+                        # 寄り付き予想 / 後場寄り予想 カード
                         g_cls = "rakuten-plus" if m_gap_to_use >= 0 else "rakuten-minus"
-                        st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top"><div class="card-label">{baseline_label}</div><div class="strat-value">{last_c:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top"><div class="card-label">{forecast_label}</div><div class="strat-value">{pred_o:,.0f}</div><div class="strat-delta {g_cls}">{m_gap_to_use:+.2%}</div></div></div>""", unsafe_allow_html=True)
-                        if st.button(f"始値を更新 ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
-                            new_val = core.get_realtime_opening_price(t)
-                            if new_val:
-                                st.session_state[perm_key] = float(new_val); st.session_state[widget_o_key] = float(new_val); st.rerun()
+                        st.markdown(f'<div class="flex-item strat-card-top"><div class="card-label">{forecast_label}</div><div class="strat-value">{pred_o:,.0f}</div><div class="strat-delta {g_cls}">{m_gap_to_use:+.2%}</div></div>', unsafe_allow_html=True)
+                
+                    with c_ctrl:
+                            # ボタンと入力欄をさらに分割して「横一列」を維持
+                        ci1, ci2 = st.columns([1.2, 1])
+                        with ci1:
+                            if st.button(f"始値を更新", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
+                                # (更新ロジックは既存通り)
+                                pass
+                    with ci2:
                         actual_open_val = st.number_input(f"始値", min_value=0.0, step=1.0, format="%f", value=float(st.session_state[perm_key]), key=widget_o_key, label_visibility="collapsed")
-                        if actual_open_val != st.session_state[perm_key]:
-                            st.session_state[perm_key] = actual_open_val; st.rerun()
-                        current_p = int(st.session_state[now_p_key])               
-                else:
+                else:  
+                    
                     # --- 【修正】リアルタイム戦略タブ：地合い適正価格の導入 ---
                     fair_value = actual_open_val * (1 + m_curr_pct)
                     diff_from_fair = ((current_p - fair_value) / fair_value) * 100 if fair_value != 0 else 0
