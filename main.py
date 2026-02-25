@@ -10,7 +10,7 @@ import logic_core as core
 
 # --- 1. ページ設定 & セッション管理 (永続化の定義) ---
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
-st.logo("image_13.png", icon_image="image_12.png")
+st.logo("image_13.png", icon_image="image_14.png")
 
 # 基本情報の初期化
 if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = ""
@@ -127,7 +127,7 @@ params = {
 st.sidebar.divider()
 
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
-st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>All-in-one Day trade manager | ver 4.94</p></div>", unsafe_allow_html=True) # コメントアウト
+# ---    st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>All-in-one Day trade manager | ver 4.94</p></div>", unsafe_allow_html=True) # コメントアウト
 
 # 【修正ポイント】key="target_tickers" を削除し、value= を使用します
 ticker_input_val = st.text_input(
