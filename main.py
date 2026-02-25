@@ -1086,8 +1086,8 @@ with tab_strategy:
                         # リアルタイムモード：【修正】地合い適正価格をベースに動的な指値を算出
                         # 地合い適正価格は直前のコードで算出済み (100で割る修正適用済み)
                         today_limit = fair_value * (1 + (adj_push_val / 100))
-                        limit_label = "地合い追従指値"
-                        limit_desc = "で追撃・リバ狙い"
+                        limit_label = "今買うなら"
+                        limit_desc = "で逆指値注文"
 
                     # --- 3. 決済・損切りラインの算出 ---
                     # today_limit が動的になったため、利確・損切りラインも地合いに連動します
