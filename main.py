@@ -109,6 +109,8 @@ def local_css(file_name):
 local_css("style.css")
 
 # --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
+st.sidebar.image("image_15.png", use_container_width=True)
+
 st.sidebar.header("🎲 戦略実行プリセット")
 for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェンシブ"), ("RANGE","横ばい相場対応")]:
     is_sel = (st.session_state['preset'] == p)
