@@ -11,7 +11,15 @@
         grid-template-columns: repeat(2, 1fr) !important;
     }
 }
+/* 2. メインタイトルの非表示 */
+.main-title {
+    display: none !important;
+}
 
+/* 3. 銘柄入力欄を上に上げる */
+#ticker-input-anchor + div {
+    margin-top: -60px !important; /* タイトルが消えた分、さらに上に引き上げ */
+}
 /* --- アプリメインタイトル (.main-title) の統合設定 --- */
 h1, .main-title {
     font-size: 32px !important;      /* 最初は42 */
