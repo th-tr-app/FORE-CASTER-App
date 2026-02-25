@@ -152,7 +152,7 @@ params = {
 
 st.sidebar.divider()
 
-st.sidebar(f"<h6 class='main-title'>FORE CASTER</h6><p class='sub-title'>All-in-one Day trade manager | ver 4.96</p>", unsafe_allow_html=True) 
+st.sidebar(<h6 class='main-title'>FORE CASTER</h6><p class='sub-title'>All-in-one Day trade manager | ver 4.96</p>, unsafe_allow_html=True) 
 
 
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
