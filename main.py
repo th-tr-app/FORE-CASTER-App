@@ -965,7 +965,7 @@ with tab_strategy:
                 forecast_label = "寄り付き予想"
             else:
                 m_gap_to_use = float(m_gap)
-                forecast_label = "寄り付き予想(動的)"
+                forecast_label = "寄り付き予想(動)"
         else:
             if time(12, 30) <= current_t:
                 if pm_lock_key not in st.session_state: st.session_state[pm_lock_key] = float(m_gap)
@@ -973,7 +973,7 @@ with tab_strategy:
                 forecast_label = "後場寄り予想"
             else:
                 m_gap_to_use = float(m_gap)
-                forecast_label = "後場寄り予想(動的)"
+                forecast_label = "後場寄り予想(動)"
 
         for t in t_list:
             tdf = res_df[res_df['Ticker'] == t].copy()
