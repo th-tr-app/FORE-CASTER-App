@@ -10,7 +10,7 @@ import logic_core as core
 
 # --- 1. ページ設定 & セッション管理 (永続化の定義) ---
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
-# --- st.logo("image_13.png", icon_image="image_12.png")
+st.logo("image_13.png")
 
 import base64
 
@@ -30,8 +30,8 @@ st.markdown(
     [data-testid="stHeader"] {{
         background-image: url("data:image/png;base64,{img_base64}");
         background-repeat: no-repeat;
-        background-size: 140px; /* ロゴのサイズ */
-        background-position: 120px center; /* 左端から20px、上下中央に配置 */
+        background-size: 160px; /* ロゴのサイズ */
+        background-position: 100px center; /* 左端から20px、上下中央に配置 */
         background-color: rgba(0,0,0,0); /* バー自体の背景を透明に維持 */
     }}
     </style>
