@@ -29,7 +29,7 @@ st.markdown(
     [data-testid="stHeader"] {{
         background-image: url("data:image/png;base64,{img_base64}");
         background-repeat: no-repeat;
-        background-size: 180px; /* ロゴのサイズ */
+        background-size: 200px; /* ロゴのサイズ */
         background-position: 80px center; /* 左端から20px、上下中央に配置 */
         background-color: rgba(0,0,0,0); /* バー自体の背景を透明に維持 */
     }}
