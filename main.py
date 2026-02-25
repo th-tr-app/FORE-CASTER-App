@@ -905,7 +905,7 @@ with tab_bt:
 
                 st.divider()
 
-# --- タブ4: 指値戦略 (Ver 4.88：構文エラー解消 ＆ 判定一本化 最終版) ---
+# --- タブ4: 指値戦略 (Ver 4.95：レイアウト維持 ＆ 時間ロック統合版) ---
 with tab_strategy:
     st.markdown("### 🔮 指値戦略プランナー")
     st.caption("統計的勝率・地合い・リアルタイムの勢いを統合した最終判断用パネルです。始値確定後の利用を推奨します。")
@@ -929,16 +929,13 @@ with tab_strategy:
         key="strategy_mode_selector",
         label_visibility="collapsed"
     )
-    # ----------------------------------------------
-    
+    # ----------------------------------------------    
+    # データ準備
     res_df = st.session_state.get('res_df', pd.DataFrame())
     ticker_names = st.session_state.get('t_names', {})
     target_key = 'monitoring_tickers' if 'monitoring_tickers' in st.session_state else 'target_tickers'
     raw_tickers = [t.strip() for t in st.session_state.get(target_key, "").split(",") if t.strip()]
     t_list = list(dict.fromkeys(raw_tickers)) 
-
-    
-    st.markdown("<br>", unsafe_allow_html=True)
 
     if not t_list:
         st.warning("⚠️ 銘柄コードを入力してください。")
@@ -952,18 +949,42 @@ with tab_strategy:
         m_curr_pct = m_data.get("日経平均", {}).get("pct", 0.0)
         m_gap = (cme_val - n225_val) / n225_val if n225_val and cme_val and n225_val != 0 else 0.0
 
+        # --- 【新設】前場・後場それぞれの地合いロックロジック ---
+        jst = timezone(timedelta(hours=9))
+        now_jst = datetime.now(jst)
+        current_t = now_jst.time()
+        today_str = now_jst.strftime('%Y%m%d')
+        am_lock_key = f"m_gap_am_{today_str}"
+        pm_lock_key = f"m_gap_pm_{today_str}"
+
+        # 判定用フラグとラベルの決定
+        if current_t < time(11, 30):
+            if time(9, 0) <= current_t:
+                if am_lock_key not in st.session_state: st.session_state[am_lock_key] = float(m_gap)
+                m_gap_to_use = st.session_state[am_lock_key]
+                forecast_label = "寄り付き予想"
+            else:
+                m_gap_to_use = float(m_gap)
+                forecast_label = "寄り付き予想(動的)"
+        else:
+            if time(12, 30) <= current_t:
+                if pm_lock_key not in st.session_state: st.session_state[pm_lock_key] = float(m_gap)
+                m_gap_to_use = st.session_state[pm_lock_key]
+                forecast_label = "後場寄り予想"
+            else:
+                m_gap_to_use = float(m_gap)
+                forecast_label = "後場寄り予想(動的)"
+
         for t in t_list:
             tdf = res_df[res_df['Ticker'] == t].copy()
             if tdf.empty: continue
             t_name = ticker_names.get(t, t)
             
-            # モードに応じたヘッダー
             header_label = f"[{t}] {t_name}"
             if mode == "リアルタイム／指値戦略":
                 header_label = f":orange[[{t}] {t_name} (リアルタイム監視)]"
 
             with st.expander(header_label, expanded=True):
-                # キーの定義
                 perm_key = f"perm_open_{t}"
                 now_p_key = f"now_p_{t}"
                 widget_o_key = f"input_o_{t}"
@@ -974,8 +995,7 @@ with tab_strategy:
 
                 with st.spinner("同期中..."):
                     ticker_live = yf.Ticker(t)
-                    jst = timezone(timedelta(hours=9)); now_jst = datetime.now(jst); today_jst = now_jst.date(); current_t = now_jst.time()
-                    hist_live = ticker_live.history(period="30d"); past_hist = hist_live[hist_live.index.date < today_jst]
+                    hist_live = ticker_live.history(period="30d"); past_hist = hist_live[hist_live.index.date < now_jst.date()]
                     prev_close_val = past_hist['Close'].iloc[-1] if not past_hist.empty else 0.0
                     is_zenba_mode = (time(11, 30) <= current_t < time(15, 30))
                     
@@ -995,17 +1015,19 @@ with tab_strategy:
                     else: atr_p = 1.5
                     v_factor = max(0.6, min(2.5, atr_p / 1.5)); tdf['Entry_Push'] = ((tdf['In'] - tdf['DayOpen']) / tdf['DayOpen']) * 100
                     win_tdf = tdf[tdf['PnL'] > 0]; avg_push = win_tdf['Entry_Push'].mean() if not win_tdf.empty else 0
-                    pred_o = last_c * (1 + m_gap)
+                    
+                    # ロックされた地合い(m_gap_to_use)を使用して予想価格を算出
+                    pred_o = last_c * (1 + m_gap_to_use)
 
                 # -----------------------------------------------------
-                # 上段レイアウト：入力セクション
+                # 上段レイアウト：入力セクション (2:1 カラムを維持)
                 # -----------------------------------------------------
                 c_top_l, c_top_r = st.columns([2, 1])
                 
                 if mode == "寄付き限定／指値戦略":
                     with c_top_l:
-                        g_cls = "rakuten-plus" if m_gap >= 0 else "rakuten-minus"
-                        st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top"><div class="card-label">{baseline_label}</div><div class="strat-value">{last_c:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top"><div class="card-label">寄り付き予想</div><div class="strat-value">{pred_o:,.0f}</div><div class="strat-delta {g_cls}">{m_gap:+.2%}</div></div></div>""", unsafe_allow_html=True)
+                        g_cls = "rakuten-plus" if m_gap_to_use >= 0 else "rakuten-minus"
+                        st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top"><div class="card-label">{baseline_label}</div><div class="strat-value">{last_c:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top"><div class="card-label">{forecast_label}</div><div class="strat-value">{pred_o:,.0f}</div><div class="strat-delta {g_cls}">{m_gap_to_use:+.2%}</div></div></div>""", unsafe_allow_html=True)
                     with c_top_r:
                         if st.button(f"始値を更新 ({t})", key=f"btn_upd_{t}", use_container_width=True, type="primary"):
                             new_val = core.get_realtime_opening_price(t)
@@ -1016,8 +1038,14 @@ with tab_strategy:
                             st.session_state[perm_key] = actual_open_val; st.rerun()
                         current_p = int(st.session_state[now_p_key])
                 else:
+                    # リアルタイム理論値の算出 (エラー回避のため 0 除算対策を適用)
+                    actual_open_val = st.session_state[perm_key]
+                    current_p = int(st.session_state[now_p_key])
+                    fair_value = actual_open_val * (1 + m_curr_pct)
+                    diff_from_fair = ((current_p - fair_value) / fair_value) * 100 if fair_value != 0 else 0
+                    
                     with c_top_l:
-                        st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">始値 (引用)</div><div class="strat-value">{st.session_state[perm_key]:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">現在の乖離</div><div class="strat-value">{m_curr_pct:+.2f}%</div><div class="strat-guide">市場全体の地合い</div></div></div>""", unsafe_allow_html=True)
+                        st.markdown(f"""<div class="mobile-flex-container"><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">始値 (引用)</div><div class="strat-value">{actual_open_val:,.0f}</div><div class="strat-guide">理想押し目 <span class="strat-percent">{avg_push:+.2f}%</span></div></div><div class="flex-item strat-card-top" style="background-color: #1e2630;"><div class="card-label">地合い適正価格</div><div class="strat-value">{fair_value:,.0f}</div><div class="strat-guide">理論値との差 <span class="strat-percent">{diff_from_fair:+.2f}%</span></div></div></div>""", unsafe_allow_html=True)
                     with c_top_r:
                         if st.button(f"現在値を同期 ({t})", key=f"btn_now_sync_{t}", use_container_width=True, type="secondary"):
                             df_now = ticker_live.history(period="1d", interval="1m")
@@ -1026,17 +1054,15 @@ with tab_strategy:
                         current_p = st.number_input(f"現在値", step=1, format="%d", value=int(st.session_state[now_p_key]), key=widget_now_key, label_visibility="collapsed")
                         if current_p != st.session_state[now_p_key]:
                             st.session_state[now_p_key] = current_p; st.rerun()
-                        actual_open_val = st.session_state[perm_key]
 
                 # -----------------------------------------------------
-                # 下段：詳細診断セクション
+                # 下段：詳細診断セクション (既存維持)
                 # -----------------------------------------------------
                 if actual_open_val <= 0:
                     st.info("始値を確定させてください（入力または更新ボタン）")
                 elif mode == "リアルタイム／指値戦略" and current_p <= 0:
                     st.warning("「現在値」を入力または同期して診断を開始してください。")
                 else:
-                    # 1. ギャップとテクニカルの計算
                     today_gap = (actual_open_val - last_c) / last_c
                     df_m = ticker_live.history(interval="1m", period="1d")
                     rsi_slope = 0; ema_gap = 0; tech_warning = False
@@ -1046,44 +1072,29 @@ with tab_strategy:
                         ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]; ema_gap = ((df_m['Close'].iloc[-1] - ema5) / ema5) * 100
                         if rsi_slope < -0.2: tech_warning = True
 
-                    #  2. --- 【Ver 5.30：感度連動型の指値計算】 ---
-                    # 統計上の距離(avg_push)に倍率を掛けます
-                    # avg_pushが正(上昇待ち)でも負(下落待ち)でも、0.5倍にすれば「寄り付き」に近づきます
                     adj_push_val = avg_push * multiplier                  
                     today_limit = actual_open_val * (1 + (adj_push_val / 100))
-                    
-                    # 3. 決済・損切りラインの算出
                     avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
                     target_price = today_limit * (1 + avg_profit)
-        
-                    # 【修正】ATR損切りがONの時のみ、v_factor（ボラ係数）を損切り幅に乗算する
-                    # オフの場合はサイドバーで設定した固定%（sl_fix）がそのまま適用されます
-                    adj_sl = params['sl_fix'] * (v_factor if params['u_atr'] else 1.0)
+                    adj_sl = params['sl_fix'] * (v_factor if params['u_atr'] else 1.0) # ATR連動ロジック
                     stop_price = today_limit * (1 + adj_sl)
 
-                    # 4. 価格カードの表示
                     st.markdown(f"""<div class="mobile-flex-container" style="margin-top: 15px;"><div class="flex-item strat-card-bottom"><div class="card-label">今日の指値</div><div class="strat-value">{int(today_limit):,}</div><div class="strat-guide">で逆指値注文</div></div><div class="flex-item strat-card-bottom"><div class="card-label">目標利確</div><div class="strat-value">{int(target_price):,}</div><div class="strat-delta rakuten-plus">{avg_profit:+.2%}</div></div><div class="flex-item strat-card-bottom"><div class="card-label">損切ライン</div><div class="strat-value">{int(stop_price):,}</div><div class="strat-delta rakuten-minus">{adj_sl:+.2%}</div></div></div>""", unsafe_allow_html=True)
                     
                     r_cls = "rakuten-plus" if rsi_slope > -0.2 else "rakuten-minus"; r_text = "上昇・維持" if rsi_slope > -0.2 else "低下中"
                     st.markdown(f"""<div class="strat-tech-flex"><div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{r_text}</span></div><div class="strat-tech-item"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div></div>""", unsafe_allow_html=True)
 
-                    # 5. 勝率判定ロジック（ここが消えると勝率0%になります）
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
                     n_count = len(similar_trades)
                     sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
                     is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c)
 
-                    # 6. 到達判定とメッセージ
                     target_int = int(today_limit)
                     dist_msg = ""
                     if mode == "リアルタイム／指値戦略" and current_p > 0:
-                        if current_p >= target_int:
-                            dist_msg = " 🔥 **指値到達！**"
-                        else:
-                            diff = target_int - current_p
-                            dist_msg = f" (指値まであと {diff}円)"
+                        if current_p >= target_int: dist_msg = " 🔥 **指値到達！**"
+                        else: dist_msg = f" (指値まであと {target_int - current_p}円)"
 
-                    # 7. 診断メッセージの出力
                     if is_dev_large:
                         st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り (乖離し過ぎ)</b><br>予想からのズレ {dev_val:.2f}% により統計の対象外。{dist_msg}</div>""", unsafe_allow_html=True)
                     elif sim_win_rate < 0.55:
@@ -1094,7 +1105,6 @@ with tab_strategy:
                         main_msg = "✅ <b>今、執行チャンス！</b>" if (mode == "リアルタイム／指値戦略" and current_p >= target_int) else f"✅ <b>{status_label}</b>"
                         st.markdown(f"""<div class="strat-msg-box {bg_cls}">{main_msg}{dist_msg}<br>統計勝率 {sim_win_rate:.1%} / {n_count}回。{ '勢い低下に注意' if tech_warning else '勢いも良好' }</div>""", unsafe_allow_html=True)
 
-                    # 8. トレイリング情報の表示
                     ts_width_pct = params['ts_width'] * v_factor
                     ts_start_pct = abs(avg_profit) + ts_width_pct
                     ts_start_price = int(today_limit * (1 + ts_start_pct))
