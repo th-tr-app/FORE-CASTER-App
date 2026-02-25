@@ -994,22 +994,34 @@ with tab_strategy:
         pm_lock_key = f"m_gap_pm_{today_str}"
 
         # 判定用フラグとラベルの決定
+        # --- 修正版：大引け後の動的表示に対応したロックロジック ---
         if current_t < time(11, 30):
+            # 前場モード (0:00 - 11:30)
             if time(9, 0) <= current_t:
                 if am_lock_key not in st.session_state: st.session_state[am_lock_key] = float(m_gap)
                 m_gap_to_use = st.session_state[am_lock_key]
                 forecast_label = "寄り付き予想"
             else:
+                # 9:00前は動的
                 m_gap_to_use = float(m_gap)
-                forecast_label = "寄り付き予想(動)"
-        else:
+                forecast_label = "寄り付き予想(動的)"
+        
+        elif time(11, 30) <= current_t < time(15, 30):
+            # 後場モード (11:30 - 15:30)
             if time(12, 30) <= current_t:
                 if pm_lock_key not in st.session_state: st.session_state[pm_lock_key] = float(m_gap)
                 m_gap_to_use = st.session_state[pm_lock_key]
                 forecast_label = "後場寄り予想"
             else:
+                # 12:30前（昼休み）は動的
                 m_gap_to_use = float(m_gap)
-                forecast_label = "後場寄り予想(動)"
+                forecast_label = "後場寄り予想(動的)"
+
+        else:
+            # 【追加】大引け後モード (15:30 - 24:00)
+            # ロックを介さず、ナイトセッションの先物地合いをリアルタイムに反映します
+            m_gap_to_use = float(m_gap)
+            forecast_label = "翌日寄り付き予想(動的)"
 
         for t in t_list:
             tdf = res_df[res_df['Ticker'] == t].copy()
