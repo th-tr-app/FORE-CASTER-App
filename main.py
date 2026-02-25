@@ -1063,6 +1063,7 @@ with tab_strategy:
                 elif mode == "リアルタイム／指値戦略" and current_p <= 0:
                     st.warning("「現在値」を入力または同期して診断を開始してください。")
                 else:
+                    # --- 1. ギャップとテクニカルの計算 (既存) ---
                     today_gap = (actual_open_val - last_c) / last_c
                     df_m = ticker_live.history(interval="1m", period="1d")
                     rsi_slope = 0; ema_gap = 0; tech_warning = False
@@ -1072,14 +1073,49 @@ with tab_strategy:
                         ema5 = df_m['Close'].ewm(span=5, adjust=False).mean().iloc[-1]; ema_gap = ((df_m['Close'].iloc[-1] - ema5) / ema5) * 100
                         if rsi_slope < -0.2: tech_warning = True
 
+                    # --- 2. 【重要】モードに応じて指値の基準を切り替える ---
+                    # 統計上の距離(avg_push)に感度倍率を乗算
                     adj_push_val = avg_push * multiplier                  
-                    today_limit = actual_open_val * (1 + (adj_push_val / 100))
+
+                    if mode == "寄付き限定／指値戦略":
+                        # 従来通り、始値を基準にした固定指値
+                        today_limit = actual_open_val * (1 + (adj_push_val / 100))
+                        limit_label = "今日の指値"
+                        limit_desc = "で逆指値注文"
+                    else:
+                        # リアルタイムモード：【修正】地合い適正価格をベースに動的な指値を算出
+                        # 地合い適正価格は直前のコードで算出済み (100で割る修正適用済み)
+                        today_limit = fair_value * (1 + (adj_push_val / 100))
+                        limit_label = "地合い追従指値"
+                        limit_desc = "で追撃・リバ狙い"
+
+                    # --- 3. 決済・損切りラインの算出 ---
+                    # today_limit が動的になったため、利確・損切りラインも地合いに連動します
                     avg_profit = win_tdf['PnL'].mean() if not win_tdf.empty else 0
                     target_price = today_limit * (1 + avg_profit)
-                    adj_sl = params['sl_fix'] * (v_factor if params['u_atr'] else 1.0) # ATR連動ロジック
+                    adj_sl = params['sl_fix'] * (v_factor if params['u_atr'] else 1.0)
                     stop_price = today_limit * (1 + adj_sl)
 
-                    st.markdown(f"""<div class="mobile-flex-container" style="margin-top: 15px;"><div class="flex-item strat-card-bottom"><div class="card-label">今日の指値</div><div class="strat-value">{int(today_limit):,}</div><div class="strat-guide">で逆指値注文</div></div><div class="flex-item strat-card-bottom"><div class="card-label">目標利確</div><div class="strat-value">{int(target_price):,}</div><div class="strat-delta rakuten-plus">{avg_profit:+.2%}</div></div><div class="flex-item strat-card-bottom"><div class="card-label">損切ライン</div><div class="strat-value">{int(stop_price):,}</div><div class="strat-delta rakuten-minus">{adj_sl:+.2%}</div></div></div>""", unsafe_allow_html=True)
+                    # --- 4. 価格カードの表示 (ラベルを変数化して統合) ---
+                    st.markdown(f"""
+                        <div class="mobile-flex-container" style="margin-top: 15px;">
+                            <div class="flex-item strat-card-bottom">
+                                <div class="card-label">{limit_label}</div>
+                                <div class="strat-value">{int(today_limit):,}</div>
+                                <div class="strat-guide">{limit_desc}</div>
+                            </div>
+                            <div class="flex-item strat-card-bottom">
+                                <div class="card-label">目標利確</div>
+                                <div class="strat-value">{int(target_price):,}</div>
+                                <div class="strat-delta rakuten-plus">{avg_profit:+.2%}</div>
+                            </div>
+                            <div class="flex-item strat-card-bottom">
+                                <div class="card-label">損切ライン</div>
+                                <div class="strat-value">{int(stop_price):,}</div>
+                                <div class="strat-delta rakuten-minus">{adj_sl:+.2%}</div>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
                     
                     r_cls = "rakuten-plus" if rsi_slope > -0.2 else "rakuten-minus"; r_text = "上昇・維持" if rsi_slope > -0.2 else "低下中"
                     st.markdown(f"""<div class="strat-tech-flex"><div class="strat-tech-item"><b>RSI方向:</b> <span class='{r_cls}'>{r_text}</span></div><div class="strat-tech-item"><b>EMA5乖離:</b> {ema_gap:+.2f}%</div></div>""", unsafe_allow_html=True)
