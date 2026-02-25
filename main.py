@@ -156,8 +156,8 @@ st.sidebar.divider()
 st.sidebar.markdown(
     """
     <div style='margin-top: 50px; text-align: lleft;'>
-        <h6 style='color: #808495; margin-bottom: 0;'>FORE CASTER</h3>
-        <p style='font-size: 0.8rem; color: #808495;'>All-in-one Day trade manager｜ver 4.95</p>
+        <h6 style='color: #808495; margin-bottom: 0;'>FORE CASTER｜ver 4.95</h3>
+        <p style='font-size: 1.0rem; color: #808495;'>All-in-one Day trade manager</p>
     </div>
     """, 
     unsafe_allow_html=True
