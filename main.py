@@ -10,7 +10,34 @@ import logic_core as core
 
 # --- 1. ページ設定 & セッション管理 (永続化の定義) ---
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
-st.logo("image_13.png", icon_image="image_14.png")
+st.logo("image_13.png", icon_image="image_12.png")
+
+import base64
+
+# 画像をCSSで扱える形式に変換する関数
+def get_base64_image(file_path):
+    with open(file_path, "rb") as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+# 使用したい画像のパスを指定（例: image_12.png）
+img_base64 = get_base64_image("image_14.png") 
+
+# CSSでヘッダー部分をカスタマイズ
+st.markdown(
+    f"""
+    <style>
+    [data-testid="stHeader"] {{
+        background-image: url("data:image/png;base64,{img_base64}");
+        background-repeat: no-repeat;
+        background-size: 40px; /* ロゴのサイズ */
+        background-position: 20px center; /* 左端から20px、上下中央に配置 */
+        background-color: rgba(0,0,0,0); /* バー自体の背景を透明に維持 */
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # 基本情報の初期化
 if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = ""
