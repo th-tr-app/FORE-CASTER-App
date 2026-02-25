@@ -10,6 +10,8 @@
     .metric-grid {
         grid-template-columns: repeat(2, 1fr) !important;
     }
+}
+
 /* --- アプリメインタイトル (.main-title) の統合設定 --- */
 h1, .main-title {
     font-size: 32px !important;      /* 最初は42 */
