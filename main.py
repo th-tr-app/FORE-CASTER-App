@@ -152,6 +152,9 @@ params = {
 
 st.sidebar.divider()
 
+st.markdown(f"<div class='header-container'><h6 class='main-title'>FORE CASTER</h6><p class='sub-title'>All-in-one Day trade manager | ver 4.96</p></div>", unsafe_allow_html=True) 
+
+
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
 # ---    st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>All-in-one Day trade manager | ver 4.94</p></div>", unsafe_allow_html=True) # コメントアウト
 
