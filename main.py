@@ -1041,7 +1041,7 @@ with tab_strategy:
                     # リアルタイム理論値の算出 (エラー回避のため 0 除算対策を適用)
                     actual_open_val = st.session_state[perm_key]
                     current_p = int(st.session_state[now_p_key])
-                    fair_value = actual_open_val * (1 + m_curr_pct)
+                    fair_value = actual_open_val * (1 + (m_curr_pct / 100)) 
                     diff_from_fair = ((current_p - fair_value) / fair_value) * 100 if fair_value != 0 else 0
                     
                     with c_top_l:
