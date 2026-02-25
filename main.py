@@ -965,14 +965,14 @@ with tab_strategy:
                 if am_lock_key not in st.session_state: st.session_state[am_lock_key] = float(m_gap)
                 m_gap_to_use = st.session_state[am_lock_key]; forecast_label = "寄り付き予想"
             else:
-                m_gap_to_use = float(m_gap); forecast_label = "寄り付き予想(動的)"
+                m_gap_to_use = float(m_gap); forecast_label = "寄り付き予想"
         else:
             # 後場：12:30以降は固定、昼休み中は動的
             if time(12, 30) <= current_t:
                 if pm_lock_key not in st.session_state: st.session_state[pm_lock_key] = float(m_gap)
                 m_gap_to_use = st.session_state[pm_lock_key]; forecast_label = "後場寄り予想"
             else:
-                m_gap_to_use = float(m_gap); forecast_label = "後場寄り予想(動的)"
+                m_gap_to_use = float(m_gap); forecast_label = "後場寄り予想"
         
         for t in t_list:
             tdf = res_df[res_df['Ticker'] == t].copy()
