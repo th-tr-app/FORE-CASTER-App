@@ -152,6 +152,17 @@ params = {
 
 st.sidebar.divider()
 
+# サイト名＆サブタイトルをサイドバーの最下部に配置
+st.sidebar.markdown(
+    """
+    <div style='margin-top: 50px; text-align: center;'>
+        <h6 style='color: #ff4b4b; margin-bottom: 0;'>FORE CASTER</h3>
+        <p style='font-size: 0.8rem; color: #808495;'>All-in-one Day trade manager<br>ver 4.95</p>
+    </div>
+    """, 
+    unsafe_allow_html=True
+)
+
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
 # ---    st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>All-in-one Day trade manager | ver 4.94</p></div>", unsafe_allow_html=True) # コメントアウト
 
