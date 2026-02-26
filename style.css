@@ -12,6 +12,25 @@
     }
 }
 
+/* メインエリア（block-container）の上部余白を極限まで削減 */
+.main .block-container {
+    padding-top: 1rem !important; /* 標準は約6rem */
+    padding-right: 1rem !important;
+    padding-left: 1rem !important;
+    padding-bottom: 0rem !important;
+}
+
+/* Streamlit標準のヘッダーバー（最上部の透明な帯）の高さを最小化 */
+[data-testid="stHeader"] {
+    height: 1.5rem !important;
+    background: rgba(0,0,0,0) !important;
+}
+
+/* 銘柄入力欄（TextInput）の上部マージンを詰める */
+[data-testid="stTextInput"] {
+    margin-top: -15px !important;
+}
+
 /* --- アプリメインタイトル (.main-title) の統合設定 --- */
 h1, .main-title {
     font-size: 32px !important;      /* 最初は42 */
