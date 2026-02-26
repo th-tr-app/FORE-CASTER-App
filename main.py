@@ -166,8 +166,6 @@ st.sidebar.markdown(
 # ---    st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>All-in-one Day trade manager | ver 4.94</p></div>", unsafe_allow_html=True) # コメントアウト
 
 # --- 4. 入力エリア ---
-st.markdown('<div id="ticker-input-anchor"></div>', unsafe_allow_html=True)
-
 ticker_input_val = st.text_input(
     "銘柄コード（カンマ区切り）", 
     value=st.session_state['target_tickers']
