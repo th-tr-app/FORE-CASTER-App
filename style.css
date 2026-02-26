@@ -16,7 +16,7 @@
 
 /* 銘柄入力欄（TextInput）の上部マージンを詰める */
 [data-testid="stTextInput"] {
-    margin-top: -30px !important;
+    margin-top: -25px !important;
 }
 
 /* --- アプリメインタイトル (.main-title) の統合設定 --- */
