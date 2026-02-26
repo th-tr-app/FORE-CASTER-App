@@ -7,7 +7,7 @@
 }
 /* 3. 銘柄入力欄を上に上げる */
 #ticker-input-anchor + div {
-    margin-top: 1000px !important; /* タイトルが消えた分、さらに上に引き上げ */
+    margin-top: -200px !important; /* タイトルが消えた分、さらに上に引き上げ */
 }
 
 @media (max-width: 640px) {
