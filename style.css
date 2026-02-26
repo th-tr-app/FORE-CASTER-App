@@ -20,12 +20,6 @@
     padding-bottom: 0rem !important;
 }
 
-/* Streamlit標準のヘッダーバー（最上部の透明な帯）の高さを最小化 */
-[data-testid="stHeader"] {
-    height: 1.5rem !important;
-    background: rgba(0,0,0,0) !important;
-}
-
 /* 銘柄入力欄（TextInput）の上部マージンを詰める */
 [data-testid="stTextInput"] {
     margin-top: -15px !important;
