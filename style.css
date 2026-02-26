@@ -19,7 +19,7 @@
 
 /* 銘柄入力欄を上に上げる */
 #ticker-input-anchor + div {
-    margin-top: -60px !important; /* タイトルが消えた分、さらに上に引き上げ */
+    margin-top: -100px !important; /* タイトルが消えた分、さらに上に引き上げ */
 }
 
 /* --- アプリメインタイトル (.main-title) の統合設定 --- */
