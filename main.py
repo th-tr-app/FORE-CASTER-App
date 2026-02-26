@@ -163,15 +163,14 @@ st.sidebar.markdown(
 )
 
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
-# ---    st.markdown(f"<div class='header-container'><h1 class='main-title'>FORE CASTER</h1><p class='sub-title'>All-in-one Day trade manager | ver 4.94</p></div>", unsafe_allow_html=True) # コメントアウト
-
-# --- 4. 入力エリア ---
+# --- 入力エリア ---
 ticker_input_val = st.text_input(
     "銘柄コード（カンマ区切り）", 
-    value=st.session_state['target_tickers']
+    value=st.session_state['target_tickers'],
+    label_visibility="visible"
 )
 
-# ユーザーが直接手入力した場合、セッション状態を更新してリラン
+# セッション状態の更新ロジック
 if ticker_input_val != st.session_state['target_tickers']:
     st.session_state['target_tickers'] = ticker_input_val
     st.rerun()
