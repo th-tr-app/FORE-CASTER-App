@@ -12,11 +12,6 @@
     }
 }
 
-/* メインタイトルの非表示 */
-.main-title {
-    display: none !important;
-}
-
 /* 銘柄入力欄を上に上げる */
 #ticker-input_val {
     margin-top: 100px !important; /* タイトルが消えた分、さらに上に引き上げ */
