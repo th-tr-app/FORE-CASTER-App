@@ -5,9 +5,15 @@
     margin-top: -30px !important; /* マイナス値を大きくすると上に上がります */
     margin-bottom: 20px;
 }
+
+/* 2. メインタイトルの非表示 */
+.main-title {
+    display: none !important;
+}
+
 /* 3. 銘柄入力欄を上に上げる */
 #ticker-input-anchor + div {
-    margin-top: -200px !important; /* タイトルが消えた分、さらに上に引き上げ */
+    margin-top: -500px !important; /* タイトルが消えた分、さらに上に引き上げ */
 }
 
 @media (max-width: 640px) {
