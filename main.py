@@ -138,6 +138,7 @@ st.sidebar.markdown(
 )
 
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
+st.logo("image_16.png")
 # --- 入力エリア ---
 ticker_input_val = st.text_input(
     "銘柄コード（カンマ区切り）", 
