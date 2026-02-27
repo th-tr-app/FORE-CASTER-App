@@ -6,6 +6,11 @@
     }
 }
 
+/* ヘッダーの色を特定の色に変更する */
+[data-testid="stHeader"] {
+    background-color: #2E3440 !important; /* ここにお好みの色コード（例：ダークブルー系）を指定 */
+}
+
 /* メインエリア（block-container）の上部余白を極限まで削減 */
 .main .block-container {
     padding-top: 1rem !important; /* 標準は約6rem */
