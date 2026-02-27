@@ -42,8 +42,8 @@ h1, .main-title {
 
 /* --- 見出し2 (##) の設定：サイドバー用（st.sidebar.header） --- */
 [data-testid="stSidebar"] h2 {
-    font-size: 19px !important;
-    font-weight: 700 !important;
+    font-size: 17px !important;
+    font-weight: 600 !important;
 }
 
 /* --- 見出し3 (###) の設定：セクションタイトル用 --- */
