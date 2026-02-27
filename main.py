@@ -29,8 +29,8 @@ st.markdown(
     [data-testid="stHeader"] {{
         background-image: url("data:image/png;base64,{img_base64}");
         background-repeat: no-repeat;
-        background-size: 140px; /* ロゴのサイズ */
-        background-position: 100px center; /* 左端から40px、上下中央に配置 */
+        background-size: 150px; /* ロゴのサイズ */
+        background-position: 120px center; /* 左端から40px、上下中央に配置 */
     }}
     </style>
     """,
