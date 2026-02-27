@@ -609,13 +609,13 @@ with tab_bt:
             # --- 【追加】ATR設定に応じた条件表示 ---
             if params['u_atr']:
                 # ATR損切りがONの場合：倍率と最低損切りを表示
-                report.append(f"ATR倍率: {params['atr_mul']:.1f}倍 | 損切り: {abs(params['atr_min']*100):.2f}%\n")
+                report.append(f"ATR倍率: {params['atr_mul']:.1f}倍 | 損切り: {abs(params['atr_min']*100):.2f}%")
             else:
                 # ATR損切りがOFFの場合：固定損切りを表示
-                report.append(f"損切り: {abs(params['sl_fix']*100):.2f}%\n")
+                report.append(f"損切り: {abs(params['sl_fix']*100):.2f}%")
 
             # --- 【新設】寄り付き条件の表示 ---
-            report.append(f"寄付きアップ上限：{params['g_max']*100:+.2f}%｜寄付きダウン下限：{params['g_min']*100:+.2f}%")
+            report.append(f"寄付き上限：{params['g_max']*100:+.2f}%｜寄付き下限：{params['g_min']*100:+.2f}%\n")
       
             for t in res_df['Ticker'].unique():
                 tdf = res_df[res_df['Ticker'] == t]
