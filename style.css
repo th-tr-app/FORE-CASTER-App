@@ -7,9 +7,9 @@
 }
 
 /* ヘッダーの色を特定の色に変更する */
-[data-testid="stHeader"] {
-    background-color: #181f28 !important; /* ここにお好みの色コード（例：ダークブルー系）を指定 */
-}
+/* [data-testid="stHeader"] {
+    background-color: #181f28 !important; /* ここにお好みの色コード（例：ダークブルー系）を指定 
+}*/
 
 /* メインエリア（block-container）の上部余白を極限まで削減 */
 .main .block-container {
