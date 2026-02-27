@@ -30,7 +30,7 @@ st.markdown(
     [data-testid="stHeader"] {{
         background-image: url("data:image/png;base64,{img_base64}");
         background-repeat: no-repeat;
-        background-size: 150px; /* ロゴのサイズ */
+        background-size: 140px; /* ロゴのサイズ */
         background-position: center; /* 左端から110px、上下中央に配置 */
     }}
     </style>
