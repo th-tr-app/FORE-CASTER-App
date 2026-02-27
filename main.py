@@ -12,32 +12,6 @@ import logic_core as core
 st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 st.logo("image_16.png", icon_image="image_12.png")
 
-import base64
-
-# 画像をCSSで扱える形式に変換する関数
-def get_base64_image(file_path):
-    with open(file_path, "rb") as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
-
-# 使用したい画像のパスを指定（例: image_12.png）
-img_base64 = get_base64_image("image_16.png") 
-
-# CSSでヘッダー部分をカスタマイズ
-st.markdown(
-    f"""
-    <style>
-    [data-testid="stHeader"] {{
-        background-image: url("data:image/png;base64,{img_base64}");
-        background-repeat: no-repeat;
-        background-size: 150px; /* ロゴのサイズ */
-        background-position: 110px center; /* 左端から110px、上下中央に配置 */
-    }}
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
 # 基本情報の初期化
 if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] = ""
 if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
@@ -153,10 +127,10 @@ params = {
 st.sidebar.divider()
 
 # サイト名＆サブタイトルをサイドバーの最下部に配置
+st.logo("image_16.png")
 st.sidebar.markdown(
     """
     <div style='margin-top: 50px; text-align: lleft;'>
-        <h6 style='color: #ffffff; margin-bottom: 0;'>FORE CASTER</h6>
         <p style='font-size: 0.8rem; color: #ffffff;'>All-in-one Day trade manager / ver 4.96</p>
     </div>
     """, 
