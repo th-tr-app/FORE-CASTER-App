@@ -81,7 +81,7 @@ h5 {
 
 /* --- サイドバー内のメインタイトル  --- */
 h6, .sidebar-title {
-    font-size: 12px !important;      /* 最初は42 */
+    font-size: 16px !important;      /* 最初は42 */
     font-weight: 500 !important;      /* 太さを少し強調 */
     margin: 0 !important;            /* 基本余白をリセット */
     padding: 0 !important;
