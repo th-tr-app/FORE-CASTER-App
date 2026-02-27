@@ -613,6 +613,9 @@ with tab_bt:
             else:
                 # ATR損切りがOFFの場合：固定損切りを表示
                 report.append(f"損切り: {abs(params['sl_fix']*100):.2f}%\n")
+
+                # --- 【新設】寄り付き条件の表示 ---
+                report.append(f"寄付きアップ上限：{params['g_max']*100:+.2f}%｜寄付きダウン下限：{params['g_min']*100:+.2f}%")
       
             for t in res_df['Ticker'].unique():
                 tdf = res_df[res_df['Ticker'] == t]
