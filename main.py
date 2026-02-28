@@ -962,43 +962,41 @@ with tab_strategy:
         m_curr_pct = m_data.get("日経平均", {}).get("pct", 0.0)
         m_gap = (cme_val - n225_val) / n225_val if n225_val and cme_val and n225_val != 0 else 0.0
 
-        # --- 【新設】前場・後場それぞれの地合いロックロジック ---
+        # --- 【修正版】土日判定を追加した前場・後場それぞれの地合いロックロジック ---
         jst = timezone(timedelta(hours=9))
         now_jst = datetime.now(jst)
         current_t = now_jst.time()
+        now_weekday = now_jst.weekday() # 0=月, 6=日
+        is_market_day = now_weekday < 5 # 月〜金ならTrue
+        
         today_str = now_jst.strftime('%Y%m%d')
         am_lock_key = f"m_gap_am_{today_str}"
         pm_lock_key = f"m_gap_pm_{today_str}"
-
-        # 判定用フラグとラベルの決定
-        # --- 修正版：大引け後の動的表示に対応したロックロジック ---
-        if current_t < time(11, 30):
-            # 前場モード (0:00 - 11:30)
-            if time(9, 0) <= current_t:
-                if am_lock_key not in st.session_state: st.session_state[am_lock_key] = float(m_gap)
-                m_gap_to_use = st.session_state[am_lock_key]
-                forecast_label = "寄り付き予想"
-            else:
-                # 9:00前は動的
-                m_gap_to_use = float(m_gap)
-                forecast_label = "寄り付き予想(動的)"
         
-        elif time(11, 30) <= current_t < time(15, 30):
-            # 後場モード (11:30 - 15:30)
-            if time(12, 30) <= current_t:
-                if pm_lock_key not in st.session_state: st.session_state[pm_lock_key] = float(m_gap)
-                m_gap_to_use = st.session_state[pm_lock_key]
-                forecast_label = "後場寄り予想"
-            else:
-                # 12:30前（昼休み）は動的
-                m_gap_to_use = float(m_gap)
-                forecast_label = "後場寄り予想(動的)"
-
-        else:
-            # 【追加】大引け後モード (15:30 - 24:00)
-            # ロックを介さず、ナイトセッションの先物地合いをリアルタイムに反映します
+        # 判定用フラグとラベルの決定
+        # 休業日（土日）または大引け後（15:30以降）の判定
+        if not is_market_day or current_t >= time(15, 30):
             m_gap_to_use = float(m_gap)
-            forecast_label = "翌日寄り付き予想(動的)"
+            forecast_label = "翌日寄り予想(動的)"
+        else:
+            # 平日の稼働時間内
+            if current_t < time(11, 30):
+                if time(9, 0) <= current_t:
+                    if am_lock_key not in st.session_state: st.session_state[am_lock_key] = float(m_gap)
+                    m_gap_to_use = st.session_state[am_lock_key]
+                    forecast_label = "寄り付き予想"
+                else:
+                    m_gap_to_use = float(m_gap)
+                    forecast_label = "寄り付き予想(動的)"
+            else:
+                # 11:30 - 15:30 (後場および昼休み)
+                if time(12, 30) <= current_t:
+                    if pm_lock_key not in st.session_state: st.session_state[pm_lock_key] = float(m_gap)
+                    m_gap_to_use = st.session_state[pm_lock_key]
+                    forecast_label = "後場寄り予想"
+                else:
+                    m_gap_to_use = float(m_gap)
+                    forecast_label = "後場寄り予想(動的)"
 
         for t in t_list:
             tdf = res_df[res_df['Ticker'] == t].copy()
@@ -1022,7 +1020,8 @@ with tab_strategy:
                     ticker_live = yf.Ticker(t)
                     hist_live = ticker_live.history(period="30d"); past_hist = hist_live[hist_live.index.date < now_jst.date()]
                     prev_close_val = past_hist['Close'].iloc[-1] if not past_hist.empty else 0.0
-                    is_zenba_mode = (time(11, 30) <= current_t < time(15, 30))
+                    # 平日、かつ 11:30-15:30 の間だけ「前場の終値」モードにする
+                    is_zenba_mode = is_market_day and (time(11, 30) <= current_t < time(15, 30))
                     
                     if is_zenba_mode:
                         df_today_30m = ticker_live.history(period="1d", interval="30m")
