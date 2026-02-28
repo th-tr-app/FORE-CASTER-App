@@ -962,19 +962,39 @@ with tab_strategy:
         m_curr_pct = m_data.get("日経平均", {}).get("pct", 0.0)
         m_gap = (cme_val - n225_val) / n225_val if n225_val and cme_val and n225_val != 0 else 0.0
 
-        # --- 【修正版】土日判定を追加した前場・後場それぞれの地合いロックロジック ---
+        # --- 【修正版】市場休業日判定を追加した前場・後場それぞれの地合いロックロジック ---
         jst = timezone(timedelta(hours=9))
         now_jst = datetime.now(jst)
         current_t = now_jst.time()
-        now_weekday = now_jst.weekday() # 0=月, 6=日
-        is_market_day = now_weekday < 5 # 月〜金ならTrue
+        now_weekday = now_jst.weekday() 
+        today_fmt = now_jst.strftime('%Y-%m-%d') # 今日の日付 (YYYY-MM-DD)
+
+        # 2026年の東証休業日リスト (土日以外の祝日・年末年始)
+        # ※2026年のカレンダーに基づいています
+        market_holidays_2026 = [
+            "2026-01-01", "2026-01-02", "2026-01-03", # 元日・正月休み
+            "2026-01-12", # 成人の日
+            "2026-02-11", # 建国記念の日
+            "2026-02-23", # 天皇誕生日
+            "2026-03-20", # 春分の日
+            "2026-04-29", # 昭和の日
+            "2026-05-04", "2026-05-05", "2026-05-06", # ゴールデンウィーク
+            "2026-07-20", # 海の日
+            "2026-08-11", # 山の日
+            "2026-09-21", "2026-09-22", # シルバーウィーク
+            "2026-10-12", # スポーツの日
+            "2026-11-03", # 文化の日
+            "2026-11-23", # 勤労感謝の日
+            "2026-12-31"  # 大晦日
+        ]
+        # 「平日」かつ「祝日リストに含まれていない」場合のみ市場稼働日とする
+        is_market_day = (now_weekday < 5) and (today_fmt not in market_holidays_2026)
         
         today_str = now_jst.strftime('%Y%m%d')
         am_lock_key = f"m_gap_am_{today_str}"
         pm_lock_key = f"m_gap_pm_{today_str}"
-        
-        # 判定用フラグとラベルの決定
-        # 休業日（土日）または大引け後（15:30以降）の判定
+                
+        # 休業日（土日祝）または大引け後（15:30以降）の判定
         if not is_market_day or current_t >= time(15, 30):
             m_gap_to_use = float(m_gap)
             forecast_label = "翌日寄り予想(動的)"
