@@ -140,7 +140,7 @@ with st.sidebar.expander("📅 市場カレンダー設定"):
 # サイト名＆サブタイトルをサイドバーの最下部に配置
 st.sidebar.markdown(
     """
-    <div style='margin-top: 50px; text-align: lleft;'>
+    <div style='margin-top: 50px; text-align: left;'>
         <h6 style='color: #ffffff; margin-bottom: 0;'>FORE CASTER</h6>
         <p style='font-size: 0.8rem; color: #ffffff;'>All-in-one Day trade manager / ver 4.98</p>
     </div>
