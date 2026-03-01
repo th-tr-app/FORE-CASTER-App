@@ -124,7 +124,18 @@ params = {
     'g_min': g_min, 'g_max': g_max, 'ts_start': ts_s, 'ts_width': ts_w, 'sl_fix': sl_f, 'u_atr': u_atr, 'atr_mul': a_mul, 'atr_min': a_min
 }
 
+# カレンダー設定
 st.sidebar.divider()
+with st.sidebar.expander("📅 市場カレンダー設定"):
+    st.caption("土日以外の祝日や年末年始を YYYY-MM-DD 形式で入力してください。")
+    # テキストエリアで編集可能にする
+    edited_holidays = st.text_area(
+        "休業日リスト (カンマ区切り)", 
+        value=st.session_state['market_holidays'],
+        help="例: 2026-01-01, 2026-01-02",
+        height=150
+    )
+    st.session_state['market_holidays'] = edited_holidays
 
 # サイト名＆サブタイトルをサイドバーの最下部に配置
 st.sidebar.markdown(
@@ -962,34 +973,19 @@ with tab_strategy:
         m_curr_pct = m_data.get("日経平均", {}).get("pct", 0.0)
         m_gap = (cme_val - n225_val) / n225_val if n225_val and cme_val and n225_val != 0 else 0.0
 
-        # --- 【修正版】市場休業日判定を追加した前場・後場それぞれの地合いロックロジック ---
+        # --- 修正版：サイドバーの設定値を参照するロジック ---
         jst = timezone(timedelta(hours=9))
         now_jst = datetime.now(jst)
         current_t = now_jst.time()
         now_weekday = now_jst.weekday() 
-        today_fmt = now_jst.strftime('%Y-%m-%d') # 今日の日付 (YYYY-MM-DD)
+        today_fmt = now_jst.strftime('%Y-%m-%d')
 
-        # 2026年の東証休業日リスト (土日以外の祝日・年末年始)
-        # ※2026年のカレンダーに基づいています
-        market_holidays_2026 = [
-            "2026-01-01", "2026-01-02", "2026-01-03", # 元日・正月休み
-            "2026-01-12", # 成人の日
-            "2026-02-11", # 建国記念の日
-            "2026-02-23", # 天皇誕生日
-            "2026-03-20", # 春分の日
-            "2026-04-29", # 昭和の日
-            "2026-05-04", "2026-05-05", "2026-05-06", # ゴールデンウィーク
-            "2026-07-20", # 海の日
-            "2026-08-11", # 山の日
-            "2026-09-21", "2026-09-22", # シルバーウィーク
-            "2026-10-12", # スポーツの日
-            "2026-11-03", # 文化の日
-            "2026-11-23", # 勤労感謝の日
-            "2026-12-31"  # 大晦日
-        ]
-        # 「平日」かつ「祝日リストに含まれていない」場合のみ市場稼働日とする
-        is_market_day = (now_weekday < 5) and (today_fmt not in market_holidays_2026)
-        
+        # サイドバーで入力された文字列をリストに変換
+        holiday_list = [d.strip() for d in st.session_state['market_holidays'].split(",") if d.strip()]
+
+        # 「平日」かつ「入力された祝日リストに含まれていない」場合のみ市場稼働日とする
+        is_market_day = (now_weekday < 5) and (today_fmt not in holiday_list)
+                
         today_str = now_jst.strftime('%Y%m%d')
         am_lock_key = f"m_gap_am_{today_str}"
         pm_lock_key = f"m_gap_pm_{today_str}"
