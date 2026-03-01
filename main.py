@@ -147,7 +147,7 @@ params = {
 # カレンダー設定
 st.sidebar.divider()
 with st.sidebar.expander("市場カレンダー設定"):
-    st.caption("土日以外の祝日や年末年始を YYYY-MM-DD 形式のカンマ区切りで入力します。")
+    st.caption("土日以外の祝日や年末年始を YYYY-MM-DD のカンマ区切りで入力してください。")
     
     # テキストエリアを表示
     edited_holidays = st.text_area(
