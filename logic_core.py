@@ -53,7 +53,8 @@ def analyze_market_environment():
 
     for k, ticker in indices.items():
         try:
-            df = yf.download(ticker, period="40d", interval="1d", progress=False)
+            # 40d から 60d に増やすことで、大型連休や週末でも25日分の営業日を確実に確保できます
+            df = yf.download(ticker, period="60d", interval="1d", progress=False) #            
             if df.empty: continue
             if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
 
