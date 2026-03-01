@@ -206,20 +206,29 @@ with tab_top:
     diag = core.analyze_market_environment()
 
     # --- 【ここに動的切り替えロジックを挿入】 ---
+    # --- 1. 時間と曜日の取得 ---
     now_time = datetime.now(jst).time()
     now_weekday = datetime.now(jst).weekday()
-    is_market_open = (now_weekday < 5) and (time(9, 0) <= now_time <= time(15, 30))
+
+    # 2. 休日・稼働日の判定 (サイドバーの祝日リストと同期)
+    holiday_list = [d.strip() for d in st.session_state.get('market_holidays', "").split(",") if d.strip()]
+    is_market_day = (now_weekday < 5) and (datetime.now(jst).strftime('%Y-%m-%d') not in holiday_list)
+    
+    # 3. 市場稼働中かどうかの判定 (祝日を考慮)
+    is_market_open = is_market_day and (time(9, 0) <= now_time <= time(15, 30))
         
     if not is_market_open:
-        # 1. まず変数を初期化してエラーを防止
-        cme_pct = 0.0
-        sox_pct = 0.0
+        # データの取得
+        cme_pct = m_data.get("日経先物(CME)", {}).get("pct", 0.0)
+        sox_pct = m_data.get("SOX指数", {}).get("pct", 0.0)
 
-        # 2. 「今日の結果」が表示されていない時だけ、CMEなどの予測ロジックを実行
-        if diag.get('forecast_title') != "今日の結果":
-            cme_pct = m_data.get("日経先物(CME)", {}).get("pct", 0.0)
-            sox_pct = m_data.get("SOX指数", {}).get("pct", 0.0)
-            
+        # --- 【新設】休日（土日祝）専用の診断上書きロジック ---
+        if not is_market_day:
+            diag['forecast_title'] = "休日・週明け展望"
+            diag['phase_comment'] = "現在は市場休場日です。週明けに向け、海外市場や先物の地合いを確認して作戦を練りましょう。"
+        
+        # 4. 「今日の結果」が表示されている時、または休日の場合に予測ロジックを実行
+        if not is_market_day or diag.get('forecast_title') == "今日の結果":
             if abs(cme_pct) >= 0.5:
                 if cme_pct >= 1.5:
                     diag['alert_level'] = "🚀 強気（買い優勢）"
@@ -244,9 +253,13 @@ with tab_top:
 
                 diag['balance'] = f"先物主導の展開 / CME乖離 {cme_pct:+.2f}%"
                 
-                if abs(sox_pct) >= 2.0:
-                    diag['us_impact'] = f"SOX指数が {sox_pct:+.2f}% と大きく変動。ハイテク株の動きに注目。"
-    
+                # 休日専用の展望コメント上書き
+                if not is_market_day:
+                    diag['phase_comment'] = f"先物が {cme_pct:+.2f}% と変動中。このまま推移すれば週明けは {diag['opening_forecast']} となる見込みです。"
+
+            if abs(sox_pct) >= 2.0:
+                diag['us_impact'] = f"SOX指数が {sox_pct:+.2f}% と大きく変動。ハイテク株の動きに注目。"
+
     strat_names = ["通常フィルター", "ディフェンシブ", "横ばい相場"]
     rec_strat = strat_names[diag["strategy"]]
     
