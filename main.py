@@ -134,11 +134,11 @@ params = {
 
 # カレンダー設定
 st.sidebar.divider()
-with st.sidebar.expander("📅 市場カレンダー設定"):
-    st.caption("土日以外の祝日や年末年始を YYYY-MM-DD 形式で入力してください。")
+with st.sidebar.expander("市場カレンダー設定"):
+    st.caption("土日以外の祝日や年末年始を YYYY-MM-DD 形式のカンマ区切りで入力してください。")
     # テキストエリアで編集可能にする
     edited_holidays = st.text_area(
-        "休業日リスト (カンマ区切り)", 
+        "休業日リスト", 
         value=st.session_state['market_holidays'],
         help="例: 2026-01-01, 2026-01-02",
         height=150
