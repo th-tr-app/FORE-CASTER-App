@@ -2,6 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import os  # ← これを追加
 from datetime import datetime, timedelta, timezone, time
 
 # 外部モジュールのインポート
@@ -19,13 +20,24 @@ if 'res_df' not in st.session_state: st.session_state['res_df'] = pd.DataFrame()
 if 't_names' not in st.session_state: st.session_state['t_names'] = {}
 
 # --- 祝日リストの初期化 ---
+HOLIDAY_FILE = "holidays.txt" # 保存用ファイル名
+
 if 'market_holidays' not in st.session_state:
-    st.session_state['market_holidays'] = (
-        "2026-01-01, 2026-01-02, 2026-01-03, 2026-01-12, 2026-02-11, 2026-02-23, "
-        "2026-03-20, 2026-04-29, 2026-05-04, 2026-05-05, 2026-05-06, 2026-07-20, "
-        "2026-08-11, 2026-09-21, 2026-09-22, 2026-10-12, 2026-11-03, 2026-11-23, 2026-12-31"
-    )
-    
+    # 1. 保存ファイルが存在するか確認
+    if os.path.exists(HOLIDAY_FILE):
+        with open(HOLIDAY_FILE, "r") as f:
+            st.session_state['market_holidays'] = f.read()
+    else:
+        # 2. ファイルがない場合は、初期値を設定してファイルを作成
+        default_holidays = (
+            "2026-01-01, 2026-01-02, 2026-01-03, 2026-01-12, 2026-02-11, 2026-02-23, "
+            "2026-03-20, 2026-04-29, 2026-05-04, 2026-05-05, 2026-05-06, 2026-07-20, "
+            "2026-08-11, 2026-09-21, 2026-09-22, 2026-10-12, 2026-11-03, 2026-11-23, 2026-12-31"
+        )
+        st.session_state['market_holidays'] = default_holidays
+        with open(HOLIDAY_FILE, "w") as f:
+            f.write(default_holidays)
+
 # --- 戦略別パラメーターの最適化（実戦テスト反映版） ---
 if 'sc_params' not in st.session_state:
     st.session_state['sc_params'] = [
@@ -135,16 +147,23 @@ params = {
 # カレンダー設定
 st.sidebar.divider()
 with st.sidebar.expander("市場カレンダー設定"):
-    st.caption("土日以外の祝日や年末年始を YYYY-MM-DD 形式のカンマ区切りで入力してください。")
-    # テキストエリアで編集可能にする
+    st.caption("土日以外の祝日や年末年始を YYYY-MM-DD 形式のカンマ区切りで入力します。")
+    
+    # テキストエリアを表示
     edited_holidays = st.text_area(
         "休業日リスト", 
         value=st.session_state['market_holidays'],
         help="例: 2026-01-01, 2026-01-02",
         height=150
     )
-    st.session_state['market_holidays'] = edited_holidays
-
+    
+    # 【重要】内容が変更されたらファイルに保存する
+    if edited_holidays != st.session_state['market_holidays']:
+        st.session_state['market_holidays'] = edited_holidays
+        with open(HOLIDAY_FILE, "w") as f:
+            f.write(edited_holidays)
+        st.toast("カレンダー設定を保存しました！") # 保存完了の通知
+        
 # サイト名＆サブタイトルをサイドバーの最下部に配置
 st.sidebar.markdown(
     """
