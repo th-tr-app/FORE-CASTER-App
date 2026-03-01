@@ -18,6 +18,14 @@ if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 if 'res_df' not in st.session_state: st.session_state['res_df'] = pd.DataFrame()
 if 't_names' not in st.session_state: st.session_state['t_names'] = {}
 
+# --- 祝日リストの初期化 ---
+if 'market_holidays' not in st.session_state:
+    st.session_state['market_holidays'] = (
+        "2026-01-01, 2026-01-02, 2026-01-03, 2026-01-12, 2026-02-11, 2026-02-23, "
+        "2026-03-20, 2026-04-29, 2026-05-04, 2026-05-05, 2026-05-06, 2026-07-20, "
+        "2026-08-11, 2026-09-21, 2026-09-22, 2026-10-12, 2026-11-03, 2026-11-23, 2026-12-31"
+    )
+    
 # --- 戦略別パラメーターの最適化（実戦テスト反映版） ---
 if 'sc_params' not in st.session_state:
     st.session_state['sc_params'] = [
