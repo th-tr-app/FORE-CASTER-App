@@ -235,9 +235,15 @@ with tab_top:
     is_market_open = is_market_day and (time(9, 0) <= now_time <= time(15, 30))
         
     if not is_market_open:
-        # データの取得
-        cme_pct = m_data.get("日経先物(CME)", {}).get("pct", 0.0)
-        sox_pct = m_data.get("SOX指数", {}).get("pct", 0.0)
+        # データの取得と数値保証 (None の場合は 0.0 に変換)
+        cme_pct = m_data.get("日経先物(CME)", {}).get("pct")
+        cme_pct = float(cme_pct) if cme_pct is not None else 0.0
+        
+        sox_pct = m_data.get("SOX指数", {}).get("pct")
+        sox_pct = float(sox_pct) if sox_pct is not None else 0.0
+
+        # ここで abs 計算を行えばエラーになりません
+        if abs(cme_pct) >= 0.5:
 
         # --- 【新設】休日（土日祝）専用の診断上書きロジック ---
         if not is_market_day:
