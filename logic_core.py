@@ -113,20 +113,21 @@ def analyze_market_environment():
             data_map[k] = df
         except: continue
 
-    # --- 1. 基礎データの抽出 (infoの値を優先的に採用) ---
-    n225_close = stats_map.get("N225", {}).get("latest", 0)
-    n225_prev_close = stats_map.get("N225", {}).get("prev", 0)
+    # --- 1. 基礎データの抽出 (None の場合に 0 を代入するよう修正) ---
+    # stats_map.get(...).get(...) or 0 と書くことで、None の場合に 0 が入ります
+    n225_close = stats_map.get("N225", {}).get("latest") or 0
+    n225_prev_close = stats_map.get("N225", {}).get("prev") or 0
     
-    # 25日移動平均線は履歴データから算出
+    # 25日移動平均線
     n225_ma25 = 0
     if "N225" in data_map:
         df_n = data_map["N225"]
         if len(df_n) >= 25:
-            n225_ma25 = float(df_n['Close'].rolling(25).mean().iloc[-1])
+            # 最後に or 0 を追加
+            n225_ma25 = float(df_n['Close'].rolling(25).mean().iloc[-1]) or 0
 
-    # CMEデータの取得 (info優先)
-    cme_val = stats_map.get("CME", {}).get("latest", n225_close)
-    if cme_val == 0 or cme_val is None: cme_val = n225_close
+    # CMEデータの取得 (or 0 を追加)
+    cme_val = stats_map.get("CME", {}).get("latest") or n225_close or 0
 
     # 各指数の計算
     market_pct = (n225_close - n225_prev_close) / n225_prev_close if n225_prev_close and n225_prev_close > 0 else 0
