@@ -1263,14 +1263,37 @@ with tab_rank:
                 
                 # 価格帯フィルター
                 if p_range[0] <= current_p <= p_range[1]:
-                    # 2. シミュレーション用の5分足取得
+                    # --- 2. シミュレーション用の5分足取得 ---
                     df_r = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
                     if df_r.empty: continue
                     if isinstance(df_r.columns, pd.MultiIndex): df_r.columns = df_r.columns.get_level_values(0)
-                    
+                
+                    # --- 【追加】バックテストと同様のATR動的補正ロジック ---
+                    v_fact_rank = 1.0
+                    if params['u_atr']:
+                        ticker_rank = yf.Ticker(t)
+                        h_rank = ticker_rank.history(period="30d")
+                        if len(h_rank) >= 15:
+                            last_c_rank = h_rank['Close'].iloc[-1]
+                            # 真の範囲 (True Range) の計算
+                            hl_r = h_rank['High'] - h_rank['Low']
+                            hc_r = abs(h_rank['High'] - h_rank['Close'].shift())
+                            lc_r = abs(h_rank['Low'] - h_rank['Close'].shift())
+                            tr_r = pd.concat([hl_r, hc_r, lc_r], axis=1).max(axis=1)
+                            # ボラティリティ係数の算出
+                            atr_p_rank = (tr_r.rolling(14).mean().iloc[-1] / last_c_rank) * 100
+                            v_fact_rank = max(0.6, min(2.5, atr_p_rank / 1.5))
+                
+                    # パラメーターのコピーと動的補正
+                    temp_params_rank = params.copy()
+                    if params['u_atr']:
+                        temp_params_rank['sl_fix'] = params['sl_fix'] * v_fact_rank
+                        temp_params_rank['atr_min'] = params['atr_min'] * v_fact_rank
+                
+                    # 補正済みの temp_params_rank をシミュレーションに渡す
                     p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
-                    t_trades = core.run_ticker_simulation(t, df_r, p_map, o_map, a_map, params)
-                    
+                    t_trades = core.run_ticker_simulation(t, df_r, p_map, o_map, a_map, temp_params_rank)
+                
                     if t_trades:
                         score_data = core.get_one_touch_score(t_trades)
                         if score_data:
@@ -1286,7 +1309,7 @@ with tab_rank:
                                 'PF': score_data['pf'], 
                                 '期待値': score_data['ev'],
                                 '総合スコア': score_data['score']
-                            })
+                            })         
             status.update(label="✅ スキャン完了！", state="complete")
         
         if rank_list:
