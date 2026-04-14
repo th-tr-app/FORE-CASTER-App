@@ -129,7 +129,7 @@ u_macd = st.sidebar.checkbox("MACDが上向き", value=True)
 st.sidebar.write("")
 st.sidebar.write("")
 # 推奨値を取得して適用するボタン
-if st.sidebar.button("✨ 寄付下限・上限設定", use_container_width=True):
+if st.sidebar.button("✨ 寄付GD下限/GU上限設定", use_container_width=True):
     # 最新の診断を取得
     diag_for_side = core.analyze_market_environment()
     # 【重要】スライダーの key と同じ名前の session_state を直接書き換える
@@ -303,7 +303,7 @@ with tab_top:
             <div class="ai-diag-row"><b>推奨戦略：</b> {rec_strat}</div>
             <div class="ai-diag-row"><b>{diag.get('forecast_title', '寄付予測')}：</b> {diag['opening_forecast']}</div>
             <div class="ai-diag-row"><b>相場展望：</b> {diag['phase_comment']}</div>
-            <div class="ai-diag-row"><b>推奨設定：</b> 上限 {diag['rec_g_max']:.2f}% / 下限 {diag['rec_g_min']:.2f}%</div>
+            <div class="ai-diag-row"><b>推奨設定：</b> 寄付上限 {diag['rec_g_max']:.2f}% / 寄付下限 {diag['rec_g_min']:.2f}%</div>
             <div class="ai-diag-row-last"><b>米国株の影響：</b> {diag['us_impact']}</div>
             <h4 class="ai-diag-main-title">👀 指標から推測できる注目セクター</h4>
             <div class="ai-sector-tips">{diag.get('tips', '個別材料株（全業種対象）')}</div>
