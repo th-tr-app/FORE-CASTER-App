@@ -17,13 +17,30 @@ def calculate_rci(series, period=9):
     return series.rolling(window=period).apply(get_rci)
 
 def get_trade_pattern(row, gap_pct):
+    # チェック用の基準値（VWAPがない場合はCloseで代用）
     check_vwap = row['VWAP'] if pd.notna(row['VWAP']) else row['Close']
-    if (gap_pct <= -0.004) and (row['Close'] > check_vwap): return "A：反転狙い"
-    elif (-0.003 <= gap_pct < 0.003) and (row['Close'] > row['EMA5']): return "D：上昇継続"
-    elif (gap_pct >= 0.005) and (row.get('RSI14', 50) >= 65): return "C：ブレイク"
-    elif (gap_pct >= 0.003) and (row['Close'] > row['EMA5']): return "B：押目上昇"
-    return "E：他タイプ"
+    
+    # 【A：反転狙い】 大幅GDからの買い戻し
+    if (gap_pct <= -0.004) and (row['Close'] > check_vwap): 
+        return "A：反転狙い"
+    
+    # 【B：押目上昇】(反発確認版)
+    # 条件1：+0.3%以上のGUで始まっている
+    # 条件2：その足の安値(Low)がVWAP付近（0.3%以内）まで押し戻されている（＝押し目を作った）
+    # 条件3：その足の終値(Close)がVWAPより上で引けている（＝反発を確認した）
+    elif (gap_pct >= 0.003) and (row['Low'] <= check_vwap * 1.003) and (row['Close'] > check_vwap):
+        return "B：押目上昇"
 
+    # 【C：ブレイク】 窓開けから一度も垂れずに突き抜ける強い動き
+    elif (gap_pct >= 0.005) and (row.get('RSI14', 50) >= 65): 
+        return "C：ブレイク"
+    
+    # 【D：上昇継続】 ほぼフラットからEMA5を背にじり高
+    elif (-0.003 <= gap_pct < 0.003) and (row['Close'] > row['EMA5']): 
+        return "D：上昇継続"
+    
+    return "E：他タイプ"
+    
 # --- 2. 市場分析・指標取得 ---
 
 @st.cache_data(ttl=60) # 更新頻度を高めるためTTLを300秒から60秒に短縮
