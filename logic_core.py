@@ -364,25 +364,26 @@ def calculate_rsi(series, period=14):
     return 100 - (100 / (1 + rs))
 
 # --- 4. 指値戦略用ガードロジック ---
-
-def check_opening_deviation(actual, expected, last_close):
+def check_opening_deviation(actual, expected, last_close, market_gap_pct=0.0):
     """
-    予想寄付きと実際の始値の乖離をチェックするガードロジック
+    市場の地合いを考慮した動的ガードロジック (Ver 5.10)
     """
     if actual is None or expected is None or last_close is None:
         return False, 0.0
     
-    # 1. 乖離率の計算: abs(Actual - Expected) / Expected * 100
+    # 乖離率(予想と実際の始値のズレ)
     dev_pct = abs(actual - expected) / expected * 100
     
-    # 2. ギャップ幅の比較 (予想ギャップの2倍判定用)
-    exp_gap_abs = abs(expected - last_close) / last_close * 100
-    act_gap_abs = abs(actual - last_close) / last_close * 100
+    # 【新理論】地合いが強い時は上限を自動で拡大 (1.0%固定から、地合い+0.5%へ)
+    # market_gap_pct は %単位(例: 1.5) で渡されることを想定
+    m_gap_abs = abs(market_gap_pct)
+    dynamic_upper_limit = max(1.0, m_gap_abs + 0.5)
     
-    # 判定条件:
-    # A. 乖離率が 0.5% 以上
-    # B. 実際のギャップが予想の 2倍以上 (予想が 0.1% 以上の有意な時のみ)
-    is_large = (dev_pct >= 0.5) or (exp_gap_abs >= 0.1 and act_gap_abs >= 2 * exp_gap_abs)
+    # 実際の騰落率 (始値 vs 前日終値)
+    act_gap_pct = ((actual - last_close) / last_close) * 100
+    
+    # 動的上限を超えているか、または予想との乖離が 1.0% 以上なら警告
+    is_large = (act_gap_pct > dynamic_upper_limit) or (dev_pct >= 1.0)
     
     return is_large, dev_pct
 
