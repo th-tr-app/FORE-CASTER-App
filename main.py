@@ -992,7 +992,7 @@ with tab_bt:
 
                 st.divider()
 
-# --- タブ4: 指値戦略 (Ver 4.95：レイアウト維持 ＆ 時間ロック統合版) ---
+# --- タブ4: 指値戦略 (Ver 5.10：MAGロジック ＆ 堅牢化統合版) ---
 with tab_strategy:
     st.markdown("### 🔮 指値戦略プランナー")
     st.caption("統計的勝率・地合い・リアルタイムの勢いを統合した最終判断用パネルです。始値確定後の利用を推奨します。")
@@ -1030,11 +1030,20 @@ with tab_strategy:
         st.info("💡 まずは「バックテスト」を実行してください。過去の統計データが必要です。")
     else:
         # 地合いデータ同期
+        # --- 地合いデータ同期 ---
         m_data = core.fetch_market_info(MARKET_INDICES)
-        n225_val = m_data.get("日経平均", {}).get("val")
-        cme_val = m_data.get("日経先物(CME)", {}).get("val")
-        m_curr_pct = m_data.get("日経平均", {}).get("pct", 0.0)
+
+        # 1. 各指数の取得と数値保証 (None の場合は 0.0 を代入)
+        n225_val = m_data.get("日経平均", {}).get("val") or 0.0
+        cme_val = m_data.get("日経先物(CME)", {}).get("val") or 0.0
+
+        # 騰落率(pct)の取得と数値保証
+        m_curr_pct_raw = m_data.get("日経平均", {}).get("pct")
+        m_curr_pct = float(m_curr_pct_raw) if m_curr_pct_raw is not None else 0.0
+
+        # 2. 地合い（先物と現物の乖離率）の計算
         m_gap = (cme_val - n225_val) / n225_val if n225_val and cme_val and n225_val != 0 else 0.0
+        m_gap_pct = m_gap * 100  # パーセント単位に変換
 
         # --- 修正版：サイドバーの設定値を参照するロジック ---
         jst = timezone(timedelta(hours=9))
@@ -1146,7 +1155,7 @@ with tab_strategy:
                     current_p = int(st.session_state[now_p_key])
                     # m_curr_pct が None の場合に備えて数値化を徹底する
                     safe_m_pct = float(m_curr_pct) if m_curr_pct is not None else 0.0
-                    fair_value = actual_open_val * (1 + (safe_m_pct / 100))                    
+                    fair_value = actual_open_val * (1 + (safe_m_pct / 100))                     
                     diff_from_fair = ((current_p - fair_value) / fair_value) * 100 if fair_value != 0 else 0
                     
                     with c_top_l:
@@ -1228,7 +1237,9 @@ with tab_strategy:
                     similar_trades = tdf[(tdf['Gap(%)'] >= (today_gap*100 - 0.5)) & (tdf['Gap(%)'] <= (today_gap*100 + 0.5))]
                     n_count = len(similar_trades)
                     sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
-                    is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c)
+                    
+                    # 【修正】Ver 5.10 MAGロジック：地合い(m_gap_pct)を判定に含める
+                    is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c, market_gap_pct=m_gap_pct)
 
                     target_int = int(today_limit)
                     dist_msg = ""
