@@ -126,8 +126,17 @@ u_rsi = st.sidebar.checkbox("RSIが45以上or上向き", value=True)
 u_macd = st.sidebar.checkbox("MACDが上向き", value=True)
 st.sidebar.write("")
 st.sidebar.write("")
-g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, -3.0, 0.05) / 100
-g_max = st.sidebar.slider("寄付アップ上限 (%)", 0.0, 10.0, 1.0, 0.05) / 100
+# 推奨値を取得して適用するボタン
+if st.sidebar.button("✨ 市場地合いから範囲を自動設定", use_container_width=True):
+    # 最新の診断を取得
+    diag_for_side = core.analyze_market_environment()
+    # セッション状態を書き換えてリロード
+    st.session_state['g_max_val'] = diag_for_side['rec_g_max']
+    st.session_state['g_min_val'] = diag_for_side['rec_g_min']
+    st.rerun()
+# スライダーの初期値をセッションから読み込むように変更
+g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, st.session_state.get('g_min_val', -3.0), 0.05) / 100
+g_max = st.sidebar.slider("寄付アップ上限 (%)", 0.0, 10.0, st.session_state.get('g_max_val', 1.0), 0.05) / 100
 st.sidebar.divider()
 st.sidebar.header("💰 決済ルール")
 ts_s = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5, 0.05) / 100
@@ -292,10 +301,11 @@ with tab_top:
             <div class="ai-diag-row"><b>推奨戦略：</b> {rec_strat}</div>
             <div class="ai-diag-row"><b>{diag.get('forecast_title', '寄付予測')}：</b> {diag['opening_forecast']}</div>
             <div class="ai-diag-row"><b>相場展望：</b> {diag['phase_comment']}</div>
+            <div class="ai-diag-row"><b>推奨設定：</b> 上限 {diag['rec_g_max']:.2f}% / 下限 {diag['rec_g_min']:.2f}%</div>
             <div class="ai-diag-row-last"><b>米国株の影響：</b> {diag['us_impact']}</div>
             <h4 class="ai-diag-main-title">👀 指標から推測できる注目セクター</h4>
             <div class="ai-sector-tips">{diag.get('tips', '個別材料株（全業種対象）')}</div>
-        </div>
+        </div>        
         <div class="ai-diag-footer"></div>
         """
         st.markdown(diag_html, unsafe_allow_html=True)
