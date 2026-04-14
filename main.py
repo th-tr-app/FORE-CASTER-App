@@ -105,18 +105,6 @@ def local_css(file_name):
 # style.css を読み込む
 local_css("style.css")
 
-# main.py の最初の方に追加
-st.markdown("""
-    <style>
-    div.stButton > button {
-        justify-content: flex-start !important;
-    }
-    div.stButton > button div[data-testid="stMarkdownContainer"] p {
-        text-align: left !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
 # --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
 st.sidebar.header("🎲 戦略実行プリセット")
 for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェンシブ"), ("RANGE","横ばい相場対応")]:
@@ -141,7 +129,7 @@ u_macd = st.sidebar.checkbox("MACDが上向き", value=True)
 st.sidebar.write("")
 st.sidebar.write("")
 # 推奨値を取得して適用するボタン
-if st.sidebar.button("寄付推奨設定", use_container_width=True):
+if st.sidebar.button("✨ 寄付下限・上限設定", use_container_width=True):
     # 最新の診断を取得
     diag_for_side = core.analyze_market_environment()
     # 【重要】スライダーの key と同じ名前の session_state を直接書き換える
