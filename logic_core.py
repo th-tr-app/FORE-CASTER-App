@@ -191,11 +191,21 @@ def analyze_market_environment():
         if (data_map["WTI"]['Close'].iloc[-1] / data_map["WTI"]['Close'].iloc[-2]) - 1 >= 0.005: tips.append("1:鉱業 / 10:石油・石炭")
     if sox_pct >= 0.005: tips.append("17:電気機器 / 16:機械")
     
+    # --- 【新設】寄り付き許容範囲の推奨計算 ---
+    # 地合い(gap_pct)に対して、プラスマイナス 0.5% 〜 1.0% の余裕を持たせる
+    m_gap_abs = abs(gap_pct * 100)
+    
+    # 推奨上限：地合いがプラスなら「地合い + 0.5%」、マイナスなら「1.0% (標準)」
+    rec_max = max(1.0, m_gap_abs + 0.5) if gap_pct > 0 else 1.0
+    # 推奨下限：地合いがマイナスなら「地合い - 0.5%」、プラスなら「-3.0% (標準)」
+    rec_min = min(-3.0, -(m_gap_abs + 0.5)) if gap_pct < 0 else -3.0
+
     return {
         "strategy": strategy_idx, "opening_forecast": forecast_txt, "forecast_title": forecast_title,
         "balance": balance_txt, "phase_comment": phase_txt, "us_impact": us_impact, "alert_level": alert_lvl, 
         "tips": " / ".join(tips) if tips else "個別材料株（全業種対象）",
-        "gap_pct": gap_pct, "market_pct": market_pct
+        "gap_pct": gap_pct, "market_pct": market_pct,
+        "rec_g_max": rec_max, "rec_g_min": rec_min # 推奨値を辞書に追加
     }
     
 # --- 3. スクリーニング・シミュレーション ---
