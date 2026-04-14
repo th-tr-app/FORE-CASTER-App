@@ -130,7 +130,7 @@ st.sidebar.write("")
 st.sidebar.write("")
 
 # 1. 推奨値を取得して適用するチェックボックス（地合い連動モード）
-is_auto = st.sidebar.checkbox("✨ 寄付GD/GU 推奨設定", key='auto_set_mode', help="ONの間は、最新の地合いに合わせてスライダーを自動調整し続けます。")
+is_auto = st.sidebar.checkbox("寄付GD/GU 推奨設定", key='auto_set_mode', help="ONの間は、最新の地合いに合わせてスライダーを自動調整し続けます。")
 
 # 2. 連動モードがONの場合、数値を自動更新する
 if is_auto:
@@ -141,9 +141,6 @@ if is_auto:
     st.session_state['g_min_slider'] = float(diag_for_side['rec_g_min'])
     st.session_state['g_max_slider'] = float(diag_for_side['rec_g_max'])
     
-    # 補足説明を表示（任意）
-    st.sidebar.caption(f"💡 連動中: 上限{diag_for_side['rec_g_max']:.2f}% / 下限{diag_for_side['rec_g_min']:.2f}%")
-
 # 3. スライダー本体（key 同期により、チェックが入っている間は自動で動きます）
 g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, key='g_min_slider', step=0.05) / 100
 g_max = st.sidebar.slider("寄付アップ上限 (%)", 0.0, 10.0, key='g_max_slider', step=0.05) / 100
