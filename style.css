@@ -93,10 +93,12 @@ h6, .sidebar-title {
     line-height: 1.1 !important;     /* 行間を詰めてスッキリさせる */
 }
 
-/* サイドバー内のボタンだけを左揃えにしたい場合はこちら（任意） */
-section[data-testid="stSidebar"] div.stButton > button {
-    justify-content: flex-start !important;
-    text-align: left !important;
+/* アプリ内の全てのボタンを左揃えにする */
+div.stButton > button {
+    display: flex !important;
+    justify-content: flex-start !important; /* 中身を左側に寄せる */
+    text-align: left !important;           /* テキスト自体も左揃え */
+    padding-left: 15px !important;         /* 左端に少し余白を作る（お好みで） */
 }
 
 /* 指標カードグリッド */
