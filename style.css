@@ -92,6 +92,14 @@ h6, .sidebar-title {
     padding: 0 !important;
     line-height: 1.1 !important;     /* 行間を詰めてスッキリさせる */
 }
+
+/* サイドバー内のボタンだけを左揃えにしたい場合はこちら（任意） */
+section[data-testid="stSidebar"] div.stButton > button {
+    justify-content: flex-start !important;
+    text-align: left !important;
+    padding-left: 15px !important;
+}
+
 /* 指標カードグリッド */
 .metric-grid {
     display: grid;
