@@ -129,7 +129,7 @@ u_macd = st.sidebar.checkbox("MACDが上向き", value=True)
 st.sidebar.write("")
 st.sidebar.write("")
 # 推奨値を取得して適用するボタン
-if st.sidebar.button("✨ 市場地合いから範囲を自動設定", use_container_width=True):
+if st.sidebar.button("✨ 寄付推奨設定", use_container_width=True):
     # 最新の診断を取得
     diag_for_side = core.analyze_market_environment()
     # 【重要】スライダーの key と同じ名前の session_state を直接書き換える
