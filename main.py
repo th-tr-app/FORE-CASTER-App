@@ -128,17 +128,26 @@ u_rsi = st.sidebar.checkbox("RSIが45以上or上向き", value=True)
 u_macd = st.sidebar.checkbox("MACDが上向き", value=True)
 st.sidebar.write("")
 st.sidebar.write("")
-# 推奨値を取得して適用するボタン
-if st.sidebar.button("寄付GD/GU 推奨設定", use_container_width=True):
-    # 最新の診断を取得
+
+# 1. 推奨値を取得して適用するチェックボックス（地合い連動モード）
+is_auto = st.sidebar.checkbox("✨ 寄付GD/GU 推奨設定", key='auto_set_mode', help="ONの間は、最新の地合いに合わせてスライダーを自動調整し続けます。")
+
+# 2. 連動モードがONの場合、数値を自動更新する
+if is_auto:
+    # 最新の診断を取得（推奨値 rec_g_max / rec_g_min を使用）
     diag_for_side = core.analyze_market_environment()
-    # 【重要】スライダーの key と同じ名前の session_state を直接書き換える
+    
+    # スライダーの session_state を強制的に書き換える
     st.session_state['g_min_slider'] = float(diag_for_side['rec_g_min'])
     st.session_state['g_max_slider'] = float(diag_for_side['rec_g_max'])
-    st.rerun()
-# スライダーに key を設定 (value引数は不要になります)
+    
+    # 補足説明を表示（任意）
+    st.sidebar.caption(f"💡 連動中: 上限{diag_for_side['rec_g_max']:.2f}% / 下限{diag_for_side['rec_g_min']:.2f}%")
+
+# 3. スライダー本体（key 同期により、チェックが入っている間は自動で動きます）
 g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, key='g_min_slider', step=0.05) / 100
 g_max = st.sidebar.slider("寄付アップ上限 (%)", 0.0, 10.0, key='g_max_slider', step=0.05) / 100
+
 st.sidebar.divider()
 st.sidebar.header("💰 決済ルール")
 ts_s = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5, 0.05) / 100
