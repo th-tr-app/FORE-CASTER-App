@@ -235,23 +235,22 @@ with tab_top:
     is_market_open = is_market_day and (time(9, 0) <= now_time <= time(15, 30))
         
     if not is_market_open:
-        # データの取得と数値保証 (None の場合は 0.0 に変換)
-        cme_pct = m_data.get("日経先物(CME)", {}).get("pct")
-        cme_pct = float(cme_pct) if cme_pct is not None else 0.0
+        # 1. データの取得と数値保証 (None の場合は 0.0 に変換)
+        # これにより abs() 計算での TypeError を防ぎます
+        cme_raw = m_data.get("日経先物(CME)", {}).get("pct")
+        cme_pct = float(cme_raw) if cme_raw is not None else 0.0
         
-        sox_pct = m_data.get("SOX指数", {}).get("pct")
-        sox_pct = float(sox_pct) if sox_pct is not None else 0.0
+        sox_raw = m_data.get("SOX指数", {}).get("pct")
+        sox_pct = float(sox_raw) if sox_raw is not None else 0.0
 
-        # ここで abs 計算を行えばエラーになりません
-        if abs(cme_pct) >= 0.5:
-
-        # --- 【新設】休日（土日祝）専用の診断上書きロジック ---
+        # 2. 【新設】休日（土日祝）専用の診断上書きロジック
         if not is_market_day:
             diag['forecast_title'] = "休日・週明け展望"
             diag['phase_comment'] = "現在は市場休場日です。週明けに向け、海外市場や先物の地合いを確認して作戦を練りましょう。"
         
-        # 4. 「今日の結果」が表示されている時、または休日の場合に予測ロジックを実行
+        # 3. 「今日の結果」が表示されている時、または休日の場合に予測ロジックを実行
         if not is_market_day or diag.get('forecast_title') == "今日の結果":
+            # ここで安全に abs 計算を行います
             if abs(cme_pct) >= 0.5:
                 if cme_pct >= 1.5:
                     diag['alert_level'] = "🚀 強気（買い優勢）"
