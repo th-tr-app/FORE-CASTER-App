@@ -63,56 +63,58 @@ def fetch_market_info(indices_dict):
             data[name] = {"val": None, "pct": None}
     return data
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=60) # TTLを短縮して最新情報を反映
 def analyze_market_environment():
-    """主要指数から今日の相場環境をプロ視点で診断する (Ver 4.7.2：エラー解消版)"""
+    """主要指数から今日の相場環境を診断する (Ver 4.99：Ticker.info 優先版)"""
     indices = {"N225": "^N225", "VIX": "^VIX", "SOX": "^SOX", "WTI": "CL=F", "CME": "NIY=F", "USDJPY": "JPY=X", "GOLD": "GC=F"}
     data_map = {}
     
     jst = timezone(timedelta(hours=9))
     now_dt = datetime.now(jst)
-    today = now_dt.date()
+    
+    # 指標ごとの最新値と前日終値を保持する辞書
+    stats_map = {}
 
     for k, ticker in indices.items():
         try:
-            # 40d から 60d に増やすことで、大型連休や週末でも25日分の営業日を確実に確保できます
-            df = yf.download(ticker, period="60d", interval="1d", progress=False) #            
-            if df.empty: continue
-            if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+            # 1. Ticker.info から最新値(Price)と前日終値(Close)を優先取得
+            t_obj = yf.Ticker(ticker)
+            info = t_obj.info
+            latest = info.get('regularMarketPrice')
+            prev = info.get('previousClose')
 
-            if df.index[-1].date() != today:
-                t_obj = yf.Ticker(ticker)
-                current_p = t_obj.info.get('regularMarketPrice') or t_obj.info.get('previousClose')
-                if current_p:
-                    new_row = pd.DataFrame([[current_p] * 4 + [0, 0, 0]], columns=df.columns, index=[pd.Timestamp(today)])
-                    df = pd.concat([df, new_row])
+            # 2. 25日移動平均線(MA25)算出のために履歴データも取得
+            df = yf.download(ticker, period="60d", interval="1d", progress=False)
+            if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+            df = df.dropna(subset=['Close'])
+
+            # infoが取れない場合のフォールバック
+            if latest is None and not df.empty: latest = float(df['Close'].iloc[-1])
+            if prev is None and len(df) >= 2: prev = float(df['Close'].iloc[-2])
             
-            data_map[k] = df.dropna(subset=['Close'])
+            stats_map[k] = {"latest": latest, "prev": prev}
+            data_map[k] = df
         except: continue
 
-    # --- 1. 基礎データの抽出 (0円回避ガード) ---
-    n225_close = 0; n225_prev_close = 0; n225_ma25 = 0; cme_val = 0
+    # --- 1. 基礎データの抽出 (infoの値を優先的に採用) ---
+    n225_close = stats_map.get("N225", {}).get("latest", 0)
+    n225_prev_close = stats_map.get("N225", {}).get("prev", 0)
+    
+    # 25日移動平均線は履歴データから算出
+    n225_ma25 = 0
     if "N225" in data_map:
         df_n = data_map["N225"]
-        valid_df = df_n.dropna(subset=['Close'])
-        if len(valid_df) >= 2:
-            n225_close = float(valid_df['Close'].iloc[-1])
-            n225_prev_close = float(valid_df['Close'].iloc[-2])
-            n225_ma25 = float(valid_df['Close'].rolling(25).mean().iloc[-1])
-    
-    # 日経平均が0なら昨日の値を代入してエラーを防ぐ
-    if n225_close == 0: n225_close = n225_prev_close if n225_prev_close > 0 else 39000
+        if len(df_n) >= 25:
+            n225_ma25 = float(df_n['Close'].rolling(25).mean().iloc[-1])
 
-    # CMEデータの取得 (0円・NaNの時は現物を代入して乖離0%にする)
-    if "CME" in data_map: 
-        cme_val = float(data_map["CME"]['Close'].values.ravel()[-1])
-        if cme_val == 0 or pd.isna(cme_val): cme_val = n225_close
-    else:
-        cme_val = n225_close
+    # CMEデータの取得 (info優先)
+    cme_val = stats_map.get("CME", {}).get("latest", n225_close)
+    if cme_val == 0 or cme_val is None: cme_val = n225_close
 
-    market_pct = (n225_close - n225_prev_close) / n225_prev_close if n225_prev_close > 0 else 0
-    dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 > 0 else 0
-    gap_pct = (cme_val - n225_close) / n225_close if n225_close > 0 else 0
+    # 各指数の計算
+    market_pct = (n225_close - n225_prev_close) / n225_prev_close if n225_prev_close and n225_prev_close > 0 else 0
+    dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 and n225_ma25 > 0 else 0
+    gap_pct = (cme_val - n225_close) / n225_close if n225_close and n225_close > 0 else 0
 
     # 地合い判定の文字化
     if dev_25 > 3:
