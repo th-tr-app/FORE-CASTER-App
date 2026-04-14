@@ -42,41 +42,38 @@ def get_trade_pattern(row, gap_pct):
     return "E：他タイプ"
     
 # --- 2. 市場分析・指標取得 ---
-
-@st.cache_data(ttl=60) # 更新頻度を高めるためTTLを300秒から60秒に短縮
+@st.cache_data(ttl=60)
 def fetch_market_info(indices_dict):
-    """
-    指標ウォッチの価格と前日比を取得する (Ver 4.99：遅延・日付ズレ対策版)
-    """
     data = {}
     for name, ticker in indices_dict.items():
         try:
-            # 1. Tickerオブジェクトを生成し、配信データ(info)を直接参照
             t = yf.Ticker(ticker)
-            info = t.info
+            # .info は制限を受けやすいため、軽量な .fast_info を主軸にする
+            f_info = t.fast_info
             
-            # 2. 最新価格と前日終値を抽出
-            # regularMarketPrice: 市場稼働中は現在値、閉場後は最新の確定値
-            # previousClose: 常に正確な前営業日の終値
-            latest = info.get('regularMarketPrice')
-            prev = info.get('previousClose')
+            # fast_info から取得を試みる
+            latest = f_info.get('last_price')
+            prev = f_info.get('previous_close')
 
-            # 3. infoが取得できなかった場合のみ、従来の履歴データ(download)で補完
+            # fast_info で取れない場合は、従来の .info や yf.download で補完
             if latest is None or prev is None:
-                df = yf.download(ticker, period="5d", progress=False)
-                if not df.empty:
-                    if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-                    df = df.dropna(subset=['Close'])
-                    latest = float(df['Close'].values.ravel()[-1])
-                    prev = float(df['Close'].values.ravel()[-2])
+                info = t.info
+                latest = info.get('regularMarketPrice')
+                prev = info.get('previousClose')
 
-            # 4. 前日比の計算とデータの格納
             if latest is not None and prev is not None:
                 data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
             else:
-                data[name] = {"val": None, "pct": None}
-                
-        except Exception:
+                # 最終バックアップロジック
+                df = yf.download(ticker, period="5d", progress=False)
+                if not df.empty:
+                    if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+                    latest = float(df['Close'].iloc[-1])
+                    prev = float(df['Close'].iloc[-2])
+                    data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
+                else:
+                    data[name] = {"val": None, "pct": None}
+        except:
             data[name] = {"val": None, "pct": None}
     return data
 
