@@ -1234,6 +1234,8 @@ with tab_strategy:
                     elif sim_win_rate < 0.55:
                         st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>見送り (期待値不足)</b><br>勝率 {sim_win_rate:.1%} / {n_count}回。{dist_msg if current_p < target_int else "価格到達済みですが優位性がありません。"}</div>""", unsafe_allow_html=True)
                     else:
+                        # m_curr_pct が None でないか確認してから比較する
+                        m_curr_pct = m_curr_pct if m_curr_pct is not None else 0.0
                         bg_cls = "msg-bg-success" if m_curr_pct > -0.003 else "msg-bg-warning"
                         status_label = "エントリー可能" if m_curr_pct > -0.003 else "CAUTION (地合い注意)"
                         main_msg = "✅ <b>今、執行チャンス！</b>" if (mode == "リアルタイム／指値戦略" and current_p >= target_int) else f"✅ <b>{status_label}</b>"
