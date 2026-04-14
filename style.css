@@ -399,3 +399,27 @@ div[data-testid="stExpander"] {
     color: #ffffff;
 }
 
+/* 1. ボタン本体の枠組みを左寄せに強制 */
+div.stButton > button {
+    display: flex !important;
+    justify-content: flex-start !important; /* 中身のコンテナを左へ */
+    width: 100% !important;
+}
+
+/* 2. ボタン内部のテキストコンテナを左寄せに強制 */
+div.stButton > button div[data-testid="stMarkdownContainer"] {
+    text-align: left !important;
+    width: 100% !important;
+}
+
+/* 3. テキスト自体のマージンを解除して左端に寄せる */
+div.stButton > button div[data-testid="stMarkdownContainer"] p {
+    text-align: left !important;
+    margin: 0 !important;
+    padding-left: 5px !important; /* アイコンがある場合の微調整 */
+}
+
+/* サイドバー内のボタンも同様に処理 */
+section[data-testid="stSidebar"] div.stButton > button {
+    justify-content: flex-start !important;
+}
