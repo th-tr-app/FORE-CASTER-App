@@ -97,7 +97,6 @@ h6, .sidebar-title {
 section[data-testid="stSidebar"] div.stButton > button {
     justify-content: flex-start !important;
     text-align: left !important;
-    padding-left: 15px !important;
 }
 
 /* 指標カードグリッド */
