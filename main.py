@@ -105,6 +105,18 @@ def local_css(file_name):
 # style.css を読み込む
 local_css("style.css")
 
+# main.py の最初の方に追加
+st.markdown("""
+    <style>
+    div.stButton > button {
+        justify-content: flex-start !important;
+    }
+    div.stButton > button div[data-testid="stMarkdownContainer"] p {
+        text-align: left !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- 3. サイドバー設定 (戦略プリセット + バックテスト設定) ---
 st.sidebar.header("🎲 戦略実行プリセット")
 for p, l in [("NORMAL","通常フィルター"), ("DEFENSIVE","ディフェンシブ"), ("RANGE","横ばい相場対応")]:
