@@ -18,6 +18,8 @@ if 'target_tickers' not in st.session_state: st.session_state['target_tickers'] 
 if 'preset' not in st.session_state: st.session_state['preset'] = "NORMAL"
 if 'res_df' not in st.session_state: st.session_state['res_df'] = pd.DataFrame()
 if 't_names' not in st.session_state: st.session_state['t_names'] = {}
+if 'g_min_slider' not in st.session_state: st.session_state['g_min_slider'] = -3.0
+if 'g_max_slider' not in st.session_state: st.session_state['g_max_slider'] = 1.0
 
 # --- 祝日リストの初期化 ---
 HOLIDAY_FILE = "holidays.txt" # 保存用ファイル名
@@ -130,13 +132,13 @@ st.sidebar.write("")
 if st.sidebar.button("✨ 市場地合いから範囲を自動設定", use_container_width=True):
     # 最新の診断を取得
     diag_for_side = core.analyze_market_environment()
-    # セッション状態を書き換えてリロード
-    st.session_state['g_max_val'] = diag_for_side['rec_g_max']
-    st.session_state['g_min_val'] = diag_for_side['rec_g_min']
+    # 【重要】スライダーの key と同じ名前の session_state を直接書き換える
+    st.session_state['g_min_slider'] = float(diag_for_side['rec_g_min'])
+    st.session_state['g_max_slider'] = float(diag_for_side['rec_g_max'])
     st.rerun()
-# スライダーの初期値をセッションから読み込むように変更
-g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, st.session_state.get('g_min_val', -3.0), 0.05) / 100
-g_max = st.sidebar.slider("寄付アップ上限 (%)", 0.0, 10.0, st.session_state.get('g_max_val', 1.0), 0.05) / 100
+# スライダーに key を設定 (value引数は不要になります)
+g_min = st.sidebar.slider("寄付ダウン下限 (%)", -10.0, 0.0, key='g_min_slider', step=0.05) / 100
+g_max = st.sidebar.slider("寄付アップ上限 (%)", 0.0, 10.0, key='g_max_slider', step=0.05) / 100
 st.sidebar.divider()
 st.sidebar.header("💰 決済ルール")
 ts_s = st.sidebar.number_input("トレイリング開始 (%)", 0.1, 5.0, 0.5, 0.05) / 100
