@@ -40,24 +40,30 @@ def get_trade_pattern(row, gap_pct):
         return "D：上昇継続"
     
     return "E：他タイプ"
-    
+
 def calculate_recovery_stats(df):
     """
-    9:00始値からの反発力と回復率を計算 (Ver 5.0)
+    9:00始値からの反発力と回復率を計算 (Ver 5.0 堅牢版)
     """
-    if df.empty:
+    # 1. データの存在確認とカラムのチェック
+    if df is None or df.empty or 'High' not in df.columns:
         return 0.0, 0.0
 
-    # 1. 始値戻り率: (当日高値 - 始値) / 始値 * 100
-    df['ret_from_open'] = (df['High'] - df['Open']) / df['Open'] * 100
-    avg_ret = df['ret_from_open'].mean()
+    # 2. 元のデータを壊さないようにコピーを作成
+    # これにより SettingWithCopyWarning や予期せぬエラーを防ぎます
+    temp_df = df.copy()
 
-    # 2. 始値回復率: 一度始値を割った後、再び始値を上抜けた日の確率
+    # 3. 始値戻り率の計算 (ゼロ除算防止)
+    # Openが0の場合を考慮して replace(0, np.nan) を使用
+    temp_df['ret_from_open'] = (temp_df['High'] - temp_df['Open']) / temp_df['Open'].replace(0, np.nan) * 100
+    avg_ret = temp_df['ret_from_open'].dropna().mean() if not temp_df['ret_from_open'].dropna().empty else 0.0
+
+    # 4. 始値回復率の計算
     # 条件：安値(Low)が始値(Open)を下回り、かつ高値(High)が始値を上回った日
-    dip_and_recover = df[(df['Low'] < df['Open']) & (df['High'] > df['Open'])]
-    recovery_rate = (len(dip_and_recover) / len(df)) * 100 if len(df) > 0 else 0.0
+    dip_and_recover = temp_df[(temp_df['Low'] < temp_df['Open']) & (temp_df['High'] > temp_df['Open'])]
+    recovery_rate = (len(dip_and_recover) / len(temp_df)) * 100 if len(temp_df) > 0 else 0.0
 
-    return avg_ret, recovery_rate
+    return float(avg_ret), float(recovery_rate)
     
 # --- 2. 市場分析・指標取得 ---
 @st.cache_data(ttl=60)
