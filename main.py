@@ -424,36 +424,36 @@ with tab_top:
             st.session_state['ot_no_results'] = False
             st.rerun()
 
-        # --- main.py の「ワンタッチ」ボタンセクションの末尾に追加 ---        
-        st.divider()
-        st.markdown("### ✌️ プランＢ 発動")
-        st.caption("銘柄候補がノーエントリーだった場合、MAGの範囲内で、現在値>VWAP・RSI45以上の銘柄を自動で選出します。")
+    # --- main.py の「ワンタッチ」ボタンセクションの末尾に追加 ---        
+    st.divider()
+    st.markdown("### ✌️ プランＢ 発動")
+    st.caption("銘柄候補がノーエントリーだった場合、MAGの範囲内で、現在値>VWAP・RSI45以上の銘柄を自動で選出します。")
 
-        # プランB実行ボタン
-        # --- main.py プランBボタンのロジック修正 ---
-        if st.button("🔥 プランＢ：即時スキャン実行", key="btn_plan_b", use_container_width=True):
-            with st.spinner("最新価格から代替候補を抽出中..."):
-                # 1. 銘柄リストの準備
-                target_raw = st.session_state.get('target_tickers', "")
-                t_list = list(dict.fromkeys([t.strip() for t in target_raw.split(",") if t.strip()]))
+    # プランB実行ボタン
+    # --- main.py プランBボタンのロジック修正 ---
+    if st.button("🔥 プランＢ：即時スキャン実行", key="btn_plan_b", use_container_width=True):
+        with st.spinner("最新価格から代替候補を抽出中..."):
+            # 1. 銘柄リストの準備
+            target_raw = st.session_state.get('target_tickers', "")
+            t_list = list(dict.fromkeys([t.strip() for t in target_raw.split(",") if t.strip()]))
         
-                # 2. 地合いデータの数値保証 (None対策)
-                # m_gap_pct が未定義または None の場合は 0.0 を使用する
-                safe_gap_pct = float(m_gap_pct) if 'm_gap_pct' in locals() and m_gap_pct is not None else 0.0
+            # 2. 地合いデータの数値保証 (None対策)
+            # m_gap_pct が未定義または None の場合は 0.0 を使用する
+            safe_gap_pct = float(m_gap_pct) if 'm_gap_pct' in locals() and m_gap_pct is not None else 0.0
         
-                # 3. 安全な数値でスキャンを実行
-                results = core.execute_plan_b_scan(t_list, safe_gap_pct)
-                st.session_state['plan_b_results'] = results
+            # 3. 安全な数値でスキャンを実行
+            results = core.execute_plan_b_scan(t_list, safe_gap_pct)
+            st.session_state['plan_b_results'] = results
 
-        # スキャン結果の表示エリア
-        if 'plan_b_results' in st.session_state:
-            if st.session_state['plan_b_results']:
-                st.markdown("#### 🏹 敗者復活：推奨候補")
-                for res in st.session_state['plan_b_results']:
-                    # スコアが高い順に表示（MAG適正、VWAP上、RSI50以上の銘柄）
-                    st.info(f"**{res['ticker']}** | 価格: {res['price']:,.0f} | 乖離: {res['gap']:+.2f}% | RSI: {res['rsi']:.1f} | VWAP乖離: {res['vwap_dist']:+.2f}%")
-            else:
-                st.warning("現在、条件に合致する代替銘柄は見つかりませんでした。")
+    # スキャン結果の表示エリア
+    if 'plan_b_results' in st.session_state:
+        if st.session_state['plan_b_results']:
+            st.markdown("#### 🏹 敗者復活：推奨候補")
+            for res in st.session_state['plan_b_results']:
+                # スコアが高い順に表示（MAG適正、VWAP上、RSI50以上の銘柄）
+                st.info(f"**{res['ticker']}** | 価格: {res['price']:,.0f} | 乖離: {res['gap']:+.2f}% | RSI: {res['rsi']:.1f} | VWAP乖離: {res['vwap_dist']:+.2f}%")
+        else:
+            st.warning("現在、条件に合致する代替銘柄は見つかりませんでした。")
         
 # --- タブ2: スクリーニングの実装 (12パラメーター対応版) ---
 with tab_screen:
@@ -825,7 +825,7 @@ with tab_bt:
                                     f"**{best_p['パターン']}** の形になり、"
                                     f"**VWAPから {best_v['VwapRange'].left:.1f}% ～ {best_v['VwapRange'].right:.1f}%** の位置にある時、"
                                     f"**{best_t['TR']}** にエントリーするパターンです。\n\n"
-                                    f"**押し目から始値以上にリバウンドする確率は {rec_rate:.1f}% です。**\n\n"
+                                    f"押し目から始値以上にリバウンドする確率は {rec_rate:.1f}% です。\n\n"
                                     f"（平均始値戻り率: {avg_ret:+.2f}% / GAP勝率: {best_g['<lambda_0>']:.1%} / VWAP勝率: {best_v['<lambda_0>']:.1%} / 時間勝率: {best_t['<lambda_0>']:.1%})")
                         else:
                             st.warning("⚠️ パターンを特定するためのトレードデータが足りません。")
