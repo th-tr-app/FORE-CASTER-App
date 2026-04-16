@@ -383,15 +383,16 @@ def execute_plan_b_scan(ticker_list, market_gap_pct):
     プランB（敗者復活）：独立したオンデマンド・フィルタリング (Ver 5.0)
     """
     results = []
-    # 市場連動型ガード(MAG)の閾値を算出
-    m_gap_abs = abs(market_gap_pct)
+    
+    # market_gap_pct が None の場合を考慮して数値化する
+    m_gap_pct_safe = float(market_gap_pct) if market_gap_pct is not None else 0.0
+    m_gap_abs = abs(m_gap_pct_safe)
     dynamic_limit = max(1.0, m_gap_abs + 0.5)
 
     for ticker in ticker_list:
         try:
             t = yf.Ticker(ticker)
             f_info = t.fast_info
-            
             curr_p = f_info.get('last_price')
             open_p = f_info.get('open')
             prev_c = f_info.get('previous_close')
