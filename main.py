@@ -429,19 +429,34 @@ with tab_top:
     st.markdown("### ✌️ プランＢ『発動』")
     st.caption("銘柄候補がノーエントリーだった場合、MAGの範囲内で、現在値>VWAP・RSI45以上の銘柄を選出します。")
 
-    # type="primary" を追加してワンタッチボタンと外観を統一
+
+    # --- main.py プランB 実行ロジックの修正 ---
     if st.button("🔥 プランＢ／代替銘柄のスキャン実行", type="secondary", use_container_width=True, key="btn_plan_b"):
         with st.spinner("最新価格から代替候補を抽出中..."):
-            # 地合いデータの数値保証
+            # 1. 地合いデータの数値保証
             safe_gap_pct = float(m_gap_pct) if 'm_gap_pct' in locals() and m_gap_pct is not None else 0.0
-        
-            # 銘柄リストの準備
+    
+            # 2. 現在の監視リストを取得
             target_raw = st.session_state.get('target_tickers', "")
-            t_list = list(dict.fromkeys([t.strip() for t in target_raw.split(",") if t.strip()]))
-        
-            # スキャン実行
-            results = core.execute_plan_b_scan(t_list, safe_gap_pct)
+            current_list = [t.strip() for t in target_raw.split(",") if t.strip()]
+    
+            # 3. プランBスキャン実行
+            results = core.execute_plan_b_scan(current_list, safe_gap_pct)
             st.session_state['plan_b_results'] = results
+
+            # --- 【追加】自動入力ロジック ---
+            if results:
+                # 見つかった銘柄コードを抽出
+                found_codes = [res['ticker'] for res in results]
+            
+                # 既存リストと合体させ、重複を排除してソート
+                # ※ もし既存リストに含まれていない銘柄だけを追加したい場合は sorted(list(set(current_list + found_codes))) とします
+                combined_list = sorted(list(set(current_list + found_codes)))
+            
+                # セッション状態を更新して再描画
+                st.session_state['target_tickers'] = ", ".join(combined_list)
+                st.toast(f"プランBにより {len(found_codes)} 銘柄をリストに反映しました！")
+                st.rerun()
 
     # スキャン結果の表示エリア
     if 'plan_b_results' in st.session_state:
