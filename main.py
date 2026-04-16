@@ -424,24 +424,22 @@ with tab_top:
             st.session_state['ot_no_results'] = False
             st.rerun()
 
-    # --- main.py の「ワンタッチ」ボタンセクションの末尾に追加 ---        
+    # --- main.py の「ワンタッチ」ボタンセクションの末尾に追加 ---
     st.divider()
     st.markdown("### ✌️ プランＢ『発動』")
     st.caption("銘柄候補がノーエントリーだった場合、MAGの範囲内で、現在値>VWAP・RSI45以上の銘柄を選出します。")
 
-    # プランB実行ボタン
-    # --- main.py プランBボタンのロジック修正 ---
-    if st.button("🔥 プランＢ／代替銘柄のスキャン実行", key="primary", use_container_width=True):
+    # type="primary" を追加してワンタッチボタンと外観を統一
+    if st.button("🔥 プランＢ／代替銘柄のスキャン実行", type="primary", use_container_width=True, key="btn_plan_b"):
         with st.spinner("最新価格から代替候補を抽出中..."):
-            # 1. 銘柄リストの準備
+            # 地合いデータの数値保証
+            safe_gap_pct = float(m_gap_pct) if 'm_gap_pct' in locals() and m_gap_pct is not None else 0.0
+        
+            # 銘柄リストの準備
             target_raw = st.session_state.get('target_tickers', "")
             t_list = list(dict.fromkeys([t.strip() for t in target_raw.split(",") if t.strip()]))
         
-            # 2. 地合いデータの数値保証 (None対策)
-            # m_gap_pct が未定義または None の場合は 0.0 を使用する
-            safe_gap_pct = float(m_gap_pct) if 'm_gap_pct' in locals() and m_gap_pct is not None else 0.0
-        
-            # 3. 安全な数値でスキャンを実行
+            # スキャン実行
             results = core.execute_plan_b_scan(t_list, safe_gap_pct)
             st.session_state['plan_b_results'] = results
 
