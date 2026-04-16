@@ -41,6 +41,24 @@ def get_trade_pattern(row, gap_pct):
     
     return "E：他タイプ"
     
+def calculate_recovery_stats(df):
+    """
+    9:00始値からの反発力と回復率を計算 (Ver 5.0)
+    """
+    if df.empty:
+        return 0.0, 0.0
+
+    # 1. 始値戻り率: (当日高値 - 始値) / 始値 * 100
+    df['ret_from_open'] = (df['High'] - df['Open']) / df['Open'] * 100
+    avg_ret = df['ret_from_open'].mean()
+
+    # 2. 始値回復率: 一度始値を割った後、再び始値を上抜けた日の確率
+    # 条件：安値(Low)が始値(Open)を下回り、かつ高値(High)が始値を上回った日
+    dip_and_recover = df[(df['Low'] < df['Open']) & (df['High'] > df['Open'])]
+    recovery_rate = (len(dip_and_recover) / len(df)) * 100 if len(df) > 0 else 0.0
+
+    return avg_ret, recovery_rate
+    
 # --- 2. 市場分析・指標取得 ---
 @st.cache_data(ttl=60)
 def fetch_market_info(indices_dict):
@@ -359,6 +377,52 @@ def calculate_rsi(series, period=14):
 
     rs = avg_gain / avg_loss
     return 100 - (100 / (1 + rs))
+
+def execute_plan_b_scan(ticker_list, market_gap_pct):
+    """
+    プランB（敗者復活）：独立したオンデマンド・フィルタリング (Ver 5.0)
+    """
+    results = []
+    # 市場連動型ガード(MAG)の閾値を算出
+    m_gap_abs = abs(market_gap_pct)
+    dynamic_limit = max(1.0, m_gap_abs + 0.5)
+
+    for ticker in ticker_list:
+        try:
+            t = yf.Ticker(ticker)
+            f_info = t.fast_info
+            
+            curr_p = f_info.get('last_price')
+            open_p = f_info.get('open')
+            prev_c = f_info.get('previous_close')
+            
+            if not curr_p or not prev_c: continue
+
+            # --- 条件1: MAG適正判定 ---
+            act_gap_pct = ((curr_p - prev_c) / prev_c) * 100
+            if abs(act_gap_pct) > dynamic_limit: continue 
+
+            # --- 条件2: トレンド & モメンタム ---
+            df_m = t.history(period="1d", interval="1m")
+            if df_m.empty: continue
+            
+            # VWAPの算出とRSIの取得
+            vwap = (df_m['Close'] * df_m['Volume']).sum() / df_m['Volume'].sum()
+            rsi_series = calculate_rsi(df_m['Close'])
+            rsi = rsi_series.iloc[-1] if not rsi_series.empty else 0
+            
+            # トレンド継続(価格 > VWAP) かつ モメンタム(RSI >= 50)
+            if curr_p > vwap and rsi >= 50:
+                results.append({
+                    "ticker": ticker,
+                    "price": curr_p,
+                    "gap": act_gap_pct,
+                    "rsi": rsi,
+                    "vwap_dist": ((curr_p - vwap) / vwap) * 100
+                })
+        except:
+            continue
+    return results
 
 # --- 4. 指値戦略用ガードロジック ---
 def check_opening_deviation(actual, expected, last_close, market_gap_pct=0.0):
