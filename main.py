@@ -430,7 +430,7 @@ with tab_top:
     st.caption("銘柄候補がノーエントリーだった場合、MAGの範囲内で、現在値>VWAP・RSI45以上の銘柄を選出します。")
 
     # type="primary" を追加してワンタッチボタンと外観を統一
-    if st.button("🔥 プランＢ／代替銘柄のスキャン実行", type="secondary", use_container_width=True, key="btn_plan_b"):
+    if st.button("🔥 プランＢ／代替銘柄のスキャン実行", type="primary", use_container_width=True, key="btn_plan_b"):
         with st.spinner("最新価格から代替候補を抽出中..."):
             # 地合いデータの数値保証
             safe_gap_pct = float(m_gap_pct) if 'm_gap_pct' in locals() and m_gap_pct is not None else 0.0
