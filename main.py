@@ -806,11 +806,15 @@ with tab_bt:
                         best_g = get_best_row(g_s, 'count', '<lambda_0>')
                         best_v = get_best_row(v_s, 'count', '<lambda_0>')
                         best_t = get_best_row(t_s, 'count', '<lambda_0>')
-  
+                        # --- main.py 修正箇所 ---
+
                         if all([best_p is not None, best_g is not None, best_v is not None, best_t is not None]):
-                            # 1. 始値戻り率と回復率を計算
-                            # df_60d はその銘柄の日足履歴データ（すでにコード内で取得済みのものを流用）
-                            avg_ret, rec_rate = core.calculate_recovery_stats(df_60d) 
+                            # hist_live (日足データ) を使って統計を算出
+                            # 念のため None チェックを入れる
+                            if 'hist_live' in locals() and not hist_live.empty:
+                                avg_ret, rec_rate = core.calculate_recovery_stats(hist_live)
+                            else:
+                                avg_ret, rec_rate = 0.0, 0.0
 
                             g_txt = "ギャップアップ" if best_g['GapRange'].left >= 0 else "ギャップダウン"
                             reliability = "⭐⭐" if best_p['回数'] >= 3 else "⭐" # 信頼度アイコン
