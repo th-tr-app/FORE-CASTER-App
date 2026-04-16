@@ -423,7 +423,49 @@ with tab_top:
             del st.session_state['ot_last_top5']
             st.session_state['ot_no_results'] = False
             st.rerun()
-            
+
+# --- main.py の「ワンタッチ」ボタンセクションの末尾に追加 ---
+
+st.divider()
+st.markdown("### 🅱️ プランB 発動")
+st.caption("銘柄候補がノーエントリーだった場合、プランBを発動させると、今おすすめの銘柄が自動で選出されます。")
+
+# ボタンをグリーンにするためのCSS
+st.markdown("""
+    <style>
+    /* プランBボタン専用のスタイル */
+    div.stButton > button[key*="plan_b"] {
+        background-color: #28a745 !important;
+        color: white !important;
+        border: none !important;
+    }
+    div.stButton > button[key*="plan_b"]:hover {
+        background-color: #218838 !important;
+        border: none !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# プランB実行ボタン
+if st.button("🔥 プランB：即時スキャン実行", key="btn_plan_b", use_container_width=True):
+    with st.spinner("最新価格から代替候補を抽出中..."):
+        # セッション状態から監視銘柄リストと最新の地合いを取得
+        t_list = list(dict.fromkeys([t.strip() for t in st.session_state.get('target_tickers', "").split(",") if t.strip()]))
+        # m_gap_pct は前述の「地合いデータ同期」で計算された変数を使用
+        
+        results = core.execute_plan_b_scan(t_list, m_gap_pct)
+        st.session_state['plan_b_results'] = results
+
+# スキャン結果の表示エリア
+if 'plan_b_results' in st.session_state:
+    if st.session_state['plan_b_results']:
+        st.markdown("#### 🏹 敗者復活：推奨候補")
+        for res in st.session_state['plan_b_results']:
+            # スコアが高い順に表示（MAG適正、VWAP上、RSI50以上の銘柄）
+            st.info(f"**{res['ticker']}** | 価格: {res['price']:,.0f} | 乖離: {res['gap']:+.2f}% | RSI: {res['rsi']:.1f} | VWAP乖離: {res['vwap_dist']:+.2f}%")
+    else:
+        st.warning("現在、条件に合致する代替銘柄は見つかりませんでした。")
+        
 # --- タブ2: スクリーニングの実装 (12パラメーター対応版) ---
 with tab_screen:
     st.markdown("### 🔍 スクリーニング設定")
