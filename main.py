@@ -1147,8 +1147,12 @@ with tab_strategy:
                 if now_p_key not in st.session_state: st.session_state[now_p_key] = 0
 
                 with st.spinner("同期中..."):
+                # main.py の 1050行目付近（銘柄ループ内）
+                with st.spinner("同期中..."):
                     ticker_live = yf.Ticker(t)
-                    hist_live = ticker_live.history(period="30d"); past_hist = hist_live[hist_live.index.date < now_jst.date()]
+                    # period="30d" を "60d" に変更
+                    hist_live = ticker_live.history(period="60d") 
+                    past_hist = hist_live[hist_live.index.date < now_jst.date()]
                     prev_close_val = past_hist['Close'].iloc[-1] if not past_hist.empty else 0.0
                     # 平日、かつ 11:30-15:30 の間だけ「前場の終値」モードにする
                     is_zenba_mode = is_market_day and (time(11, 30) <= current_t < time(15, 30))
