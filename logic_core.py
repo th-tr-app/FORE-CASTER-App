@@ -419,13 +419,29 @@ def calculate_rsi(series, period=14):
     rs = avg_gain / avg_loss
     return 100 - (100 / (1 + rs))
 
+def calculate_recovery_stats(df):
+    """
+    9:00始値からの反発力と回復率を計算 (Ver 5.0 緩和版)
+    """
+    if df is None or df.empty or 'High' not in df.columns:
+        return 0.0, 0.0
+
+    temp_df = df.copy()
+    temp_df['ret_from_open'] = (temp_df['High'] - temp_df['Open']) / temp_df['Open'].replace(0, np.nan) * 100
+    avg_ret = temp_df['ret_from_open'].dropna().mean() if not temp_df['ret_from_open'].dropna().empty else 0.0
+
+    # 【微調整】Open == Low（始値が安値）の強い日も含めて「始値を超えて動いた日」としてカウント
+    # これにより「朝から一度も垂れずに上がった日」もポジティブな統計に含まれます
+    dip_and_recover = temp_df[(temp_df['Low'] <= temp_df['Open']) & (temp_df['High'] > temp_df['Open'])]
+    recovery_rate = (len(dip_and_recover) / len(temp_df)) * 100 if len(temp_df) > 0 else 0.0
+
+    return float(avg_ret), float(recovery_rate)
+
 def execute_plan_b_scan(ticker_list, market_gap_pct):
     """
-    プランB（敗者復活）：独立したオンデマンド・フィルタリング (Ver 5.0)
+    プランB：即時スキャン実行 (Ver 5.0 緩和版)
     """
     results = []
-    
-    # market_gap_pct が None の場合を考慮して数値化する
     m_gap_pct_safe = float(market_gap_pct) if market_gap_pct is not None else 0.0
     m_gap_abs = abs(m_gap_pct_safe)
     dynamic_limit = max(1.0, m_gap_abs + 0.5)
@@ -435,26 +451,23 @@ def execute_plan_b_scan(ticker_list, market_gap_pct):
             t = yf.Ticker(ticker)
             f_info = t.fast_info
             curr_p = f_info.get('last_price')
-            open_p = f_info.get('open')
             prev_c = f_info.get('previous_close')
-            
             if not curr_p or not prev_c: continue
 
-            # --- 条件1: MAG適正判定 ---
+            # MAG適正判定
             act_gap_pct = ((curr_p - prev_c) / prev_c) * 100
             if abs(act_gap_pct) > dynamic_limit: continue 
 
-            # --- 条件2: トレンド & モメンタム ---
+            # トレンド & モメンタム
             df_m = t.history(period="1d", interval="1m")
             if df_m.empty: continue
             
-            # VWAPの算出とRSIの取得
             vwap = (df_m['Close'] * df_m['Volume']).sum() / df_m['Volume'].sum()
             rsi_series = calculate_rsi(df_m['Close'])
             rsi = rsi_series.iloc[-1] if not rsi_series.empty else 0
             
-            # トレンド継続(価格 > VWAP) かつ モメンタム(RSI >= 50)
-            if curr_p > vwap and rsi >= 50:
+            # 【微調整】RSI >= 45 に緩和して、より多くの候補を拾えるように変更
+            if curr_p > vwap and rsi >= 45:
                 results.append({
                     "ticker": ticker,
                     "price": curr_p,
@@ -462,8 +475,7 @@ def execute_plan_b_scan(ticker_list, market_gap_pct):
                     "rsi": rsi,
                     "vwap_dist": ((curr_p - vwap) / vwap) * 100
                 })
-        except:
-            continue
+        except: continue
     return results
 
 # --- 4. 指値戦略用ガードロジック ---
