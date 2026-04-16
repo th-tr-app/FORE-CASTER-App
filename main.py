@@ -426,12 +426,12 @@ with tab_top:
 
     # --- main.py の「ワンタッチ」ボタンセクションの末尾に追加 ---        
     st.divider()
-    st.markdown("### ✌️ プランＢ 発動")
-    st.caption("銘柄候補がノーエントリーだった場合、MAGの範囲内で、現在値>VWAP・RSI45以上の銘柄を自動で選出します。")
+    st.markdown("### ✌️ プランＢ『発動』")
+    st.caption("銘柄候補がノーエントリーだった場合、MAGの範囲内で、現在値>VWAP・RSI45以上の銘柄を選出します。")
 
     # プランB実行ボタン
     # --- main.py プランBボタンのロジック修正 ---
-    if st.button("🔥 プランＢ：即時スキャン実行", key="btn_plan_b", use_container_width=True):
+    if st.button("🔥 プランＢ／代替銘柄のスキャン実行", key="primary", use_container_width=True):
         with st.spinner("最新価格から代替候補を抽出中..."):
             # 1. 銘柄リストの準備
             target_raw = st.session_state.get('target_tickers', "")
