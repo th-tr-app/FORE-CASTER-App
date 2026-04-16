@@ -1146,7 +1146,6 @@ with tab_strategy:
                 if perm_key not in st.session_state: st.session_state[perm_key] = 0.0
                 if now_p_key not in st.session_state: st.session_state[now_p_key] = 0
 
-                with st.spinner("同期中..."):
                 # main.py の 1050行目付近（銘柄ループ内）
                 with st.spinner("同期中..."):
                     ticker_live = yf.Ticker(t)
