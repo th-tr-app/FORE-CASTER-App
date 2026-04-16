@@ -806,18 +806,24 @@ with tab_bt:
                         best_g = get_best_row(g_s, 'count', '<lambda_0>')
                         best_v = get_best_row(v_s, 'count', '<lambda_0>')
                         best_t = get_best_row(t_s, 'count', '<lambda_0>')
-
+  
                         if all([best_p is not None, best_g is not None, best_v is not None, best_t is not None]):
+                            # 1. 始値戻り率と回復率を計算
+                            # df_60d はその銘柄の日足履歴データ（すでにコード内で取得済みのものを流用）
+                            avg_ret, rec_rate = core.calculate_recovery_stats(df_60d) 
+
                             g_txt = "ギャップアップ" if best_g['GapRange'].left >= 0 else "ギャップダウン"
                             reliability = "⭐⭐" if best_p['回数'] >= 3 else "⭐" # 信頼度アイコン
-                            
+                        
+                            # 2. 表示を統合
                             st.info(f"**🏆 最高勝率パターン {reliability}**\n\n"
                                     f"最も勝率が高かったのは、"
                                     f"**{g_txt} ({best_g['GapRange'].left:.1f}% ～ {best_g['GapRange'].right:.1f}%)** スタートで、"
                                     f"**{best_p['パターン']}** の形になり、"
                                     f"**VWAPから {best_v['VwapRange'].left:.1f}% ～ {best_v['VwapRange'].right:.1f}%** の位置にある時、"
                                     f"**{best_t['TR']}** にエントリーするパターンです。\n\n"
-                                    f"（GAP勝率: {best_g['<lambda_0>']:.1%} / VWAP勝率: {best_v['<lambda_0>']:.1%} / 時間勝率: {best_t['<lambda_0>']:.1%})")
+                                    f"**押し目から始値以上にリバウンドする確率は {rec_rate:.1f}% です。**\n\n"
+                                    f"（平均始値戻り率: {avg_ret:+.2f}% / GAP勝率: {best_g['<lambda_0>']:.1%} / VWAP勝率: {best_v['<lambda_0>']:.1%} / 時間勝率: {best_t['<lambda_0>']:.1%})")
                         else:
                             st.warning("⚠️ パターンを特定するためのトレードデータが足りません。")
                             
