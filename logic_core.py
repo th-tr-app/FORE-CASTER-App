@@ -40,20 +40,27 @@ def get_trade_pattern(row, gap_pct):
         return "D：上昇継続"
     
     return "E：他タイプ"
-
+    
 def calculate_recovery_stats(df):
     """
-    9:00始値からの反発力と回復率を計算 (Ver 5.0 緩和版)
+    9:00始値からの反発力と回復率を計算 (Ver 5.0 階層インデックス対応版)
     """
-    if df is None or df.empty or 'High' not in df.columns:
+    if df is None or df.empty:
+        return 0.0, 0.0
+    
+    # 階層構造（MultiIndex）を解除して計算できるようにする
+    temp_df = df.copy()
+    if isinstance(temp_df.columns, pd.MultiIndex):
+        temp_df.columns = temp_df.columns.get_level_values(0)
+    
+    # カラムの存在確認
+    if 'High' not in temp_df.columns:
         return 0.0, 0.0
 
-    temp_df = df.copy()
     temp_df['ret_from_open'] = (temp_df['High'] - temp_df['Open']) / temp_df['Open'].replace(0, np.nan) * 100
     avg_ret = temp_df['ret_from_open'].dropna().mean() if not temp_df['ret_from_open'].dropna().empty else 0.0
 
-    # 【微調整】Open == Low（始値が安値）の強い日も含めて「始値を超えて動いた日」としてカウント
-    # これにより「朝から一度も垂れずに上がった日」もポジティブな統計に含まれます
+    # 始値と同値（Open == Low）での反発も含める
     dip_and_recover = temp_df[(temp_df['Low'] <= temp_df['Open']) & (temp_df['High'] > temp_df['Open'])]
     recovery_rate = (len(dip_and_recover) / len(temp_df)) * 100 if len(temp_df) > 0 else 0.0
 
@@ -78,28 +85,28 @@ def execute_plan_b_scan(ticker_list, market_gap_pct):
 
             # MAG適正判定
             act_gap_pct = ((curr_p - prev_c) / prev_c) * 100
+            # テスト用に上限を3.0%に一時的に広げてみるならここを書き換え
             if abs(act_gap_pct) > dynamic_limit: continue 
 
-            # トレンド & モメンタム
             df_m = t.history(period="1d", interval="1m")
             if df_m.empty: continue
+            
+            # ここでも階層インデックスを解除
+            if isinstance(df_m.columns, pd.MultiIndex):
+                df_m.columns = df_m.columns.get_level_values(0)
             
             vwap = (df_m['Close'] * df_m['Volume']).sum() / df_m['Volume'].sum()
             rsi_series = calculate_rsi(df_m['Close'])
             rsi = rsi_series.iloc[-1] if not rsi_series.empty else 0
             
-            # 【微調整】RSI >= 45 に緩和して、より多くの候補を拾えるように変更
             if curr_p > vwap and rsi >= 45:
                 results.append({
-                    "ticker": ticker,
-                    "price": curr_p,
-                    "gap": act_gap_pct,
-                    "rsi": rsi,
-                    "vwap_dist": ((curr_p - vwap) / vwap) * 100
+                    "ticker": ticker, "price": curr_p, "gap": act_gap_pct,
+                    "rsi": rsi, "vwap_dist": ((curr_p - vwap) / vwap) * 100
                 })
         except: continue
     return results
-    
+
 # --- 2. 市場分析・指標取得 ---
 @st.cache_data(ttl=60)
 def fetch_market_info(indices_dict):
@@ -401,82 +408,6 @@ def get_one_touch_score(trades):
     wins = pnls[pnls > 0]; losses = pnls[pnls <= 0]
     win_rate = len(wins) / len(pnls); pf = wins.sum() / abs(losses.sum()) if len(losses) > 0 and losses.sum() != 0 else 9.99
     return {"win_rate": win_rate, "pf": pf, "ev": pnls.mean(), "score": pnls.mean() * win_rate * pf, "count": len(pnls), "avg_win": wins.mean() if len(wins)>0 else 0, "avg_loss": losses.mean() if len(losses)>0 else 0}
-
-# RSIとEMA判定
-def calculate_rsi(series, period=14):
-    """
-    RSI (相対力指数) を計算する
-    """
-    delta = series.diff()
-    # 上昇幅と下落幅を分離
-    gain = (delta.where(delta > 0, 0))
-    loss = (-delta.where(delta < 0, 0))
-
-    # 指数移動平均(EMA)を用いて平滑化
-    avg_gain = gain.ewm(com=period - 1, min_periods=period).mean()
-    avg_loss = loss.ewm(com=period - 1, min_periods=period).mean()
-
-    rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
-
-def calculate_recovery_stats(df):
-    """
-    9:00始値からの反発力と回復率を計算 (Ver 5.0 緩和版)
-    """
-    if df is None or df.empty or 'High' not in df.columns:
-        return 0.0, 0.0
-
-    temp_df = df.copy()
-    temp_df['ret_from_open'] = (temp_df['High'] - temp_df['Open']) / temp_df['Open'].replace(0, np.nan) * 100
-    avg_ret = temp_df['ret_from_open'].dropna().mean() if not temp_df['ret_from_open'].dropna().empty else 0.0
-
-    # 【微調整】Open == Low（始値が安値）の強い日も含めて「始値を超えて動いた日」としてカウント
-    # これにより「朝から一度も垂れずに上がった日」もポジティブな統計に含まれます
-    dip_and_recover = temp_df[(temp_df['Low'] <= temp_df['Open']) & (temp_df['High'] > temp_df['Open'])]
-    recovery_rate = (len(dip_and_recover) / len(temp_df)) * 100 if len(temp_df) > 0 else 0.0
-
-    return float(avg_ret), float(recovery_rate)
-
-def execute_plan_b_scan(ticker_list, market_gap_pct):
-    """
-    プランB：即時スキャン実行 (Ver 5.0 緩和版)
-    """
-    results = []
-    m_gap_pct_safe = float(market_gap_pct) if market_gap_pct is not None else 0.0
-    m_gap_abs = abs(m_gap_pct_safe)
-    dynamic_limit = max(1.0, m_gap_abs + 0.5)
-
-    for ticker in ticker_list:
-        try:
-            t = yf.Ticker(ticker)
-            f_info = t.fast_info
-            curr_p = f_info.get('last_price')
-            prev_c = f_info.get('previous_close')
-            if not curr_p or not prev_c: continue
-
-            # MAG適正判定
-            act_gap_pct = ((curr_p - prev_c) / prev_c) * 100
-            if abs(act_gap_pct) > dynamic_limit: continue 
-
-            # トレンド & モメンタム
-            df_m = t.history(period="1d", interval="1m")
-            if df_m.empty: continue
-            
-            vwap = (df_m['Close'] * df_m['Volume']).sum() / df_m['Volume'].sum()
-            rsi_series = calculate_rsi(df_m['Close'])
-            rsi = rsi_series.iloc[-1] if not rsi_series.empty else 0
-            
-            # 【微調整】RSI >= 45 に緩和して、より多くの候補を拾えるように変更
-            if curr_p > vwap and rsi >= 45:
-                results.append({
-                    "ticker": ticker,
-                    "price": curr_p,
-                    "gap": act_gap_pct,
-                    "rsi": rsi,
-                    "vwap_dist": ((curr_p - vwap) / vwap) * 100
-                })
-        except: continue
-    return results
 
 # --- 4. 指値戦略用ガードロジック ---
 def check_opening_deviation(actual, expected, last_close, market_gap_pct=0.0):
