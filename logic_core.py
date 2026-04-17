@@ -77,12 +77,12 @@ def calculate_recovery_stats(df):
 
 def execute_plan_b_scan(ticker_list, market_gap_pct):
     """
-    プランB：即時スキャン実行 (Ver 5.01 堅牢版)
+    プランB：一次選考（テクニカルスコア順に全件抽出：Ver 5.15 ハイブリッド対応版）
     """
     results = []
     m_gap_pct_safe = float(market_gap_pct)
-    m_gap_abs = abs(m_gap_pct_safe)
-    dynamic_limit = max(1.0, m_gap_abs + 0.5)
+    # 実戦ではここを dynamic_limit に戻すとより安全です
+    limit = 5.0 
 
     for ticker in ticker_list:
         try:
@@ -91,39 +91,43 @@ def execute_plan_b_scan(ticker_list, market_gap_pct):
             curr_p = f_info.get('last_price')
             prev_c = f_info.get('previous_close')
 
-            # 【追加】fast_info で取れない場合のバックアップ
+            # 【追加】fast_info で取れない場合のバックアップロジック
             if curr_p is None or prev_c is None:
                 hist_1d = t.history(period="1d")
                 if hist_1d.empty: continue
                 curr_p = float(hist_1d['Close'].iloc[-1])
-                prev_c = float(hist_1d['Close'].iloc[-1]) / (1 + (f_info.get('day_change', 0)/100)) # 概算
+                # 前日比から逆算して前日終値を概算
+                change_pct = f_info.get('day_change', 0)
+                prev_c = curr_p / (1 + (change_pct/100)) if change_pct else curr_p
 
-            # テスト用に5.0%まで広げた条件を維持
             act_gap_pct = ((curr_p - prev_c) / prev_c) * 100
-            if abs(act_gap_pct) > 5.0: continue 
+            if abs(act_gap_pct) > limit: continue 
     
             df_m = t.history(period="1d", interval="1m")
             if df_m.empty: continue
             
             # 階層インデックス解除
             if isinstance(df_m.columns, pd.MultiIndex):
-                if 'Close' in df_m.columns.get_level_values(0):
-                    df_m.columns = df_m.columns.get_level_values(0)
-                else:
-                    df_m.columns = df_m.columns.get_level_values(1)
+                df_m.columns = df_m.columns.get_level_values(0 if 'Close' in df_m.columns.get_level_values(0) else 1)
             
             vwap = (df_m['Close'] * df_m['Volume']).sum() / df_m['Volume'].sum()
+            vwap_dist = ((curr_p - vwap) / vwap) * 100
             rsi_series = calculate_rsi(df_m['Close'])
             rsi = rsi_series.iloc[-1] if not rsi_series.empty else 0
             
-            # 本来のプランB条件：VWAPより上で勢いがある銘柄
+            # 【一次選考】VWAPより上で、一定の強さ(RSI 45)がある銘柄
             if curr_p > vwap and rsi >= 45:
+                # 勢いスコア：RSIの高さ ＋ トレンドの力強さを評価
+                plan_b_score = rsi + (vwap_dist * 5)
+                
                 results.append({
                     "ticker": ticker, "price": curr_p, "gap": act_gap_pct,
-                    "rsi": rsi, "vwap_dist": ((curr_p - vwap) / vwap) * 100
+                    "rsi": rsi, "vwap_dist": vwap_dist, "score": plan_b_score
                 })
         except: continue
-    return results
+
+    # 勢いがある順（スコア順）にソートして、上位を抽出しやすくする
+    return sorted(results, key=lambda x: x['score'], reverse=True)
 
 # --- 2. 市場分析・指標取得 ---
 @st.cache_data(ttl=60)
