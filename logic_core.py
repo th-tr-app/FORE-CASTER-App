@@ -16,6 +16,12 @@ def calculate_rci(series, period=9):
         return (1 - (6 * d) / (n * (n**2 - 1))) * 100
     return series.rolling(window=period).apply(get_rci)
 
+def calculate_rsi(series, period=14):
+    """RSIを計算する (taライブラリを使用)"""
+    if series.empty or len(series) < period:
+        return pd.Series()
+    return RSIIndicator(close=series, window=period).rsi()
+
 def get_trade_pattern(row, gap_pct):
     # チェック用の基準値（VWAPがない場合はCloseで代用）
     check_vwap = row['VWAP'] if pd.notna(row['VWAP']) else row['Close']
@@ -50,26 +56,25 @@ def calculate_recovery_stats(df):
     
     temp_df = df.copy()
     
-    # 【最重要】階層構造を強制解除
+    # 【最重要】階層構造（MultiIndex）を確実に解除する
     if isinstance(temp_df.columns, pd.MultiIndex):
-        temp_df.columns = temp_df.columns.get_level_values(0)
+        # レベル0が 'Open' などの項目名ならそのまま、銘柄コードならレベル1を採用
+        if 'Open' in temp_df.columns.get_level_values(0):
+            temp_df.columns = temp_df.columns.get_level_values(0)
+        else:
+            temp_df.columns = temp_df.columns.get_level_values(1)
     
-    # もしここでカラムが見つからない場合、あえてエラーを表示させて原因を特定する
     if 'High' not in temp_df.columns:
-        # 下記をコメントアウト解除すると、画面上にカラム名が表示されます
-        # st.write(f"DEBUG: カラムが見つかりません。現在のカラム名: {temp_df.columns.tolist()}")
         return 0.0, 0.0
 
-    # 計算（ゼロ除算防止）
     temp_df['ret_from_open'] = (temp_df['High'] - temp_df['Open']) / temp_df['Open'].replace(0, np.nan) * 100
     avg_ret = temp_df['ret_from_open'].dropna().mean() if not temp_df['ret_from_open'].dropna().empty else 0.0
 
-    # 緩和版条件：始値と同値での反発も含める
     dip_and_recover = temp_df[(temp_df['Low'] <= temp_df['Open']) & (temp_df['High'] > temp_df['Open'])]
     recovery_rate = (len(dip_and_recover) / len(temp_df)) * 100 if len(temp_df) > 0 else 0.0
 
     return float(avg_ret), float(recovery_rate)
-
+    
 def execute_plan_b_scan(ticker_list, market_gap_pct):
     """
     プランB：即時スキャン実行 (Ver 5.0 緩和版)
