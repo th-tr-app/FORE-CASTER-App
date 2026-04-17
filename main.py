@@ -428,49 +428,72 @@ with tab_top:
     st.divider()
     st.markdown("### ✌️ プランＢ『発動』")
     st.caption("銘柄候補がノーエントリーだった場合、MAGの範囲内で、現在値>VWAP・RSI45以上の銘柄を選出します。")
-
-    # --- main.py 442行目付近：プランB 実行ロジックの修正 ---
+    
+    # --- main.py 442行目付近：プランB 究極のハイブリッド選抜 ---
     if st.button("🔥 プランＢ／代替銘柄のスキャン実行", type="secondary", use_container_width=True, key="btn_plan_b"):
-        with st.spinner("日経225＋αの全銘柄から代替候補を抽出中..."):
-            # 【修正】1018行目にある変数ではなく、207行目で取得済みの diag を使う
+        # st.status を使うことで、複数の工程をプロっぽく表示します
+        with st.status("🚀 市場全体から『今、勝てる精鋭』を抽出中...", expanded=True) as status:
+        
+            # 工程1：市場全体（225銘柄+α）から勢いのある銘柄をテクニカルで絞り込み
             safe_gap_pct = float(diag.get('gap_pct', 0) * 100)
-    
-            # スキャン対象を全銘柄に設定
             all_tickers = list(TICKER_DETAILS.keys())
-    
-            # スキャン実行
-            results = core.execute_plan_b_scan(all_tickers, safe_gap_pct)
-            st.session_state['plan_b_results'] = results
+            raw_results = core.execute_plan_b_scan(all_tickers, safe_gap_pct)
+        
+            # 工程2：勢い上位15銘柄を「バックテスト候補」として選抜
+            candidate_list = raw_results[:15]
+        
+            final_candidates = []
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days_back)
+        
+            # 工程3：選抜された15銘柄の「期待値」をバックテストで自動算出
+            for idx, res in enumerate(candidate_list):
+                t = res['ticker']
+                status.update(label=f"期待値を検証中 ({idx+1}/{len(candidate_list)}): {t}")
+            
+                df_5m = yf.download(t, start=start_date, interval="5m", progress=False, auto_adjust=False)
+                if not df_5m.empty:
+                    if isinstance(df_5m.columns, pd.MultiIndex): df_5m.columns = df_5m.columns.get_level_values(0)
+                    p_map, o_map, a_map = core.fetch_daily_stats_maps(t, start_date)
+                    # サイドバーの設定(params)を使って実戦シミュレーションを実行
+                    trades = core.run_ticker_simulation(t, df_5m, p_map, o_map, a_map, params)
+                    score_data = core.get_one_touch_score(trades)
+                
+                    if score_data:
+                        # 期待値と勝率をデータに合体
+                        res['ev'] = score_data['ev']
+                        res['win_rate'] = score_data['win_rate']
+                        final_candidates.append(res)
+        
+            # 工程4：期待値（EV）が高い順に並び替えて、真のトップ5を決定
+            top_5_final = sorted(final_candidates, key=lambda x: x['ev'], reverse=True)[:5]
+            st.session_state['plan_b_results'] = top_5_final
+        
+            status.update(label="✅ 『今勢いがあり、過去も勝てている』5銘柄を特定しました！", state="complete")
 
-            # (以下、自動入力ロジックは変更なし)
-            if results:
-                # 見つかった銘柄コードを抽出
-                found_codes = [res['ticker'] for res in results]
+        # 工程5：銘柄コード欄への自動入力と再描画
+        if top_5_final:
+            found_codes = [res['ticker'] for res in top_5_final]
+            current_raw = st.session_state.get('target_tickers', "")
+            current_list = [t.strip() for t in current_raw.split(",") if t.strip()]
+            combined_list = sorted(list(set(current_list + found_codes)))
+            st.session_state['target_tickers'] = ", ".join(combined_list)
+            st.toast(f"プランB成功：期待値上位 {len(found_codes)} 銘柄を反映しました")
+            st.rerun()
             
-                # 現在の監視リストを取得
-                current_raw = st.session_state.get('target_tickers', "")
-                current_list = [t.strip() for t in current_raw.split(",") if t.strip()]
-            
-                # 既存リストとプランBで見つかった銘柄を合体させ、重複を排除してソート
-                combined_list = sorted(list(set(current_list + found_codes)))
-            
-                # 銘柄コード欄（セッション状態）を更新
-                st.session_state['target_tickers'] = ", ".join(combined_list)
-            
-                # 完了通知
-                st.toast(f"プランB発動！全銘柄から {len(found_codes)} 銘柄を発掘してリストに反映しました。")
-                st.rerun()
-
     # スキャン結果の表示エリア
     if 'plan_b_results' in st.session_state:
+        # 結果（リスト）が空でない場合
         if st.session_state['plan_b_results']:
-            st.markdown("#### 🏹 敗者復活：推奨候補")
+            st.markdown("#### 🏹 推奨候補") # ご希望の名称に変更
             for res in st.session_state['plan_b_results']:
-                # スコアが高い順に表示（MAG適正、VWAP上、RSI50以上の銘柄）
-                st.info(f"**{res['ticker']}** | 価格: {res['price']:,.0f} | 乖離: {res['gap']:+.2f}% | RSI: {res['rsi']:.1f} | VWAP乖離: {res['vwap_dist']:+.2f}%")
+                # 期待値(ev)と勝率(win_rate)も表示に加えると、より判断しやすくなります
+                st.info(f"**{res['ticker']}** | 期待値: {res.get('ev', 0):+.2%} | 勝率: {res.get('win_rate', 0):.1%} | RSI: {res['rsi']:.1f} | VWAP乖離: {res['vwap_dist']:+.2f}%")
+        
+        # 結果が空だった場合
         else:
             st.warning("現在、条件に合致する代替銘柄は見つかりませんでした。")
-        
+            
 # --- タブ2: スクリーニングの実装 (12パラメーター対応版) ---
 with tab_screen:
     st.markdown("### 🔍 スクリーニング設定")
