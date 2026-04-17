@@ -89,9 +89,10 @@ def execute_plan_b_scan(ticker_list, market_gap_pct):
 
             # MAG適正判定
             act_gap_pct = ((curr_p - prev_c) / prev_c) * 100
-            # テスト用に上限を3.0%に一時的に広げてみるならここを書き換え
-            if abs(act_gap_pct) > dynamic_limit: continue 
-
+            # 修正前：if abs(act_gap_pct) > dynamic_limit: continue
+            # 修正後（テスト用）：上限・下限を一時的に5%まで広げる
+            if abs(act_gap_pct) > 5.0: continue
+    
             df_m = t.history(period="1d", interval="1m")
             if df_m.empty: continue
             
