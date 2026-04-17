@@ -429,20 +429,20 @@ with tab_top:
     st.markdown("### ✌️ プランＢ『発動』")
     st.caption("銘柄候補がノーエントリーだった場合、MAGの範囲内で、現在値>VWAP・RSI45以上の銘柄を選出します。")
 
-    # --- main.py 「プランB」実行ロジック：全銘柄スキャン ＆ 自動追記版 ---
+    # --- main.py 442行目付近：プランB 実行ロジックの修正 ---
     if st.button("🔥 プランＢ／代替銘柄のスキャン実行", type="secondary", use_container_width=True, key="btn_plan_b"):
         with st.spinner("日経225＋αの全銘柄から代替候補を抽出中..."):
-            # 1. 地合いデータの数値保証
-            safe_gap_pct = float(m_gap_pct) if 'm_gap_pct' in locals() and m_gap_pct is not None else 0.0
+            # 【修正】1018行目にある変数ではなく、207行目で取得済みの diag を使う
+            safe_gap_pct = float(diag.get('gap_pct', 0) * 100)
     
-            # 2. 【ここが重要】スキャン対象を「監視リスト」ではなく「全登録銘柄」にする
+            # スキャン対象を全銘柄に設定
             all_tickers = list(TICKER_DETAILS.keys())
     
-            # 3. 全銘柄を対象にプランBスキャン実行
+            # スキャン実行
             results = core.execute_plan_b_scan(all_tickers, safe_gap_pct)
             st.session_state['plan_b_results'] = results
 
-            # 4. 【追加】自動入力ロジック
+            # (以下、自動入力ロジックは変更なし)
             if results:
                 # 見つかった銘柄コードを抽出
                 found_codes = [res['ticker'] for res in results]
