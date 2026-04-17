@@ -43,24 +43,28 @@ def get_trade_pattern(row, gap_pct):
     
 def calculate_recovery_stats(df):
     """
-    9:00始値からの反発力と回復率を計算 (Ver 5.0 階層インデックス対応版)
+    9:00始値からの反発力と回復率を計算 (Ver 5.0 最終防衛版)
     """
     if df is None or df.empty:
         return 0.0, 0.0
     
-    # 階層構造（MultiIndex）を解除して計算できるようにする
     temp_df = df.copy()
+    
+    # 【最重要】階層構造を強制解除
     if isinstance(temp_df.columns, pd.MultiIndex):
         temp_df.columns = temp_df.columns.get_level_values(0)
     
-    # カラムの存在確認
+    # もしここでカラムが見つからない場合、あえてエラーを表示させて原因を特定する
     if 'High' not in temp_df.columns:
+        # 下記をコメントアウト解除すると、画面上にカラム名が表示されます
+        # st.write(f"DEBUG: カラムが見つかりません。現在のカラム名: {temp_df.columns.tolist()}")
         return 0.0, 0.0
 
+    # 計算（ゼロ除算防止）
     temp_df['ret_from_open'] = (temp_df['High'] - temp_df['Open']) / temp_df['Open'].replace(0, np.nan) * 100
     avg_ret = temp_df['ret_from_open'].dropna().mean() if not temp_df['ret_from_open'].dropna().empty else 0.0
 
-    # 始値と同値（Open == Low）での反発も含める
+    # 緩和版条件：始値と同値での反発も含める
     dip_and_recover = temp_df[(temp_df['Low'] <= temp_df['Open']) & (temp_df['High'] > temp_df['Open'])]
     recovery_rate = (len(dip_and_recover) / len(temp_df)) * 100 if len(temp_df) > 0 else 0.0
 
