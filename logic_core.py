@@ -81,8 +81,10 @@ def execute_plan_b_scan(ticker_list, market_gap_pct):
     """
     results = []
     m_gap_pct_safe = float(market_gap_pct)
-    # 実戦ではここを dynamic_limit に戻すとより安全です
-    limit = 5.0 
+    m_gap_abs = abs(m_gap_pct_safe)
+    
+    # 【修正】固定の 5.0 をやめて、地合い連動型の動的リミットに戻す
+    dynamic_limit = max(1.0, m_gap_abs + 0.5) 
 
     for ticker in ticker_list:
         try:
@@ -101,7 +103,7 @@ def execute_plan_b_scan(ticker_list, market_gap_pct):
                 prev_c = curr_p / (1 + (change_pct/100)) if change_pct else curr_p
 
             act_gap_pct = ((curr_p - prev_c) / prev_c) * 100
-            if abs(act_gap_pct) > limit: continue 
+            if abs(act_gap_pct) > dynamic_limit: continue
     
             df_m = t.history(period="1d", interval="1m")
             if df_m.empty: continue
