@@ -108,12 +108,15 @@ def execute_plan_b_scan(ticker_list, market_gap_pct):
             vwap = (df_m['Close'] * df_m['Volume']).sum() / df_m['Volume'].sum()
             rsi_series = calculate_rsi(df_m['Close'])
             rsi = rsi_series.iloc[-1] if not rsi_series.empty else 0
-            
-            if curr_p > vwap and rsi >= 45:
+
+            # 修正前：rsi >= 45:
+            # 修正後（テスト用）：全銘柄を無理やり通過させる
+            if True: 
                 results.append({
                     "ticker": ticker, "price": curr_p, "gap": act_gap_pct,
                     "rsi": rsi, "vwap_dist": ((curr_p - vwap) / vwap) * 100
                 })
+                
         except: continue
     return results
 
