@@ -837,8 +837,8 @@ with tab_bt:
                                     f"**{best_p['パターン']}** の形になり、"
                                     f"**VWAPから {best_v['VwapRange'].left:.1f}% ～ {best_v['VwapRange'].right:.1f}%** の位置にある時、"
                                     f"**{best_t['TR']}** にエントリーするパターンです。\n\n"
-                                    f"押し目から始値以上にリバウンドする確率は {rec_rate:.1f}% です。\n\n"
-                                    f"（リバウンド率: {avg_ret:+.2f}% / GAP勝率: {best_g['<lambda_0>']:.1%} / VWAP勝率: {best_v['<lambda_0>']:.1%} / 時間勝率: {best_t['<lambda_0>']:.1%})")
+                                    f"この銘柄が朝から下げても始値まで戻ってくる確率は {rec_rate:.1f}% です。\n\n"
+                                    f"（リバウンド後の期待値: {avg_ret:+.2f}% / GAP勝率: {best_g['<lambda_0>']:.1%} / VWAP勝率: {best_v['<lambda_0>']:.1%} / 時間勝率: {best_t['<lambda_0>']:.1%})")
                         else:
                             st.warning("⚠️ パターンを特定するためのトレードデータが足りません。")
                             
