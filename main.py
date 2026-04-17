@@ -432,7 +432,7 @@ with tab_top:
     # --- main.py 442行目付近：プランB 究極のハイブリッド選抜 ---
     if st.button("🔥 プランＢ／代替銘柄のスキャン実行", type="secondary", use_container_width=True, key="btn_plan_b"):
         # st.status を使うことで、複数の工程をプロっぽく表示します
-        with st.status("🚀 市場全体から『今、勝てる精鋭』を抽出中...", expanded=True) as status:
+        with st.status("『今、勝てる銘柄』を抽出中...", expanded=True) as status:
         
             # 工程1：市場全体（225銘柄+α）から勢いのある銘柄をテクニカルで絞り込み
             safe_gap_pct = float(diag.get('gap_pct', 0) * 100)
