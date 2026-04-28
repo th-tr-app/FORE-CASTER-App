@@ -132,73 +132,58 @@ def execute_plan_b_scan(ticker_list, market_gap_pct):
     return sorted(results, key=lambda x: x['score'], reverse=True)
 
 # --- 2. 市場分析・指標取得 ---
+# logic_core.py：fetch_market_info を安定化版に差し替え
 @st.cache_data(ttl=60)
 def fetch_market_info(indices_dict):
+    """
+    主要指標を個別ではなく『一括』でダウンロードし、安定性を向上させた Ver 5.20
+    """
     data = {}
-    for name, ticker in indices_dict.items():
-        try:
-            t = yf.Ticker(ticker)
-            # .info は制限を受けやすいため、軽量な .fast_info を主軸にする
-            f_info = t.fast_info
-            
-            # fast_info から取得を試みる
-            latest = f_info.get('last_price')
-            prev = f_info.get('previous_close')
+    tickers = list(indices_dict.values())
+    
+    try:
+        # 個別に .info を叩くのをやめ、一括ダウンロードに切り替え
+        df = yf.download(tickers, period="5d", interval="1d", progress=False, auto_adjust=True)
+        
+        if df.empty:
+            return {name: {"val": None, "pct": None} for name in indices_dict}
 
-            # fast_info で取れない場合は、従来の .info や yf.download で補完
-            if latest is None or prev is None:
-                info = t.info
-                latest = info.get('regularMarketPrice')
-                prev = info.get('previousClose')
+        # MultiIndex構造を解析してデータを抽出
+        for name, ticker in indices_dict.items():
+            try:
+                # 銘柄ごとの列（Closeなど）を取り出し、空行を削除
+                if isinstance(df.columns, pd.MultiIndex):
+                    ticker_df = df.xs(ticker, axis=1, level=1).dropna()
+                else:
+                    ticker_df = df.dropna()
 
-            if latest is not None and prev is not None:
-                data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
-            else:
-                # 最終バックアップロジック
-                df = yf.download(ticker, period="5d", progress=False)
-                if not df.empty:
-                    if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-                    latest = float(df['Close'].iloc[-1])
-                    prev = float(df['Close'].iloc[-2])
+                if not ticker_df.empty:
+                    latest = float(ticker_df['Close'].iloc[-1])
+                    prev = float(ticker_df['Close'].iloc[-2])
                     data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
                 else:
                     data[name] = {"val": None, "pct": None}
-        except:
-            data[name] = {"val": None, "pct": None}
+            except:
+                data[name] = {"val": None, "pct": None}
+                
+    except Exception as e:
+        # 万が一の全失敗時は空の辞書を返す
+        return {name: {"val": None, "pct": None} for name in indices_dict}
+        
     return data
 
 @st.cache_data(ttl=60) # TTLを短縮して最新情報を反映
 def analyze_market_environment():
-    """主要指数から今日の相場環境を診断する (Ver 4.99：Ticker.info 優先版)"""
     indices = {"N225": "^N225", "VIX": "^VIX", "SOX": "^SOX", "WTI": "CL=F", "CME": "NIY=F", "USDJPY": "JPY=X", "GOLD": "GC=F"}
-    data_map = {}
     
-    jst = timezone(timedelta(hours=9))
-    now_dt = datetime.now(jst)
-    
-    # 指標ごとの最新値と前日終値を保持する辞書
-    stats_map = {}
-
-    for k, ticker in indices.items():
-        try:
-            # 1. Ticker.info から最新値(Price)と前日終値(Close)を優先取得
-            t_obj = yf.Ticker(ticker)
-            info = t_obj.info
-            latest = info.get('regularMarketPrice')
-            prev = info.get('previousClose')
-
-            # 2. 25日移動平均線(MA25)算出のために履歴データも取得
-            df = yf.download(ticker, period="60d", interval="1d", progress=False)
-            if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-            df = df.dropna(subset=['Close'])
-
-            # infoが取れない場合のフォールバック
-            if latest is None and not df.empty: latest = float(df['Close'].iloc[-1])
-            if prev is None and len(df) >= 2: prev = float(df['Close'].iloc[-2])
-            
-            stats_map[k] = {"latest": latest, "prev": prev}
-            data_map[k] = df
-        except: continue
+    # 1. ここでも一括ダウンロードを利用して全データを先に確保
+    all_tickers = list(indices.values())
+    try:
+        full_df = yf.download(all_tickers, period="60d", interval="1d", progress=False)
+        if isinstance(full_df.columns, pd.MultiIndex):
+            full_df.columns = full_df.columns.get_level_values(0) # 簡略化のためにレベル解除は慎重に
+    except:
+        full_df = pd.DataFrame()
 
     # --- 1. 基礎データの抽出 (None の場合に 0 を代入するよう修正) ---
     # stats_map.get(...).get(...) or 0 と書くことで、None の場合に 0 が入ります
