@@ -174,39 +174,56 @@ def fetch_market_info(indices_dict):
 
 @st.cache_data(ttl=60) # TTLを短縮して最新情報を反映
 def analyze_market_environment():
+    """主要指数から今日の相場環境を診断する (Ver 5.20：一括ダウンロード安定版)"""
     indices = {"N225": "^N225", "VIX": "^VIX", "SOX": "^SOX", "WTI": "CL=F", "CME": "NIY=F", "USDJPY": "JPY=X", "GOLD": "GC=F"}
     
-    # 1. ここでも一括ダウンロードを利用して全データを先に確保
+    # 【最重要】変数の初期化（ここが漏れるとエラーになります）
+    data_map = {}
+    stats_map = {}
+    
+    jst = timezone(timedelta(hours=9))
+    now_dt = datetime.now(jst)
+    
+    # 1. 全指標を一括ダウンロードして通信回数を削減
     all_tickers = list(indices.values())
     try:
-        full_df = yf.download(all_tickers, period="60d", interval="1d", progress=False)
-        if isinstance(full_df.columns, pd.MultiIndex):
-            full_df.columns = full_df.columns.get_level_values(0) # 簡略化のためにレベル解除は慎重に
-    except:
-        full_df = pd.DataFrame()
+        full_df = yf.download(all_tickers, period="60d", interval="1d", progress=False, auto_adjust=True)
+        
+        for k, ticker in indices.items():
+            try:
+                # MultiIndex構造から特定の銘柄データのみを抽出
+                if isinstance(full_df.columns, pd.MultiIndex):
+                    df = full_df.xs(ticker, axis=1, level=1).dropna()
+                else:
+                    df = full_df.dropna()
+                
+                if not df.empty:
+                    latest = float(df['Close'].iloc[-1])
+                    prev = float(df['Close'].iloc[-2]) if len(df) >= 2 else latest
+                    stats_map[k] = {"latest": latest, "prev": prev}
+                    data_map[k] = df
+            except: continue
+    except Exception:
+        pass # 取得失敗時は後続の None ガードで 0 を代入します
 
-    # --- 1. 基礎データの抽出 (None の場合に 0 を代入するよう修正) ---
-    # stats_map.get(...).get(...) or 0 と書くことで、None の場合に 0 が入ります
+    # 2. 基礎データの抽出と None ガード
     n225_close = stats_map.get("N225", {}).get("latest") or 0
     n225_prev_close = stats_map.get("N225", {}).get("prev") or 0
     
-    # 25日移動平均線
     n225_ma25 = 0
     if "N225" in data_map:
         df_n = data_map["N225"]
         if len(df_n) >= 25:
-            # 最後に or 0 を追加
             n225_ma25 = float(df_n['Close'].rolling(25).mean().iloc[-1]) or 0
 
-    # CMEデータの取得 (or 0 を追加)
     cme_val = stats_map.get("CME", {}).get("latest") or n225_close or 0
 
-    # 各指数の計算
-    market_pct = (n225_close - n225_prev_close) / n225_prev_close if n225_prev_close and n225_prev_close > 0 else 0
-    dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 and n225_ma25 > 0 else 0
-    gap_pct = (cme_val - n225_close) / n225_close if n225_close and n225_close > 0 else 0
+    # 指標の計算
+    market_pct = (n225_close - n225_prev_close) / n225_prev_close if n225_prev_close > 0 else 0
+    dev_25 = ((n225_close - n225_ma25) / n225_ma25) * 100 if n225_ma25 > 0 else 0
+    gap_pct = (cme_val - n225_close) / n225_close if n225_close > 0 else 0
 
-    # 地合い判定の文字化
+    # 地合い判定のテキスト化
     if dev_25 > 3:
         balance_txt = f"買われ過ぎ / 25日線乖離 +{dev_25:.1f}%"; alert_lvl = "▶︎▶︎高値警戒（過熱）"
     elif dev_25 < -3:
@@ -214,11 +231,9 @@ def analyze_market_environment():
     else:
         balance_txt = f"均衡しています / 25日線乖離 {dev_25:.1f}%"; alert_lvl = "▶︎▶︎正常範囲（ニュートラル）"
 
-    # 変数の初期化 (UnboundLocalError 回避用)
     forecast_title = "寄付予測"; forecast_txt = "分析中..."; phase_txt = "分析中..."
     strategy_idx = 2
     
-    # 1. ギャップに応じた基本方向の決定（判定を簡潔に統合）
     if gap_pct <= -0.0015:
         strategy_idx = 1
         base_forecast = "ギャップダウン" if gap_pct <= -0.01 else "下落"
@@ -228,50 +243,38 @@ def analyze_market_environment():
     else:
         base_forecast = "フラット"
 
-    # 2. 指標データの取得（.emptyチェックと .iloc による安全なアクセス）
+    # 指標の個別取得 (VIX, SOX, FX)
     vix_val = 15; sox_pct = 0; fx_pct = 0
-    
     if "VIX" in data_map and not data_map["VIX"].empty:
         vix_val = float(data_map["VIX"]['Close'].iloc[-1])
-        
     if "SOX" in data_map and len(data_map["SOX"]) >= 2: 
-        s_df = data_map["SOX"]
-        sox_pct = (s_df['Close'].iloc[-1] / s_df['Close'].iloc[-2]) - 1
-        
+        s_df = data_map["SOX"]; sox_pct = (s_df['Close'].iloc[-1] / s_df['Close'].iloc[-2]) - 1
     if "USDJPY" in data_map and len(data_map["USDJPY"]) >= 2:
-        f_df = data_map["USDJPY"]
-        fx_pct = (f_df['Close'].iloc[-1] / f_df['Close'].iloc[-2]) - 1
+        f_df = data_map["USDJPY"]; fx_pct = (f_df['Close'].iloc[-1] / f_df['Close'].iloc[-2]) - 1
 
-    # 3. 時間帯の定義とリスト初期化
-    now = now_dt.time()
-    l_s, l_e = time(11, 30), time(12, 30); a_s, a_e = time(15, 0), time(19, 0)
-    bias_list = []
-
-    # --- 時間帯別の展望生成 ---
-    if l_s <= now <= l_e:
+    # 時間帯別の展望生成
+    now = datetime.now(jst).time()
+    if time(11, 30) <= now <= time(12, 30):
         forecast_title = "前場総括"
         forecast_txt = f"前場は {base_forecast} で推移。現在の乖離率は {dev_25:.1f}% です。"
         phase_txt = "前場が終了しました。後場の寄り付きまで待機、または前場の振り返りを行いましょう。"
-        
-    elif a_s <= now <= a_e:
+    elif time(15, 0) <= now <= time(19, 0):
         forecast_title = "今日の結果"
         actual_result = "上昇" if market_pct > 0 else "下落" if market_pct < 0 else "変わらず"
         forecast_txt = f"本日は {actual_result} で終了。大引け時点の乖離率は {dev_25:.1f}% です。"
         phase_txt = "お疲れ様でした。明日に向け期待値の高い銘柄をランキングで精査しましょう。"
     else:
-        # 朝・夜・市場稼働中
+        bias_list = []
         if fx_pct <= -0.003: bias_list.append("円高バイアス")
         elif fx_pct >= 0.003: bias_list.append("円安バイアス")
         forecast_txt = f"{base_forecast} ({' / '.join(bias_list)})" if bias_list else f"{base_forecast}"
-
         if "高値警戒" in alert_lvl:
-            phase_txt = "加熱圏のギャップアップ。利確をこなしつつ、ボリンジャー+2σ付近の攻防に警戒。" if "上昇" in base_forecast else "高値警戒感から上値が重い展開。"
+            phase_txt = "加熱圏のギャップアップ。利確をこなしつつボリンジャー+2σに警戒。" if "上昇" in base_forecast else "高値警戒感から上値が重い展開。"
         elif "底打ち待ち" in alert_lvl:
-            phase_txt = "売られすぎ圏での寄り付き。パニック売り後の反発に妙味。" if "下落" in base_forecast else "底堅い動き。リバウンドを想定。"
+            phase_txt = "売られすぎ圏での寄り付き。反発に妙味。" if "下落" in base_forecast else "底堅い動き。リバウンドを想定。"
         else:
             phase_txt = "堅調なスタート。VWAPを支持線にできるか注視。" if "上昇" in base_forecast else "売り先行。主要な節目での下げ止まりを確認。"
 
-    # --- 米国株・チップス等の処理 ---
     us_impact = "米国株の変動は限定的。"
     if vix_val >= 20 or sox_pct <= -0.015: us_impact = "半導体安。指数主導の下落に警戒。"
     elif sox_pct >= 0.005: us_impact = "ハイテク株への買い波及を期待。"
@@ -281,13 +284,8 @@ def analyze_market_environment():
         if (data_map["WTI"]['Close'].iloc[-1] / data_map["WTI"]['Close'].iloc[-2]) - 1 >= 0.005: tips.append("1:鉱業 / 10:石油・石炭")
     if sox_pct >= 0.005: tips.append("17:電気機器 / 16:機械")
     
-    # --- 【新設】寄り付き許容範囲の推奨計算 ---
-    # 地合い(gap_pct)に対して、プラスマイナス 0.5% 〜 1.0% の余裕を持たせる
     m_gap_abs = abs(gap_pct * 100)
-    
-    # 推奨上限：地合いがプラスなら「地合い + 0.5%」、マイナスなら「1.0% (標準)」
     rec_max = max(1.0, m_gap_abs + 0.5) if gap_pct > 0 else 1.0
-    # 推奨下限：地合いがマイナスなら「地合い - 0.5%」、プラスなら「-3.0% (標準)」
     rec_min = min(-3.0, -(m_gap_abs + 0.5)) if gap_pct < 0 else -3.0
 
     return {
@@ -295,7 +293,7 @@ def analyze_market_environment():
         "balance": balance_txt, "phase_comment": phase_txt, "us_impact": us_impact, "alert_level": alert_lvl, 
         "tips": " / ".join(tips) if tips else "個別材料株（全業種対象）",
         "gap_pct": gap_pct, "market_pct": market_pct,
-        "rec_g_max": rec_max, "rec_g_min": rec_min # 推奨値を辞書に追加
+        "rec_g_max": rec_max, "rec_g_min": rec_min 
     }
     
 # --- 3. スクリーニング・シミュレーション ---
