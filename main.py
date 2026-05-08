@@ -466,12 +466,16 @@ with tab_top:
                         final_candidates.append(res)
         
             # 工程4：期待値（EV）が高い順に並び替えて、真のトップ5を決定
-            top_5_final = sorted(final_candidates, key=lambda x: x['ev'], reverse=True)[:5]            
-            # 【追加】選出された5銘柄の社名を TICKER_DETAILS から取得してセット
-            for res in top_5_final:
-                res['name'] = TICKER_DETAILS.get(res['ticker'], "---")
+            top_5_final = sorted(final_candidates, key=lambda x: x['ev'], reverse=True)[:5]
             
-            st.session_state['plan_b_results'] = top_5_final       
+            # 【修正】リストから社名文字列だけを抽出するロジック
+            for res in top_5_final:
+                detail = TICKER_DETAILS.get(res['ticker'], ["---", 0])
+                # detailがリストなら最初の要素(社名)を、そうでなければそのまま入れる
+                res['name'] = detail[0] if isinstance(detail, list) else detail
+            
+            st.session_state['plan_b_results'] = top_5_final
+            
             status.update(label="✅ 『今勢いがあり、過去も勝てている』5銘柄を特定しました！", state="complete")
 
         # 工程5：銘柄コード欄への自動入力と再描画
