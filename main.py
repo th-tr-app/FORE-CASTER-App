@@ -468,11 +468,11 @@ with tab_top:
             # 工程4：期待値（EV）が高い順に並び替えて、真のトップ5を決定
             top_5_final = sorted(final_candidates, key=lambda x: x['ev'], reverse=True)[:5]
             
-            # 【修正】リストから社名文字列だけを抽出するロジック
+            # 【修正】リストから「社名文字列」だけを確実に抜き出す
             for res in top_5_final:
-                detail = TICKER_DETAILS.get(res['ticker'], ["---", 0])
-                # detailがリストなら最初の要素(社名)を、そうでなければそのまま入れる
-                res['name'] = detail[0] if isinstance(detail, list) else detail
+                info = TICKER_DETAILS.get(res['ticker'], ["---", 0])
+                # info[0] でリストの最初の要素（社名）だけを取得します
+                res['name'] = str(info[0]) if isinstance(info, list) else str(info)
             
             st.session_state['plan_b_results'] = top_5_final
             
@@ -493,12 +493,13 @@ with tab_top:
         if st.session_state['plan_b_results']:
             st.markdown("#### 🏹 推奨候補")
             for res in st.session_state['plan_b_results']:
-                # 社名を取得（なければ ---）
-                display_name = res.get('name', '---')
-                
-                # st.info 内で markdown 形式を使って2行に分割
-                st.info(f"""**>>> TICKER: {res['ticker']} | {display_name}**
-期待値: {res.get('ev', 0):+.2%} | 勝率: {res.get('win_rate', 0):.1%} | RSI: {res['rsi']:.1f} | VWAP乖離: {res['vwap_dist']:+.2f}%""")
+                # 1行目（太字）と2行目を構成。 \n\n で確実に改行させます
+                display_text = (
+                    f"**>>> TICKER: {res['ticker']} | {res.get('name', '---')}**\n\n"
+                    f"期待値: {res.get('ev', 0):+.2%} | 勝率: {res.get('win_rate', 0):.1%} | "
+                    f"RSI: {res.get('rsi', 0):.1f} | VWAP乖離: {res.get('vwap_dist', 0):+.2f}%"
+                )
+                st.info(display_text)
         else:
             st.warning("現在、条件に合致する代替銘柄は見つかりませんでした。")
             
