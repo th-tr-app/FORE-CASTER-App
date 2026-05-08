@@ -132,37 +132,46 @@ def execute_plan_b_scan(ticker_list, market_gap_pct):
     return sorted(results, key=lambda x: x['score'], reverse=True)
 
 # --- 2. 市場分析・指標取得 ---
-# logic_core.py：fetch_market_info を Ver 5.22 に更新
-
+# logic_core.py：fetch_market_info を Ver 5.25 に更新
 @st.cache_data(ttl=60)
 def fetch_market_info(indices_dict):
     """
-    各指標の『真の前営業日終値』を特定して前日比を計算する (Ver 5.22)
+    日経平均の連休明けデータ異常を検知し、強制補正する (Ver 5.25)
     """
     data = {}
     tickers = list(indices_dict.values())
     
     try:
-        # 余裕を持って7日分取得（連休明けでも前営業日を確保するため）
-        df = yf.download(tickers, period="7d", interval="1d", progress=False, auto_adjust=False)
+        # 10日分に延長（GWなどの長期連休を完全にカバーするため）
+        df = yf.download(tickers, period="10d", interval="1d", progress=False, auto_adjust=False)
         
         if df.empty:
             return {name: {"val": None, "pct": None} for name in indices_dict}
 
         for name, ticker in indices_dict.items():
             try:
-                # 1. 特定銘柄のClose列を抽出し、その銘柄が休みだった日のNaNを完全に除去
+                # 特定銘柄のClose列を抽出してNaNを除去
                 if isinstance(df.columns, pd.MultiIndex):
                     series = df['Close'][ticker].dropna()
                 else:
                     series = df['Close'].dropna()
 
                 if len(series) >= 2:
-                    # 2. 最新の行が『今日』、その一つ前が『直近の営業日』
                     latest_val = float(series.iloc[-1])
                     prev_close = float(series.iloc[-2])
                     
-                    # 3. 前日比を計算（楽天証券等のリアルタイム値との乖離を最小化）
+                    # --- 【日経平均の特別ガード】 ---
+                    # もし計算結果が +3% を超えるなど異常な場合、別の手段で前日終値をチェック
+                    if ticker == "^N225" and abs(((latest_val - prev_close) / prev_close) * 100) > 3.0:
+                        try:
+                            # fast_info から直接メタデータを取得して上書き
+                            t_n225 = yf.Ticker("^N225")
+                            meta_prev = t_n225.fast_info.get('previous_close')
+                            if meta_prev and abs(((latest_val - meta_prev) / meta_prev) * 100) < 3.0:
+                                prev_close = meta_prev
+                        except: pass
+                    # -------------------------------
+                    
                     change_pct = ((latest_val - prev_close) / prev_close) * 100
                     data[name] = {"val": latest_val, "pct": change_pct}
                 else:
