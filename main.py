@@ -466,9 +466,12 @@ with tab_top:
                         final_candidates.append(res)
         
             # 工程4：期待値（EV）が高い順に並び替えて、真のトップ5を決定
-            top_5_final = sorted(final_candidates, key=lambda x: x['ev'], reverse=True)[:5]
-            st.session_state['plan_b_results'] = top_5_final
-        
+            top_5_final = sorted(final_candidates, key=lambda x: x['ev'], reverse=True)[:5]            
+            # 【追加】選出された5銘柄の社名を TICKER_DETAILS から取得してセット
+            for res in top_5_final:
+                res['name'] = TICKER_DETAILS.get(res['ticker'], "---")
+            
+            st.session_state['plan_b_results'] = top_5_final       
             status.update(label="✅ 『今勢いがあり、過去も勝てている』5銘柄を特定しました！", state="complete")
 
         # 工程5：銘柄コード欄への自動入力と再描画
@@ -483,13 +486,13 @@ with tab_top:
             
     # スキャン結果の表示エリア
     if 'plan_b_results' in st.session_state:
-        # 結果（リスト）が空でない場合
         if st.session_state['plan_b_results']:
-            st.markdown("#### 🏹 推奨候補") # ご希望の名称に変更
+            st.markdown("#### 🏹 推奨候補")
             for res in st.session_state['plan_b_results']:
-                # 期待値(ev)と勝率(win_rate)も表示に加えると、より判断しやすくなります
-                st.info(f"**{res['ticker']}** | 期待値: {res.get('ev', 0):+.2%} | 勝率: {res.get('win_rate', 0):.1%} | RSI: {res['rsi']:.1f} | VWAP乖離: {res['vwap_dist']:+.2f}%")
-        
+                # 2行に分けて表示。社名は res.get('name') で取得します
+                st.info(f""">>> TICKER: {res['ticker']} | {res.get('name', '---')}
+期待値: {res.get('ev', 0):+.2%} | 勝率: {res.get('win_rate', 0):.1%} | RSI: {res['rsi']:.1f} | VWAP乖離: {res['vwap_dist']:+.2f}%""")
+
         # 結果が空だった場合
         else:
             st.warning("現在、条件に合致する代替銘柄は見つかりませんでした。")
