@@ -132,42 +132,40 @@ def execute_plan_b_scan(ticker_list, market_gap_pct):
     return sorted(results, key=lambda x: x['score'], reverse=True)
 
 # --- 2. 市場分析・指標取得 ---
-# logic_core.py：fetch_market_info を安定化版に差し替え
 @st.cache_data(ttl=60)
 def fetch_market_info(indices_dict):
     """
-    主要指標を個別ではなく『一括』でダウンロードし、安定性を向上させた Ver 5.20
+    一括ダウンロード後、各銘柄ごとに独立して前日比を計算する (Ver 5.21 整合性重視版)
     """
     data = {}
     tickers = list(indices_dict.values())
     
     try:
-        # 個別に .info を叩くのをやめ、一括ダウンロードに切り替え
+        # 5日分のデータを取得（休祝日を跨いでも前営業日を確保するため）
         df = yf.download(tickers, period="5d", interval="1d", progress=False, auto_adjust=True)
         
         if df.empty:
             return {name: {"val": None, "pct": None} for name in indices_dict}
 
-        # MultiIndex構造を解析してデータを抽出
         for name, ticker in indices_dict.items():
             try:
-                # 銘柄ごとの列（Closeなど）を取り出し、空行を削除
+                # 特定のティッカーの「Close」列だけを取り出し、その銘柄独自の欠損行を除く
                 if isinstance(df.columns, pd.MultiIndex):
-                    ticker_df = df.xs(ticker, axis=1, level=1).dropna()
+                    series = df['Close'][ticker].dropna()
                 else:
-                    ticker_df = df.dropna()
+                    series = df['Close'].dropna()
 
-                if not ticker_df.empty:
-                    latest = float(ticker_df['Close'].iloc[-1])
-                    prev = float(ticker_df['Close'].iloc[-2])
+                if len(series) >= 2:
+                    # series.iloc[-1] が今日の現在値（または直近終値）、iloc[-2] が前日終値
+                    latest = float(series.iloc[-1])
+                    prev = float(series.iloc[-2])
                     data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
                 else:
                     data[name] = {"val": None, "pct": None}
             except:
                 data[name] = {"val": None, "pct": None}
                 
-    except Exception as e:
-        # 万が一の全失敗時は空の辞書を返す
+    except Exception:
         return {name: {"val": None, "pct": None} for name in indices_dict}
         
     return data
@@ -188,21 +186,24 @@ def analyze_market_environment():
     all_tickers = list(indices.values())
     try:
         full_df = yf.download(all_tickers, period="60d", interval="1d", progress=False, auto_adjust=True)
-        
+
         for k, ticker in indices.items():
             try:
-                # MultiIndex構造から特定の銘柄データのみを抽出
+                # 【修正点】全体で落とさず、銘柄ごとに「Close」列の有効な行だけを抽出する
                 if isinstance(full_df.columns, pd.MultiIndex):
-                    df = full_df.xs(ticker, axis=1, level=1).dropna()
+                    # 各銘柄のClose列を抽出し、その銘柄が休みだった行だけを除去
+                    df = full_df['Close'][ticker].dropna().to_frame(name='Close')
                 else:
-                    df = full_df.dropna()
+                    df = full_df['Close'].dropna().to_frame(name='Close')
                 
-                if not df.empty:
+                if not df.empty and len(df) >= 2:
                     latest = float(df['Close'].iloc[-1])
-                    prev = float(df['Close'].iloc[-2]) if len(df) >= 2 else latest
+                    # 前営業日の終値を確実に取得
+                    prev = float(df['Close'].iloc[-2])
                     stats_map[k] = {"latest": latest, "prev": prev}
                     data_map[k] = df
             except: continue
+            
     except Exception:
         pass # 取得失敗時は後続の None ガードで 0 を代入します
 
