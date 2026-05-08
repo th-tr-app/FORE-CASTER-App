@@ -132,34 +132,39 @@ def execute_plan_b_scan(ticker_list, market_gap_pct):
     return sorted(results, key=lambda x: x['score'], reverse=True)
 
 # --- 2. 市場分析・指標取得 ---
+# logic_core.py：fetch_market_info を Ver 5.22 に更新
+
 @st.cache_data(ttl=60)
 def fetch_market_info(indices_dict):
     """
-    一括ダウンロード後、各銘柄ごとに独立して前日比を計算する (Ver 5.21 整合性重視版)
+    各指標の『真の前営業日終値』を特定して前日比を計算する (Ver 5.22)
     """
     data = {}
     tickers = list(indices_dict.values())
     
     try:
-        # 5日分のデータを取得（休祝日を跨いでも前営業日を確保するため）
-        df = yf.download(tickers, period="5d", interval="1d", progress=False, auto_adjust=True)
+        # 余裕を持って7日分取得（連休明けでも前営業日を確保するため）
+        df = yf.download(tickers, period="7d", interval="1d", progress=False, auto_adjust=False)
         
         if df.empty:
             return {name: {"val": None, "pct": None} for name in indices_dict}
 
         for name, ticker in indices_dict.items():
             try:
-                # 特定のティッカーの「Close」列だけを取り出し、その銘柄独自の欠損行を除く
+                # 1. 特定銘柄のClose列を抽出し、その銘柄が休みだった日のNaNを完全に除去
                 if isinstance(df.columns, pd.MultiIndex):
                     series = df['Close'][ticker].dropna()
                 else:
                     series = df['Close'].dropna()
 
                 if len(series) >= 2:
-                    # series.iloc[-1] が今日の現在値（または直近終値）、iloc[-2] が前日終値
-                    latest = float(series.iloc[-1])
-                    prev = float(series.iloc[-2])
-                    data[name] = {"val": latest, "pct": ((latest - prev) / prev) * 100}
+                    # 2. 最新の行が『今日』、その一つ前が『直近の営業日』
+                    latest_val = float(series.iloc[-1])
+                    prev_close = float(series.iloc[-2])
+                    
+                    # 3. 前日比を計算（楽天証券等のリアルタイム値との乖離を最小化）
+                    change_pct = ((latest_val - prev_close) / prev_close) * 100
+                    data[name] = {"val": latest_val, "pct": change_pct}
                 else:
                     data[name] = {"val": None, "pct": None}
             except:
@@ -182,30 +187,29 @@ def analyze_market_environment():
     jst = timezone(timedelta(hours=9))
     now_dt = datetime.now(jst)
     
-    # 1. 全指標を一括ダウンロードして通信回数を削減
+    # --- 1. 全指標を一括ダウンロード ---
     all_tickers = list(indices.values())
     try:
-        full_df = yf.download(all_tickers, period="60d", interval="1d", progress=False, auto_adjust=True)
-
+        # auto_adjust=False にして生データを取得するのが最も安定します
+        full_df = yf.download(all_tickers, period="60d", interval="1d", progress=False, auto_adjust=False)
+        
         for k, ticker in indices.items():
             try:
-                # 【修正点】全体で落とさず、銘柄ごとに「Close」列の有効な行だけを抽出する
+                # 【重要】銘柄ごとに『Close』列のみを独立させて dropna() を実行
+                # これにより日米の祝日のズレによる『行の食い違い』を解消します
                 if isinstance(full_df.columns, pd.MultiIndex):
-                    # 各銘柄のClose列を抽出し、その銘柄が休みだった行だけを除去
-                    df = full_df['Close'][ticker].dropna().to_frame(name='Close')
+                    df_sub = full_df['Close'][ticker].dropna().to_frame(name='Close')
                 else:
-                    df = full_df['Close'].dropna().to_frame(name='Close')
+                    df_sub = full_df['Close'].dropna().to_frame(name='Close')
                 
-                if not df.empty and len(df) >= 2:
-                    latest = float(df['Close'].iloc[-1])
-                    # 前営業日の終値を確実に取得
-                    prev = float(df['Close'].iloc[-2])
+                if not df_sub.empty and len(df_sub) >= 2:
+                    latest = float(df_sub['Close'].iloc[-1])
+                    prev = float(df_sub['Close'].iloc[-2]) # 確実に一つ前の営業日を指す
                     stats_map[k] = {"latest": latest, "prev": prev}
-                    data_map[k] = df
+                    data_map[k] = df_sub
             except: continue
-            
     except Exception:
-        pass # 取得失敗時は後続の None ガードで 0 を代入します
+        pass
 
     # 2. 基礎データの抽出と None ガード
     n225_close = stats_map.get("N225", {}).get("latest") or 0
