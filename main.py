@@ -493,11 +493,12 @@ with tab_top:
         if st.session_state['plan_b_results']:
             st.markdown("#### 🏹 推奨候補")
             for res in st.session_state['plan_b_results']:
-                # 2行に分けて表示。社名は res.get('name') で取得します
-                st.info(f""">>> TICKER: {res['ticker']} | {res.get('name', '---')}
+                # 社名を取得（なければ ---）
+                display_name = res.get('name', '---')
+                
+                # st.info 内で markdown 形式を使って2行に分割
+                st.info(f"""**>>> TICKER: {res['ticker']} | {display_name}**
 期待値: {res.get('ev', 0):+.2%} | 勝率: {res.get('win_rate', 0):.1%} | RSI: {res['rsi']:.1f} | VWAP乖離: {res['vwap_dist']:+.2f}%""")
-
-        # 結果が空だった場合
         else:
             st.warning("現在、条件に合致する代替銘柄は見つかりませんでした。")
             
