@@ -161,26 +161,39 @@ def fetch_market_info(indices_dict):
                     prev_close = float(series.iloc[-2]) if len(series) >= 2 else latest_val
                 
                 # --- 【セカンドオピニオン・ロジック】 ---
-                # 日経平均(^N225)が空、または今日の日付でない場合に発動
+                # 日経平均(^N225)のデータ遅延対策 (.infoへの切り替え)
                 is_n225 = (ticker == "^N225")
                 is_old = False
+                
                 if is_n225 and not series.empty:
-                    # 取得データが「一昨日」以前なら古いと判定
-                    last_date = series.index[-1].replace(tzinfo=None)
-                    if (datetime.now() - last_date).days >= 1:
-                        is_old = True
+                    last_date = series.index[-1].replace(tzinfo=None).date()
+                    # 日本時間での現在日付と時刻を取得
+                    jst = timezone(timedelta(hours=9))
+                    now_jst = datetime.now(jst)
+                    today = now_jst.date()
+                    
+                    # 営業日（平日）なのに今日のデータがない場合を「古い」と判定
+                    if today.weekday() < 5 and last_date < today:
+                        # 朝9時以降であれば、最新データがあるはずなのでバックアップ発動
+                        if now_jst.time() >= time(9, 0):
+                            is_old = True
 
                 if is_n225 and (series.empty or is_old):
                     try:
-                        # 外部ソース「Stooq」から日経平均(^NKX)を直接取得
-                        # yfinanceの障害時でもここがバックアップになります
-                        stooq_url = "https://stooq.com/q/d/l/?s=^nkx&i=d"
-                        s_df = pd.read_csv(stooq_url)
-                        if not s_df.empty:
-                            latest_val = float(s_df['Close'].iloc[-1])
-                            prev_close = float(s_df['Close'].iloc[-2])
-                    except:
-                        pass # StooqもダメならYahooの値(latest_val)をそのまま使う
+                        # .info はデータ欠損によるKeyErrorが発生しやすいため get() で安全に取得
+                        tk = yf.Ticker(ticker)
+                        info_data = tk.info
+                        
+                        if info_data:
+                            info_latest = info_data.get('regularMarketPrice')
+                            info_prev = info_data.get('regularMarketPreviousClose')
+                            
+                            # 両方の値が正常に取得できた場合のみ上書きする
+                            if info_latest and info_prev:
+                                latest_val = float(info_latest)
+                                prev_close = float(info_prev)
+                    except Exception:
+                        pass # エラー時は既存の値（古い値、またはNone）を維持する
                 # --------------------------------------
 
                 if latest_val and prev_close:
