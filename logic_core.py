@@ -132,52 +132,63 @@ def execute_plan_b_scan(ticker_list, market_gap_pct):
     return sorted(results, key=lambda x: x['score'], reverse=True)
 
 # --- 2. 市場分析・指標取得 ---
-# logic_core.py：fetch_market_info を Ver 5.30（鮮度優先版）に更新
+# logic_core.py：日経平均ダブルソース版 (Ver 5.27)
 @st.cache_data(ttl=60)
 def fetch_market_info(indices_dict):
     """
-    最新の価格と前営業日終値を確実にペアリングする (Ver 5.30：鮮度ガード版)
+    Yahoo Finance と Stooq を併用して、日経平均の精度を担保する (Ver 5.35)
     """
     data = {}
     tickers = list(indices_dict.values())
     
     try:
-        # 1. まずは高速に一括ダウンロード
+        # 1. まずは Yahoo Finance で一括取得 (高速)
         df = yf.download(tickers, period="7d", interval="1d", progress=False, auto_adjust=False)
         
         for name, ticker in indices_dict.items():
             try:
-                # 銘柄ごとのClose列を抽出（NaNを除去）
+                # データの抽出（共通処理）
                 if isinstance(df.columns, pd.MultiIndex):
                     series = df['Close'][ticker].dropna()
                 else:
                     series = df['Close'].dropna()
 
+                latest_val = None
+                prev_close = None
+
                 if not series.empty:
                     latest_val = float(series.iloc[-1])
                     prev_close = float(series.iloc[-2]) if len(series) >= 2 else latest_val
-                    
-                    # --- 【鮮度ガード：Ver 5.30】 ---
-                    # 取得したデータの最新日付が2日以上古い、または日経平均が明らかに古い場合
-                    last_date = series.index[-1]
-                    today_dt = datetime.now()
-                    
-                    # 取得したデータが古い場合、個別に最新情報を取得しに行く
-                    if (today_dt - last_date.replace(tzinfo=None)).days >= 1 or ticker == "^N225":
-                        try:
-                            t_obj = yf.Ticker(ticker)
-                            # basic_info(旧fast_info) から最新の現在値と前日終値を取り出す
-                            b_info = t_obj.basic_info
-                            if b_info['last_price'] and b_info['regular_market_previous_close']:
-                                latest_val = b_info['last_price']
-                                prev_close = b_info['regular_market_previous_close']
-                        except: pass
-                    # --------------------------------
-                    
+                
+                # --- 【セカンドオピニオン・ロジック】 ---
+                # 日経平均(^N225)が空、または今日の日付でない場合に発動
+                is_n225 = (ticker == "^N225")
+                is_old = False
+                if is_n225 and not series.empty:
+                    # 取得データが「一昨日」以前なら古いと判定
+                    last_date = series.index[-1].replace(tzinfo=None)
+                    if (datetime.now() - last_date).days >= 1:
+                        is_old = True
+
+                if is_n225 and (series.empty or is_old):
+                    try:
+                        # 外部ソース「Stooq」から日経平均(^NKX)を直接取得
+                        # yfinanceの障害時でもここがバックアップになります
+                        stooq_url = "https://stooq.com/q/d/l/?s=^nkx&i=d"
+                        s_df = pd.read_csv(stooq_url)
+                        if not s_df.empty:
+                            latest_val = float(s_df['Close'].iloc[-1])
+                            prev_close = float(s_df['Close'].iloc[-2])
+                    except:
+                        pass # StooqもダメならYahooの値(latest_val)をそのまま使う
+                # --------------------------------------
+
+                if latest_val and prev_close:
                     change_pct = ((latest_val - prev_close) / prev_close) * 100
                     data[name] = {"val": latest_val, "pct": change_pct}
                 else:
                     data[name] = {"val": None, "pct": None}
+
             except:
                 data[name] = {"val": None, "pct": None}
                 
