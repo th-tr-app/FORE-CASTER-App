@@ -132,45 +132,47 @@ def execute_plan_b_scan(ticker_list, market_gap_pct):
     return sorted(results, key=lambda x: x['score'], reverse=True)
 
 # --- 2. 市場分析・指標取得 ---
-# logic_core.py：fetch_market_info を Ver 5.25 に更新
+# logic_core.py：fetch_market_info を Ver 5.30（鮮度優先版）に更新
 @st.cache_data(ttl=60)
 def fetch_market_info(indices_dict):
     """
-    日経平均の連休明けデータ異常を検知し、強制補正する (Ver 5.25)
+    最新の価格と前営業日終値を確実にペアリングする (Ver 5.30：鮮度ガード版)
     """
     data = {}
     tickers = list(indices_dict.values())
     
     try:
-        # 10日分に延長（GWなどの長期連休を完全にカバーするため）
-        df = yf.download(tickers, period="10d", interval="1d", progress=False, auto_adjust=False)
+        # 1. まずは高速に一括ダウンロード
+        df = yf.download(tickers, period="7d", interval="1d", progress=False, auto_adjust=False)
         
-        if df.empty:
-            return {name: {"val": None, "pct": None} for name in indices_dict}
-
         for name, ticker in indices_dict.items():
             try:
-                # 特定銘柄のClose列を抽出してNaNを除去
+                # 銘柄ごとのClose列を抽出（NaNを除去）
                 if isinstance(df.columns, pd.MultiIndex):
                     series = df['Close'][ticker].dropna()
                 else:
                     series = df['Close'].dropna()
 
-                if len(series) >= 2:
+                if not series.empty:
                     latest_val = float(series.iloc[-1])
-                    prev_close = float(series.iloc[-2])
+                    prev_close = float(series.iloc[-2]) if len(series) >= 2 else latest_val
                     
-                    # --- 【日経平均の特別ガード】 ---
-                    # もし計算結果が +3% を超えるなど異常な場合、別の手段で前日終値をチェック
-                    if ticker == "^N225" and abs(((latest_val - prev_close) / prev_close) * 100) > 3.0:
+                    # --- 【鮮度ガード：Ver 5.30】 ---
+                    # 取得したデータの最新日付が2日以上古い、または日経平均が明らかに古い場合
+                    last_date = series.index[-1]
+                    today_dt = datetime.now()
+                    
+                    # 取得したデータが古い場合、個別に最新情報を取得しに行く
+                    if (today_dt - last_date.replace(tzinfo=None)).days >= 1 or ticker == "^N225":
                         try:
-                            # fast_info から直接メタデータを取得して上書き
-                            t_n225 = yf.Ticker("^N225")
-                            meta_prev = t_n225.fast_info.get('previous_close')
-                            if meta_prev and abs(((latest_val - meta_prev) / meta_prev) * 100) < 3.0:
-                                prev_close = meta_prev
+                            t_obj = yf.Ticker(ticker)
+                            # basic_info(旧fast_info) から最新の現在値と前日終値を取り出す
+                            b_info = t_obj.basic_info
+                            if b_info['last_price'] and b_info['regular_market_previous_close']:
+                                latest_val = b_info['last_price']
+                                prev_close = b_info['regular_market_previous_close']
                         except: pass
-                    # -------------------------------
+                    # --------------------------------
                     
                     change_pct = ((latest_val - prev_close) / prev_close) * 100
                     data[name] = {"val": latest_val, "pct": change_pct}
