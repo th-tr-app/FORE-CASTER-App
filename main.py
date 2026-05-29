@@ -186,7 +186,7 @@ st.sidebar.markdown(
     """
     <div style='margin-top: 50px; text-align: left;'>
         <h6 style='color: #ffffff; margin-bottom: 0;'>FORE CASTER</h6>
-        <p style='font-size: 0.8rem; color: #ffffff;'>All-in-one Day trade manager / ver 5.27</p>
+        <p style='font-size: 0.8rem; color: #ffffff;'>All-in-one Day trade manager / ver 5.25</p>
     </div>
     """, 
     unsafe_allow_html=True
@@ -1338,8 +1338,8 @@ with tab_strategy:
                     n_count = len(similar_trades)
                     sim_win_rate = len(similar_trades[similar_trades['PnL'] > 0]) / n_count if n_count > 0 else 0
                     
-                    # 【修正】Ver 5.10 MAGロジック：地合い(m_gap_pct)を判定に含める
-                    is_dev_large, dev_val = core.check_opening_deviation(actual_open_val, pred_o, last_c, market_gap_pct=m_gap_pct)
+                    # 寄付きGap率がバックテストの条件範囲内かを判定するロジックへ変更
+                    is_dev_large = not (params['g_min'] <= today_gap <= params['g_max'])
 
                     target_int = int(today_limit)
                     dist_msg = ""
@@ -1348,7 +1348,7 @@ with tab_strategy:
                         else: dist_msg = f" (指値まであと {target_int - current_p}円)"
 
                     if is_dev_large:
-                        st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り (乖離し過ぎ)</b><br>予想からのズレ {dev_val:.2f}% により統計の対象外。{dist_msg}</div>""", unsafe_allow_html=True)
+                        st.markdown(f"""<div class="strat-msg-box msg-bg-error">⚠️ <b>見送り (乖離し過ぎ)</b><br>実際のGap率 {today_gap*100:+.2f}% が設定範囲外のため統計の対象外。{dist_msg}</div>""", unsafe_allow_html=True)
                     elif sim_win_rate < 0.55:
                         st.markdown(f"""<div class="strat-msg-box msg-bg-error">❄️ <b>見送り (期待値不足)</b><br>勝率 {sim_win_rate:.1%} / {n_count}回。{dist_msg if current_p < target_int else "価格到達済みですが優位性がありません。"}</div>""", unsafe_allow_html=True)
                     else:
