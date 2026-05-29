@@ -172,11 +172,19 @@ def fetch_market_info(indices_dict):
                     now_jst = datetime.now(jst)
                     today = now_jst.date()
                     
-                    # 営業日（平日）なのに今日のデータがない場合を「古い」と判定
-                    if today.weekday() < 5 and last_date < today:
-                        # 朝9時以降であれば、最新データがあるはずなのでバックアップ発動
-                        if now_jst.time() >= time(9, 0):
-                            is_old = True
+                    # 期待される最新の日付を算出
+                    if now_jst.time() < time(9, 0):
+                        # 9時前なら「前営業日」までのデータが入っていれば正常
+                        expected_date = today - timedelta(days=1)
+                        while expected_date.weekday() >= 5: # 5:土曜, 6:日曜
+                            expected_date -= timedelta(days=1)
+                    else:
+                        # 9時以降なら「今日」のデータが入っているはず
+                        expected_date = today
+                        
+                    # 履歴の最新日付が期待される日付より古ければバックアップ発動
+                    if last_date < expected_date:
+                        is_old = True
 
                 if is_n225 and (series.empty or is_old):
                     try:
