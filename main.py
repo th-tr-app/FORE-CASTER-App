@@ -1,4 +1,28 @@
 import streamlit as st
+
+# ※もし st.set_page_config(...) がある場合は、必ずこのロック処理より「上」に置いてください
+
+# --- 簡易パスワードロック（クラウドのみ有効・ローカルは自動スキップ） ---
+try:
+    # Streamlit CloudのSecretsに app_password が設定されている場合のみロックを作動
+    secret_pwd = st.secrets["app_password"]
+except Exception:
+    # ローカル環境で .streamlit/secrets.toml が無い場合はエラーを出さずにパスする
+    secret_pwd = None
+
+if secret_pwd:
+    if not st.session_state.get("authenticated", False):
+        pwd = st.text_input("パスワードを入力してください", type="password")
+        if pwd == secret_pwd:
+            st.session_state["authenticated"] = True
+            st.rerun()
+        else:
+            if pwd:
+                st.error("パスワードが違います")
+            st.stop()
+
+# ------------------------------------------------------------------
+
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -186,7 +210,7 @@ st.sidebar.markdown(
     """
     <div style='margin-top: 50px; text-align: left;'>
         <h6 style='color: #ffffff; margin-bottom: 0;'>FORE CASTER</h6>
-        <p style='font-size: 0.8rem; color: #ffffff;'>All-in-one Day trade manager / ver 5.26</p>
+        <p style='font-size: 0.8rem; color: #ffffff;'>All-in-one Day trade manager / ver 5.27</p>
     </div>
     """, 
     unsafe_allow_html=True
