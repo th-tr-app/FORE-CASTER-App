@@ -1,6 +1,8 @@
 import streamlit as st
+import hmac
 
-# ※もし st.set_page_config(...) がある場合は、必ずこのロック処理より「上」に置いてください
+# --- 1. ページ設定（必ず最初のStreamlitコマンドとして実行） ---
+st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
 
 # --- 簡易パスワードロック（クラウドのみ有効・ローカルは自動スキップ） ---
 try:
@@ -13,7 +15,7 @@ except Exception:
 if secret_pwd:
     if not st.session_state.get("authenticated", False):
         pwd = st.text_input("パスワードを入力してください", type="password")
-        if pwd == secret_pwd:
+        if pwd and hmac.compare_digest(pwd, str(secret_pwd)):
             st.session_state["authenticated"] = True
             st.rerun()
         else:
@@ -33,8 +35,7 @@ from datetime import datetime, timedelta, timezone, time
 from const import SECTOR_MAP, TICKER_DETAILS, MARKET_INDICES
 import logic_core as core
 
-# --- 1. ページ設定 & セッション管理 (永続化の定義) ---
-st.set_page_config(page_title="FORE CASTER", page_icon="image_12.png", layout="wide")
+# --- セッション管理 (永続化の定義) ---
 st.logo("image_16.png", icon_image="image_12.png")
 
 # 基本情報の初期化
@@ -185,25 +186,46 @@ params = {
     'g_min': g_min, 'g_max': g_max, 'ts_start': ts_s, 'ts_width': ts_w, 'sl_fix': sl_f, 'u_atr': u_atr, 'atr_mul': a_mul, 'atr_min': a_min
 }
 
+import re
+
 # カレンダー設定
+MAX_HOLIDAY_CHARS = 1000
 st.sidebar.divider()
 with st.sidebar.expander("市場カレンダー設定"):
     st.caption("土日以外の祝日や年末年始を YYYY-MM-DD のカンマ区切りで入力してください。")
     
-    # テキストエリアを表示
+    # テキストエリアを表示（文字数上限を設定）
     edited_holidays = st.text_area(
         "休業日リスト", 
         value=st.session_state['market_holidays'],
-        help="例: 2026-01-01, 2026-01-02",
-        height=150
+        help="例: 2026-01-01, 2026-01-02（最大1000文字）",
+        height=150,
+        max_chars=MAX_HOLIDAY_CHARS
     )
     
-    # 【重要】内容が変更されたらファイルに保存する
+    # 【重要】内容が変更されたらフォーマットを検証してファイルに保存する
     if edited_holidays != st.session_state['market_holidays']:
-        st.session_state['market_holidays'] = edited_holidays
-        with open(HOLIDAY_FILE, "w") as f:
-            f.write(edited_holidays)
-        st.toast("カレンダー設定を保存しました！") # 保存完了の通知
+        raw_dates = [d.strip() for d in edited_holidays.split(",") if d.strip()]
+        valid_dates = []
+        invalid_dates = []
+        for d in raw_dates:
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d):
+                try:
+                    datetime.strptime(d, "%Y-%m-%d")
+                    valid_dates.append(d)
+                except ValueError:
+                    invalid_dates.append(d)
+            else:
+                invalid_dates.append(d)
+        
+        if invalid_dates:
+            st.error(f"⚠️ 不正な日付形式が含まれているため保存できません（YYYY-MM-DD形式で入力してください）: {', '.join(invalid_dates[:5])}")
+        else:
+            normalized_holidays = ", ".join(valid_dates)
+            st.session_state['market_holidays'] = normalized_holidays
+            with open(HOLIDAY_FILE, "w", encoding="utf-8") as f:
+                f.write(normalized_holidays)
+            st.toast("カレンダー設定を保存しました！") # 保存完了の通知
         
 # サイト名＆サブタイトルをサイドバーの最下部に配置
 st.sidebar.markdown(
@@ -218,16 +240,39 @@ st.sidebar.markdown(
 
 # --- 4. メインヘッダー & 【全タブ共通】銘柄入力欄 ---
 # --- 入力エリア ---
+MAX_TICKER_COUNT = 20
+MAX_TICKER_INPUT_CHARS = 300
+
 ticker_input_val = st.text_input(
-    "銘柄コード（カンマ区切り）", 
+    "銘柄コード（カンマ区切り・最大20銘柄）", 
     value=st.session_state['target_tickers'],
+    max_chars=MAX_TICKER_INPUT_CHARS,
     label_visibility="visible"
 )
 
-# セッション状態の更新ロジック
+# セッション状態の更新ロジック（バリデーション＆件数制限付き）
 if ticker_input_val != st.session_state['target_tickers']:
-    st.session_state['target_tickers'] = ticker_input_val
-    st.rerun()
+    raw_tickers = [t.strip().upper() for t in ticker_input_val.split(",") if t.strip()]
+    valid_tickers = []
+    invalid_tickers = []
+    for t in raw_tickers:
+        if re.fullmatch(r"[A-Z0-9.^=-]{1,15}", t):
+            if t not in valid_tickers:
+                valid_tickers.append(t)
+        else:
+            invalid_tickers.append(t)
+    
+    if invalid_tickers:
+        st.toast(f"⚠️ 無効な銘柄コードを除外しました: {', '.join(invalid_tickers[:5])}")
+    
+    if len(valid_tickers) > MAX_TICKER_COUNT:
+        valid_tickers = valid_tickers[:MAX_TICKER_COUNT]
+        st.toast(f"⚠️ 一度に指定できる上限（{MAX_TICKER_COUNT}銘柄）を超えたため、先頭{MAX_TICKER_COUNT}銘柄のみ反映しました。")
+    
+    sanitized_tickers_str = ", ".join(valid_tickers)
+    if sanitized_tickers_str != st.session_state['target_tickers']:
+        st.session_state['target_tickers'] = sanitized_tickers_str
+        st.rerun()
 
 # --- 5. メインタブ構成 ---
 tab_top, tab_screen, tab_bt, tab_strategy, tab_rank = st.tabs(["☝️ ワンタッチ", "🔍 スキャン", "📈 バックテスト", "🔮 指値戦略", "🏆 ランキング"])
