@@ -1,0 +1,6 @@
+[theme]
+base = "dark"
+primaryColor = "#FF6C00"             # オレンジのボタン
+backgroundColor = "#0E1117"          # 1.66系のメイン背景色
+secondaryBackgroundColor = "#262730" # 1.66系のサイドバー色
+textColor = "#FAFAFA"                # テキストの色
